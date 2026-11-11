@@ -18,8 +18,12 @@ function get(): MqttClient {
   client.on("error", (e: Error) => console.error("[mqtt relay]", e.message));
   return client;
 }
-const ACTIONS = { UP: "OPEN", STOP: "STOP", DOWN: "CLOSE" } as const;
+export const ACTIONS = { UP: "OPEN", STOP: "STOP", DOWN: "CLOSE" } as const;
 export type Action = keyof typeof ACTIONS;
+/** Topic de commande d'un volet : prefixe par le device_id (segment d'isolation de l'ACL). */
+export const cmdTopic = (deviceId: string, slug: string): string => `openprofalux/${deviceId}/cover/${slug}/set`;
+/** Charge utile MQTT pour une action de l'IHM. */
+export const cmdPayload = (action: Action): string => ACTIONS[action];
 export function publishCmd(deviceId: string, slug: string, action: Action): void {
-  get().publish(`openprofalux/${deviceId}/cover/${slug}/set`, ACTIONS[action], { qos: 1 });
+  get().publish(cmdTopic(deviceId, slug), cmdPayload(action), { qos: 1 });
 }

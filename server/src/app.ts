@@ -1,5 +1,5 @@
 // IHM SSR minimale (app.isno.fr) : login + liste des volets avec UP/STOP/DOWN.
-const esc = (s: string): string => s.replace(/[&<>"']/g, (c) =>
+export const esc = (s: string): string => s.replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] ?? c));
 const STYLE = `<style>:root{color-scheme:dark light}body{font-family:system-ui,sans-serif;max-width:40rem;margin:0 auto;padding:1rem}
 h1{font-size:1.4rem}input,button{font-size:1rem;padding:.5rem;margin:.2rem 0}form{display:flex;flex-direction:column;gap:.3rem;max-width:16rem}
