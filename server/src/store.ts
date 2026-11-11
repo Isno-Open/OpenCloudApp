@@ -20,3 +20,4 @@ export const findDevice = (d: string, a: string): Promise<Device | null> => m().
 export const addDevice = (d: Device): Promise<void> => m().addDevice(d);
 export const addPairing = (p: Pairing): Promise<void> => m().addPairing(p);
 export const takePairing = (c: string): Promise<Pairing | null> => m().takePairing(c);
+export const ensureAccount = (id: string, cap: number): Promise<void> => m().ensureAccount(id, cap);

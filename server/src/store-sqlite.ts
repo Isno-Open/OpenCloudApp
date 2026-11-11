@@ -49,3 +49,7 @@ export function takePairing(code: string): Promise<Pairing | null> {
   });
   return Promise.resolve(tx(code));
 }
+export function ensureAccount(id: string, cap: number): Promise<void> {
+  db.prepare("INSERT OR IGNORE INTO accounts (id, device_cap) VALUES (?, ?)").run(id, cap);
+  return Promise.resolve();
+}

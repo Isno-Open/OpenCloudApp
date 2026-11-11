@@ -1,10 +1,11 @@
 // Serveur cloud ISNO (cœur auto-hébergeable). Briques : 1a enrôlement, 1b auth, 1c relais, 4 app.
 import http from "node:http";
 import { randomBytes } from "node:crypto";
-import { init, getAccount, setAccountPass, countDevices, listDevices, findDevice, addDevice, addPairing, takePairing, type Pairing } from "./store.js";
+import { init, getAccount, setAccountPass, countDevices, listDevices, findDevice, addDevice, addPairing, takePairing, ensureAccount, type Pairing } from "./store.js";
 import { issueDeviceCert } from "./ca.js";
 import { hashPass, verifyPass } from "./auth.js";
-import { makeSession, readSession } from "./session.js";
+import { makeSession, readSession, readSsoSession } from "./session.js";
+import { overCap, DEFAULT_CAP } from "./entitlement.js";
 import { publishCmd, coversOf, startRelay, type Action } from "./mqtt.js";
 import { loginPage, devicesPage } from "./app.js";
 
@@ -40,7 +41,13 @@ function parseBody(raw: string, ctype: string | undefined): Record<string, strin
   return r;
 }
 const code6 = (): string => randomBytes(4).toString("hex").slice(0, 6).toUpperCase();
-const account = (req: http.IncomingMessage): string | null => readSession(req.headers.cookie);
+async function accountOf(req: http.IncomingMessage): Promise<string | null> {
+  const sid = readSession(req.headers.cookie);
+  if (sid) return sid;
+  const sso = readSsoSession(req.headers.cookie);
+  if (sso) { await ensureAccount(sso, DEFAULT_CAP); return sso; }   // 1re visite SSO : compte créé avec le plafond par défaut
+  return null;
+}
 
 const server = http.createServer((req, res) => {
   void (async () => {
@@ -51,15 +58,19 @@ const server = http.createServer((req, res) => {
 
       // ── 1a Enrôlement ──
       if (m === "POST" && path === "/api/device/new") {
-        if (!ADMIN_TOKEN || req.headers.authorization !== `Bearer ${ADMIN_TOKEN}`)
-          return json(res, 401, { error: "unauthorized" });
         const b = parseBody(await readRaw(req), req.headers["content-type"]);
-        const accountId = b.accountId ?? "admin";
+        let accountId = await accountOf(req);
+        if (!accountId) {   // pas de session : chemin opérateur par jeton admin
+          if (!ADMIN_TOKEN || req.headers.authorization !== `Bearer ${ADMIN_TOKEN}`)
+            return json(res, 401, { error: "unauthorized" });
+          accountId = b.accountId ?? "admin";
+        }
         const deviceId = b.deviceId ?? "opf-" + randomBytes(5).toString("hex");
         const acc = await getAccount(accountId);
         if (!acc) return json(res, 404, { error: "account inconnu" });
-        if ((await countDevices(accountId)) >= acc.deviceCap)
-          return json(res, 403, { error: "plafond atteint", cap: acc.deviceCap });
+        if (overCap(await countDevices(accountId), acc.deviceCap))
+          return json(res, 403, { error: "plafond atteint", cap: acc.deviceCap,
+            offer: `Au-delà de ${acc.deviceCap} appareils, une offre mensuelle est nécessaire.` });
         const p: Pairing = { code: code6(), accountId, deviceId, name: b.name ?? deviceId };
         await addPairing(p);
         return json(res, 200, { code: p.code, deviceId });
@@ -94,7 +105,7 @@ const server = http.createServer((req, res) => {
 
       // ── 4 App (SSR) ──
       if (m === "GET" && path === "/") {
-        const acc = account(req);
+        const acc = await accountOf(req);
         if (!acc) return htmlOut(res, 200, loginPage());
         const list = (await listDevices(acc)).map((d) => ({ ...d, covers: coversOf(d.deviceId) }));
         return htmlOut(res, 200, devicesPage(acc, list));
@@ -102,12 +113,12 @@ const server = http.createServer((req, res) => {
 
       // ── 1c Relais : liste + commande (propriété vérifiée) ──
       if (m === "GET" && path === "/api/devices") {
-        const acc = account(req);
+        const acc = await accountOf(req);
         if (!acc) return json(res, 401, { error: "auth" });
         return json(res, 200, { devices: await listDevices(acc) });
       }
       if (m === "POST" && path === "/api/cmd") {
-        const acc = account(req);
+        const acc = await accountOf(req);
         if (!acc) return json(res, 401, { error: "auth" });
         const b = parseBody(await readRaw(req), req.headers["content-type"]);
         const deviceId = b.device_id ?? "", action = b.action ?? "", slug = b.slug ?? "volet";

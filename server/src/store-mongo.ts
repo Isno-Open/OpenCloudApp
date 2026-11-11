@@ -28,3 +28,6 @@ export async function takePairing(code: string): Promise<Pairing | null> {
   const r = await pairings().findOneAndUpdate({ code, used: false }, { $set: { used: true } }, { projection: { _id: 0, used: 0 } });
   return r ? { code: r.code, accountId: r.accountId, deviceId: r.deviceId, name: r.name } : null;
 }
+export async function ensureAccount(id: string, cap: number): Promise<void> {
+  await accounts().updateOne({ id }, { $setOnInsert: { id, deviceCap: cap, passHash: null } }, { upsert: true });
+}

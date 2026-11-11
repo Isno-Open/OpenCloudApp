@@ -36,6 +36,7 @@ export function devicesPage(account: string, devices: DeviceView[]): string {
     : `<p>Aucun appareil enrôlé.</p>`;
   return `${HEAD("Mes appareils")}<h1>Mes appareils</h1>`
     + `<p class="acc">${esc(account)} · <a href="#" onclick="fetch('/logout',{method:'POST'}).then(()=>location.reload());return false">déconnexion</a></p>`
+    + `<div class="dev"><div>Ajouter un appareil</div><div class="btns"><button id="addDev">+ Obtenir un code</button></div></div><p class="acc" id="pairCode"></p>`
     + body
-    + `<script>document.querySelectorAll('.btns button').forEach(function(b){b.onclick=function(){var p=b.parentElement;fetch('/api/cmd',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({device_id:p.dataset.id,slug:p.dataset.slug,action:b.dataset.a})});};});</script></main></body></html>`;
+    + `<script>var ad=document.getElementById('addDev');if(ad)ad.onclick=function(){fetch('/api/device/new',{method:'POST',headers:{'content-type':'application/json'},body:'{}'}).then(function(r){return r.json();}).then(function(d){document.getElementById('pairCode').textContent=d.code?("Code d'appairage : "+d.code+" (a saisir dans le boitier)"):("Erreur : "+(d.error||d.offer||""));});};document.querySelectorAll('.btns button').forEach(function(b){b.onclick=function(){var p=b.parentElement;fetch('/api/cmd',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({device_id:p.dataset.id,slug:p.dataset.slug,action:b.dataset.a})});};});</script></main></body></html>`;
 }

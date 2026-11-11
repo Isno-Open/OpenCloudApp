@@ -27,3 +27,9 @@ test("device : ajout, comptage, liste, et propriété vérifiée", async () => {
   assert.ok(await s.findDevice("dev-1", "admin"));
   assert.equal(await s.findDevice("dev-1", "autre-compte"), null);
 });
+test("ensureAccount : provisionne au plafond donné, idempotent", async () => {
+  await s.ensureAccount("sso-user", 5);
+  assert.equal((await s.getAccount("sso-user"))?.deviceCap, 5);
+  await s.ensureAccount("sso-user", 99);   // ne réécrit pas un compte existant
+  assert.equal((await s.getAccount("sso-user"))?.deviceCap, 5);
+});
