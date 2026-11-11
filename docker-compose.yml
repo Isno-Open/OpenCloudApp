@@ -1,5 +1,5 @@
-# Stack cloud ISNO (open-core, auto-hébergeable). Première brique : broker MQTT mTLS,
-# isolation par device (ACL). À venir : enrôlement/pairing, relais, app, auth locale.
+# Stack cloud ISNO (open-core, auto-hébergeable) : broker MQTT mTLS + serveur (enrôlement, auth,
+# app de pilotage, relais). Avant : ./scripts/gen-ca.sh <votre-domaine> et cp .env.example .env
 services:
   broker:
     image: eclipse-mosquitto:2.0.22
@@ -11,5 +11,23 @@ services:
       - ./config:/mosquitto/config
       - ./certs:/mosquitto/certs
       - broker-data:/mosquitto/data
+  server:
+    build: ./server
+    container_name: isno-cloud-server
+    restart: unless-stopped
+    ports:
+      - "8080:8080"            # app + API (à placer derrière un reverse-proxy TLS, ex. Caddy)
+    env_file:
+      - .env                   # ADMIN_TOKEN, ADMIN_PASS, SESSION_SECRET, BROKER_URL_PUBLIC
+    environment:
+      - CERTS_DIR=/certs
+      - DB_PATH=/data/db.json
+      - BROKER_URL=mqtts://broker:8883
+    volumes:
+      - ./certs:/certs
+      - server-data:/data
+    depends_on:
+      - broker
 volumes:
   broker-data:
+  server-data:

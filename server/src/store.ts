@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
 /** Un compte (self-host). `deviceCap` = plafond d'appareils (défaut 5). */
-export type Account = { id: string; deviceCap: number };
+export type Account = { id: string; deviceCap: number; passHash?: string };
 /** Un appareil enrôlé, rattaché à un compte. `firmware` pilote l'IHM côté app. */
 export type Device = { deviceId: string; accountId: string; name: string; firmware: string };
 /** Un code de pairing : lie un futur device à un compte, à usage unique. */
