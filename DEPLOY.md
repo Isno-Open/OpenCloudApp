@@ -29,6 +29,17 @@ Comment l'instance hébergée est câblée sur le VPS. Le dépôt reste auto-hé
       isno-cloud-server:prod
     sudo docker network connect coolify isno-cloud-server
 
+## SSO (comptes du site)
+L'auth est pluggable. Sans configuration, le cloud a son propre login (compte `admin`). Pour
+réutiliser les comptes de www.isno.fr :
+1. Poser le MÊME secret des deux côtés : `SSO_SECRET=<secret>` dans le `.env` du serveur, et le même
+   secret côté site.
+2. À la connexion, le site pose un cookie scopé `.isno.fr` :
+   `sso=<accountId>.<HMAC-SHA256(SSO_SECRET, accountId)>` (hex). Le cloud le valide avec le même
+   secret et, à la première visite, **provisionne le compte** avec le plafond par défaut (`DEVICE_CAP`,
+   défaut 5). Au-delà du plafond, l'enrôlement renvoie une invite d'offre mensuelle.
+Inerte tant que `SSO_SECRET` n'est pas défini : aucun changement de comportement.
+
 ## À durcir plus tard
 - Cookie de session `Secure` (le serveur est en HTTP derrière le TLS de Caddy).
 - Store MongoDB (greffon) si besoin de montée en charge.
