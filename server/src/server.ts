@@ -5,7 +5,7 @@ import { init, getAccount, setAccountPass, countDevices, listDevices, findDevice
 import { issueDeviceCert } from "./ca.js";
 import { hashPass, verifyPass } from "./auth.js";
 import { makeSession, readSession } from "./session.js";
-import { publishCmd, type Action } from "./mqtt.js";
+import { publishCmd, coversOf, startRelay, type Action } from "./mqtt.js";
 import { loginPage, devicesPage } from "./app.js";
 
 const PORT = Number(process.env.PORT ?? 8080);
@@ -96,7 +96,8 @@ const server = http.createServer((req, res) => {
       if (m === "GET" && path === "/") {
         const acc = account(req);
         if (!acc) return htmlOut(res, 200, loginPage());
-        return htmlOut(res, 200, devicesPage(acc, await listDevices(acc)));
+        const list = (await listDevices(acc)).map((d) => ({ ...d, covers: coversOf(d.deviceId) }));
+        return htmlOut(res, 200, devicesPage(acc, list));
       }
 
       // ── 1c Relais : liste + commande (propriété vérifiée) ──
@@ -131,5 +132,6 @@ const server = http.createServer((req, res) => {
     const a = await getAccount("admin");
     if (a && !a.passHash) await setAccountPass("admin", hashPass(ADMIN_PASS));
   }
+  startRelay();
   server.listen(PORT, () => console.log(`[isno-cloud] serveur sur :${PORT}`));
 })().catch((e: unknown) => { console.error("fatal:", e); process.exit(1); });
