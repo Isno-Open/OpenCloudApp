@@ -1,24 +1,22 @@
-// Stockage minimal (JSON) de l'état du cloud : comptes, devices, codes de pairing.
-// MVP self-host ; l'instance hébergée ISNO branchera les comptes www par-dessus (glu privée).
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
-import { dirname } from "node:path";
+// Frontière DB unique. Le serveur n'importe QUE ce module. Implémentation choisie au démarrage :
+// MONGO_URL défini -> MongoDB (ISNO) ; sinon -> SQLite (défaut self-host). Pluggable, pas de JSON.
+import type { Account, Device, Pairing } from "./types.js";
+export type { Account, Device, Pairing };
 
-/** Un compte (self-host). `deviceCap` = plafond d'appareils (défaut 5). */
-export type Account = { id: string; deviceCap: number; passHash?: string };
-/** Un appareil enrôlé, rattaché à un compte. `firmware` pilote l'IHM côté app. */
-export type Device = { deviceId: string; accountId: string; name: string; firmware: string };
-/** Un code de pairing : lie un futur device à un compte, à usage unique. */
-export type Pairing = { code: string; accountId: string; deviceId: string; name: string; used: boolean };
-export type Db = { accounts: Account[]; devices: Device[]; pairings: Pairing[] };
+type Impl = typeof import("./store-sqlite.js");
+let impl: Impl | null = null;
+const m = (): Impl => { if (!impl) throw new Error("store non initialisé"); return impl; };
 
-const DB_PATH = process.env.DB_PATH ?? "/data/db.json";
-
-export function loadDb(): Db {
-  if (!existsSync(DB_PATH)) return { accounts: [{ id: "admin", deviceCap: 5 }], devices: [], pairings: [] };
-  return JSON.parse(readFileSync(DB_PATH, "utf8")) as Db;
+export async function init(): Promise<void> {
+  impl = await (process.env.MONGO_URL ? import("./store-mongo.js") : import("./store-sqlite.js"));
+  await impl.init();
+  console.log(`[store] ${process.env.MONGO_URL ? "MongoDB" : "SQLite"}`);
 }
-
-export function saveDb(db: Db): void {
-  mkdirSync(dirname(DB_PATH), { recursive: true });
-  writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
-}
+export const getAccount = (id: string): Promise<Account | null> => m().getAccount(id);
+export const setAccountPass = (id: string, h: string): Promise<void> => m().setAccountPass(id, h);
+export const countDevices = (a: string): Promise<number> => m().countDevices(a);
+export const listDevices = (a: string): Promise<Device[]> => m().listDevices(a);
+export const findDevice = (d: string, a: string): Promise<Device | null> => m().findDevice(d, a);
+export const addDevice = (d: Device): Promise<void> => m().addDevice(d);
+export const addPairing = (p: Pairing): Promise<void> => m().addPairing(p);
+export const takePairing = (c: string): Promise<Pairing | null> => m().takePairing(c);

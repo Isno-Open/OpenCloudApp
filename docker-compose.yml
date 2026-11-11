@@ -1,12 +1,14 @@
-# Stack cloud ISNO (open-core, auto-hébergeable) : broker MQTT mTLS + serveur (enrôlement, auth,
-# app de pilotage, relais). Avant : ./scripts/gen-ca.sh <votre-domaine> et cp .env.example .env
+# Stack cloud ISNO (open-core, auto-hébergeable). Par défaut : broker MQTT mTLS + serveur, avec
+# SQLite embarqué (aucune base à gérer). Pour passer sur MongoDB, ajouter le greffon :
+#   docker compose -f docker-compose.yml -f docker-compose.mongo.yml up -d --build
+# Avant : ./scripts/gen-ca.sh <votre-domaine>  puis  cp .env.example .env
 services:
   broker:
     image: eclipse-mosquitto:2.0.22
     container_name: isno-mqtt
     restart: unless-stopped
     ports:
-      - "8883:8883"            # mqtts (mTLS) pour les devices
+      - "8883:8883"
     volumes:
       - ./config:/mosquitto/config
       - ./certs:/mosquitto/certs
@@ -16,13 +18,13 @@ services:
     container_name: isno-cloud-server
     restart: unless-stopped
     ports:
-      - "8080:8080"            # app + API (à placer derrière un reverse-proxy TLS, ex. Caddy)
+      - "8080:8080"
     env_file:
-      - .env                   # ADMIN_TOKEN, ADMIN_PASS, SESSION_SECRET, BROKER_URL_PUBLIC
+      - .env
     environment:
       - CERTS_DIR=/certs
-      - DB_PATH=/data/db.json
       - BROKER_URL=mqtts://broker:8883
+      - DB_PATH=/data/isno-cloud.db        # store SQLite par défaut (ignoré si MONGO_URL défini)
     volumes:
       - ./certs:/certs
       - server-data:/data

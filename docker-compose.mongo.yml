@@ -1,0 +1,19 @@
+# Greffon MongoDB (optionnel). À combiner avec le compose principal pour remplacer SQLite :
+#   docker compose -f docker-compose.yml -f docker-compose.mongo.yml up -d --build
+# Variante « base déjà en place » : ne pas démarrer ce service mongo, et mettre dans .env
+# MONGO_URL=mongodb://<hôte>:27017 (le serveur bascule dès que MONGO_URL est présent).
+services:
+  mongo:
+    image: mongo:8.0
+    container_name: isno-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+  server:
+    environment:
+      - MONGO_URL=mongodb://mongo:27017   # présence de MONGO_URL => le store bascule sur MongoDB
+    depends_on:
+      - broker
+      - mongo
+volumes:
+  mongo-data:

@@ -3,5 +3,9 @@ certs/*.crt
 certs/*.csr
 certs/*.srl
 .env
+*.db
+*.db-wal
+*.db-shm
+data/
 server/node_modules
 server/dist

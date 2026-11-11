@@ -1,7 +1,7 @@
 // Serveur cloud ISNO (cœur auto-hébergeable). Briques : 1a enrôlement, 1b auth, 1c relais, 4 app.
 import http from "node:http";
 import { randomBytes } from "node:crypto";
-import { loadDb, saveDb, type Pairing } from "./store.js";
+import { init, getAccount, setAccountPass, countDevices, listDevices, findDevice, addDevice, addPairing, takePairing, type Pairing } from "./store.js";
 import { issueDeviceCert } from "./ca.js";
 import { hashPass, verifyPass } from "./auth.js";
 import { makeSession, readSession } from "./session.js";
@@ -12,14 +12,6 @@ const PORT = Number(process.env.PORT ?? 8080);
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN ?? "";
 const ADMIN_PASS = process.env.ADMIN_PASS ?? "";
 const BROKER_URL = process.env.BROKER_URL_PUBLIC ?? "mqtts://mqtt.example.com:8883";
-
-// Au démarrage : pose le mot de passe admin (haché) s'il est fourni et absent.
-(() => {
-  if (!ADMIN_PASS) return;
-  const db = loadDb();
-  const a = db.accounts.find((x) => x.id === "admin");
-  if (a && !a.passHash) { a.passHash = hashPass(ADMIN_PASS); saveDb(db); }
-})();
 
 const json = (res: http.ServerResponse, code: number, body: unknown): void => {
   res.writeHead(code, { "content-type": "application/json" }); res.end(JSON.stringify(body));
@@ -34,13 +26,12 @@ async function readRaw(req: http.IncomingMessage): Promise<string> {
 }
 function parseBody(raw: string, ctype: string | undefined): Record<string, string> {
   if (!raw) return {};
+  const r: Record<string, string> = {};
   if (ctype && ctype.includes("application/json")) {
     const o = JSON.parse(raw) as Record<string, unknown>;
-    const r: Record<string, string> = {};
     for (const k of Object.keys(o)) if (typeof o[k] === "string") r[k] = o[k] as string;
     return r;
   }
-  const r: Record<string, string> = {};
   for (const kv of raw.split("&")) {
     const i = kv.indexOf("=");
     if (i < 0) continue;
@@ -56,7 +47,6 @@ const server = http.createServer((req, res) => {
     try {
       const path = new URL(req.url ?? "/", "http://x").pathname;
       const m = req.method ?? "GET";
-
       if (m === "GET" && path === "/health") return json(res, 200, { ok: true });
 
       // ── 1a Enrôlement ──
@@ -66,32 +56,27 @@ const server = http.createServer((req, res) => {
         const b = parseBody(await readRaw(req), req.headers["content-type"]);
         const accountId = b.accountId ?? "admin";
         const deviceId = b.deviceId ?? "opf-" + randomBytes(5).toString("hex");
-        const db = loadDb();
-        const acc = db.accounts.find((a) => a.id === accountId);
+        const acc = await getAccount(accountId);
         if (!acc) return json(res, 404, { error: "account inconnu" });
-        if (db.devices.filter((d) => d.accountId === accountId).length >= acc.deviceCap)
+        if ((await countDevices(accountId)) >= acc.deviceCap)
           return json(res, 403, { error: "plafond atteint", cap: acc.deviceCap });
-        const p: Pairing = { code: code6(), accountId, deviceId, name: b.name ?? deviceId, used: false };
-        db.pairings.push(p); saveDb(db);
+        const p: Pairing = { code: code6(), accountId, deviceId, name: b.name ?? deviceId };
+        await addPairing(p);
         return json(res, 200, { code: p.code, deviceId });
       }
       if (m === "POST" && path === "/api/enroll") {
         const b = parseBody(await readRaw(req), req.headers["content-type"]);
-        const db = loadDb();
-        const p = db.pairings.find((x) => x.code === (b.code ?? "") && !x.used);
+        const p = await takePairing(b.code ?? "");
         if (!p) return json(res, 400, { error: "code invalide ou déjà utilisé" });
         const bundle = issueDeviceCert(p.deviceId);
-        p.used = true;
-        db.devices.push({ deviceId: p.deviceId, accountId: p.accountId, name: p.name, firmware: b.firmware ?? "openprofalux" });
-        saveDb(db);
+        await addDevice({ deviceId: p.deviceId, accountId: p.accountId, name: p.name, firmware: b.firmware ?? "openprofalux" });
         return json(res, 200, { device_id: p.deviceId, broker_url: BROKER_URL, ...bundle });
       }
 
       // ── 1b Auth ──
       if (m === "POST" && path === "/login") {
         const b = parseBody(await readRaw(req), req.headers["content-type"]);
-        const db = loadDb();
-        const a = db.accounts.find((x) => x.id === (b.user ?? ""));
+        const a = await getAccount(b.user ?? "");
         if (!a || !a.passHash || !verifyPass(b.pass ?? "", a.passHash)) {
           res.writeHead(401, { "content-type": "text/html; charset=utf-8" });
           return res.end(loginPage());
@@ -111,22 +96,21 @@ const server = http.createServer((req, res) => {
       if (m === "GET" && path === "/") {
         const acc = account(req);
         if (!acc) return htmlOut(res, 200, loginPage());
-        const db = loadDb();
-        return htmlOut(res, 200, devicesPage(acc, db.devices.filter((d) => d.accountId === acc)));
+        return htmlOut(res, 200, devicesPage(acc, await listDevices(acc)));
       }
 
       // ── 1c Relais : liste + commande (propriété vérifiée) ──
       if (m === "GET" && path === "/api/devices") {
         const acc = account(req);
         if (!acc) return json(res, 401, { error: "auth" });
-        return json(res, 200, { devices: loadDb().devices.filter((d) => d.accountId === acc) });
+        return json(res, 200, { devices: await listDevices(acc) });
       }
       if (m === "POST" && path === "/api/cmd") {
         const acc = account(req);
         if (!acc) return json(res, 401, { error: "auth" });
         const b = parseBody(await readRaw(req), req.headers["content-type"]);
         const deviceId = b.device_id ?? "", action = b.action ?? "", slug = b.slug ?? "volet";
-        const dev = loadDb().devices.find((d) => d.deviceId === deviceId && d.accountId === acc);
+        const dev = await findDevice(deviceId, acc);
         if (!dev) return json(res, 403, { error: "device non possédé" });
         if (action !== "UP" && action !== "STOP" && action !== "DOWN")
           return json(res, 400, { error: "action invalide" });
@@ -140,4 +124,12 @@ const server = http.createServer((req, res) => {
     }
   })();
 });
-server.listen(PORT, () => console.log(`[isno-cloud] serveur sur :${PORT}`));
+
+(async () => {
+  await init();
+  if (ADMIN_PASS) {
+    const a = await getAccount("admin");
+    if (a && !a.passHash) await setAccountPass("admin", hashPass(ADMIN_PASS));
+  }
+  server.listen(PORT, () => console.log(`[isno-cloud] serveur sur :${PORT}`));
+})().catch((e: unknown) => { console.error("fatal:", e); process.exit(1); });
