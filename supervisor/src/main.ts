@@ -7,7 +7,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { loadCatalog } from "./catalog.js";
-import { moduleStatus, startInstall } from "./install.js";
+import { moduleStatus, startInstall, restartModule } from "./install.js";
 
 const PORT = Number(process.env.PORT ?? 8090);
 const CATALOG = process.env.CATALOG_PATH ?? new URL("../modules.json", import.meta.url).pathname;
@@ -41,10 +41,11 @@ createServer(async (req, res) => {
     if (!authorized(req)) return send(res, 401, { error: "unauthorized" });
     if (req.method === "GET" && url.pathname === "/modules")
       return send(res, 200, await Promise.all(Object.keys(catalog).map((id) => moduleStatus(catalog, id))));
-    const m = /^\/modules\/([a-z0-9_.-]+)(\/install)?$/.exec(url.pathname);
+    const m = /^\/modules\/([a-z0-9_.-]+)(\/install|\/restart)?$/.exec(url.pathname);
     if (m && m[1] && catalog[m[1]]) {
       const id = m[1];
-      if (req.method === "POST" && m[2]) startInstall(catalog, id, NETWORK, process.env);
+      if (req.method === "POST" && m[2] === "/install") startInstall(catalog, id, NETWORK, process.env);
+      else if (req.method === "POST" && m[2] === "/restart") await restartModule(catalog, id);
       else if (!(req.method === "GET" && !m[2])) return send(res, 405, { error: "method" });
       return send(res, 200, await moduleStatus(catalog, id));
     }

@@ -4,22 +4,28 @@ Stack cloud **auto-hébergeable** pour le pilotage à distance des firmwares ISN
 OpenXtraflame…). Open-core : hébergez le vôtre, ou utilisez l'instance ISNO.
 
 ## Contenu
-- **broker** : Mosquitto en **mTLS**, isolation **par appareil** (ACL `openprofalux/{device_id}/#`).
+- **broker** (module) : Mosquitto en **mTLS**, isolation **par appareil** (ACL `openprofalux/{device_id}/#`).
 - **server** (TypeScript, Astro SSR) : installation, comptes, enrôlement des appareils, **relais**
   authentifié (le navigateur ne parle jamais au broker), app de pilotage.
-- **supervisor** : installe **à la demande** les modules optionnels (aujourd'hui MongoDB), façon
-  Supervisor de Home Assistant. Catalogue déclaré dans `supervisor/modules.json`.
+- **supervisor** : installe les modules **à la demande**, façon Supervisor de Home Assistant : le
+  **broker** (obligatoire, installé pendant `/setup`) et **MongoDB** (si choisi). Catalogue déclaré dans
+  `supervisor/modules.json`.
 - **socket-proxy** : seul composant qui voit le socket Docker, filtré (pas d'`exec`, de `build`, de
   `system`…), et joignable par le seul superviseur.
 
 ## Démarrer
-    ./scripts/gen-ca.sh mqtt.mondomaine.fr   # CA + cert serveur + cert relais (clés chez vous)
     cp .env.example .env                     # puis remplir les secrets
     docker compose up -d --build
 
 Puis ouvrir `https://<votre-domaine>/setup` **dans les 5 minutes** qui suivent le démarrage
 (`PORTAL_SETUP_WINDOW_S`). Passé ce délai, l'installation se verrouille : `docker compose restart server`
 la rouvre. Une fois l'instance configurée, `/setup` est fermé définitivement.
+
+Aucun certificat à préparer avant : la **CA est créée au premier démarrage**. Dans `/setup`, on choisit
+le **nom du broker** (public, ou de réseau local) ; la pile émet son certificat avec ce nom, écrit sa
+configuration, et le superviseur l'installe. On vérifie ensuite que chaque nom mène bien à **cette**
+instance (portail : identifiant de l'instance ; broker : certificat présenté). Au démarrage, le
+certificat du broker est réémis si le nom de la config ou la CA a changé.
 
 ## Base de données
 Choisie à l'installation, dans `/setup` :
@@ -36,6 +42,13 @@ Le superviseur n'installe que les identifiants de son catalogue, avec des **volu
 (jamais un dossier de l'hôte), **jamais en mode privilégié**, sur le réseau de la pile. Il étiquette ce
 qu'il crée et refuse de toucher un conteneur sans son étiquette. L'app l'appelle avec un secret partagé,
 généré au premier démarrage dans un volume qu'elle monte en lecture seule.
+
+## Tester la pile complète
+    scripts/e2e-stack.sh            # MongoDB fourni
+    scripts/e2e-stack.sh sqlite     # SQLite
+
+Monte la vraie pile sur la machine (ports 18080 / 18883), rejoue l'installation, simule un boîtier
+(appairage, mTLS, commande reçue, isolation), teste la réconciliation, puis démonte tout.
 
 ## Comptes
 Comptes locaux gérés par l'opérateur (écran **Utilisateurs**), connexion opérateur sur

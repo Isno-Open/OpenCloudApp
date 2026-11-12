@@ -6,9 +6,7 @@
 // le cloud ne recode rien, il reflète).
 import mqtt, { type MqttClient } from "mqtt";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
-const CERTS_DIR = process.env.CERTS_DIR ?? "/certs";
-const BROKER = process.env.BROKER_URL ?? "mqtts://127.0.0.1:8883";
+import { PKI_FILES } from "./pki.js";
 
 export const ACTIONS = { UP: "OPEN", STOP: "STOP", DOWN: "CLOSE" } as const;
 export type Action = keyof typeof ACTIONS;
@@ -53,25 +51,27 @@ const covers = new Map<string, Map<string, Cover>>();
 export const coversOf = (deviceId: string): Cover[] => [...(covers.get(deviceId)?.values() ?? [])];
 
 let client: MqttClient | null = null;
-function get(): MqttClient {
+function get(brokerUrl: string): MqttClient {
   if (client) return client;
-  client = mqtt.connect(BROKER, {
-    ca: readFileSync(join(CERTS_DIR, "ca.crt")),
-    cert: readFileSync(join(CERTS_DIR, "relay.crt")),
-    key: readFileSync(join(CERTS_DIR, "relay.key")),
+  client = mqtt.connect(brokerUrl, {
+    ca: readFileSync(PKI_FILES.caCrt),
+    cert: readFileSync(PKI_FILES.relayCrt),
+    key: readFileSync(PKI_FILES.relayKey),
     rejectUnauthorized: true,
   });
   client.on("error", (e: Error) => console.error("[mqtt relay]", e.message));
   client.on("message", (t: string, p: Buffer) => applyCoverMessage(covers, t, p.toString("utf8")));
   return client;
 }
-/** Démarre le relais et l'abonnement à l'état des covers (retained => peuplé au branchement). */
-export function startRelay(): void {
-  const c = get();
+/** Démarre le relais vers le broker (adresse INTERNE à la pile, fournie par le catalogue du
+ *  superviseur) et l'abonnement à l'état des covers (retained => peuplé au branchement). */
+export function startRelay(brokerUrl: string): void {
+  const c = get(brokerUrl);
   const sub = (): void => { for (const leaf of ["attrs", "state", "position"]) c.subscribe(`openprofalux/+/cover/+/${leaf}`, { qos: 0 }); };
   c.on("connect", sub);
   if (c.connected) sub();
 }
 export function publishCmd(deviceId: string, slug: string, action: Action): void {
-  get().publish(cmdTopic(deviceId, slug), cmdPayload(action), { qos: 1 });
+  if (!client) throw new Error("relais non démarré");
+  client.publish(cmdTopic(deviceId, slug), cmdPayload(action), { qos: 1 });
 }

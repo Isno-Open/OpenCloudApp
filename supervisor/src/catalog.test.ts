@@ -52,3 +52,25 @@ test("progression : agregee sur les couches, 100 reserve au demarrage", () => {
   assert.equal(p.percent(), 99);
   const q = new PullProgress(); q.feed({ id: "a", status: "Already exists" }); assert.equal(q.percent(), 99);
 });
+
+test("catalogue livre : broker present, volumes de config et certificats en lecture seule, port declare", () => {
+  const c = loadCatalog(new URL("../modules.json", import.meta.url).pathname);
+  assert.equal(c.broker?.endpoint, "mqtts://isno-mqtt:8883");
+  assert.equal(c.broker?.volumes?.["isno-broker-certs"], "/mosquitto/certs:ro");
+  assert.deepEqual(Object.keys(c.broker?.ports ?? {}), ["8883/tcp"]);
+});
+test("montage : « :ro » accepte, toute autre option refusee", () => {
+  assert.doesNotThrow(() => validateCatalog({ mod: { ...ok, volumes: { "isno-x": "/data:ro" } } }));
+  assert.throws(() => validateCatalog({ mod: { ...ok, volumes: { "isno-x": "/data:rw,z" } } }), /montage/);
+  assert.throws(() => validateCatalog({ mod: { ...ok, volumes: { "isno-x": "/data:shared" } } }), /montage/);
+});
+test("ports : publies depuis le catalogue, port de l'hote valide, sinon refus", () => {
+  const spec = { ...ok, ports: { "8883/tcp": "${BROKER_PUBLIC_PORT:-8883}" } };
+  const b = containerCreateBody("broker", spec, "net", {});
+  assert.deepEqual(b.HostConfig.PortBindings, { "8883/tcp": [{ HostPort: "8883" }] });
+  assert.deepEqual(b.ExposedPorts, { "8883/tcp": {} });
+  assert.equal(containerCreateBody("broker", spec, "net", { BROKER_PUBLIC_PORT: "18883" }).HostConfig.PortBindings["8883/tcp"]?.[0]?.HostPort, "18883");
+  assert.throws(() => containerCreateBody("broker", spec, "net", { BROKER_PUBLIC_PORT: "99999" }), /port publie invalide/);
+  assert.throws(() => containerCreateBody("broker", spec, "net", { BROKER_PUBLIC_PORT: "8883;rm" }), /port publie invalide/);
+  assert.throws(() => validateCatalog({ mod: { ...ok, ports: { "8883": "8883" } } }), /port de conteneur/);
+});

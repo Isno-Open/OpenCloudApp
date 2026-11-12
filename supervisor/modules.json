@@ -1,5 +1,17 @@
 {
-  "$comment": "Catalogue des modules que le superviseur sait installer. Seuls ces identifiants sont acceptes. Volumes NOMMES uniquement (jamais de dossier de l'hote), jamais de mode privilegie : le superviseur le verifie au chargement.",
+  "$comment": "Catalogue des modules que le superviseur sait installer. Seuls ces identifiants sont acceptes. Volumes NOMMES uniquement (jamais de dossier de l'hote), jamais de mode privilegie, ports declares ici seulement : le superviseur le verifie au chargement.",
+  "broker": {
+    "title": "Broker MQTT",
+    "image": "eclipse-mosquitto:2.0.22",
+    "container": "isno-mqtt",
+    "volumes": {
+      "isno-broker-config": "/mosquitto/config:ro",
+      "isno-broker-certs": "/mosquitto/certs:ro",
+      "isno-broker-data": "/mosquitto/data"
+    },
+    "ports": { "8883/tcp": "${BROKER_PUBLIC_PORT:-8883}" },
+    "endpoint": "mqtts://isno-mqtt:8883"
+  },
   "mongo": {
     "title": "MongoDB",
     "image": "mongo:9.0.8",

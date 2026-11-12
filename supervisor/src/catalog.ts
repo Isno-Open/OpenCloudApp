@@ -14,7 +14,8 @@ export type ModuleSpec = {
   image: string;                       // nom:version exacte (jamais « latest »)
   container: string;
   command?: string[];
-  volumes?: Record<string, string>;    // volume nomme -> point de montage
+  volumes?: Record<string, string>;    // volume nomme -> point de montage (suffixe « :ro » : lecture seule)
+  ports?: Record<string, string>;      // port du conteneur (« 8883/tcp ») -> port publie sur l'hote
   endpoint?: string;                   // adresse de connexion annoncee a l'app
 };
 export type Catalog = Record<string, ModuleSpec>;
@@ -35,9 +36,11 @@ export function validateCatalog(raw: unknown): Catalog {
     if (!NAME_RE.test(m.container)) throw new Error(`catalogue ${id} : nom de conteneur invalide`);
     for (const [vol, target] of Object.entries(m.volumes ?? {})) {
       if (!NAME_RE.test(vol)) throw new Error(`catalogue ${id} : seuls les volumes NOMMES sont permis (« ${vol} » refuse)`);
-      if (!target.startsWith("/")) throw new Error(`catalogue ${id} : point de montage absolu requis`);
+      if (!/^\/[^:]*(:ro)?$/.test(target)) throw new Error(`catalogue ${id} : point de montage absolu requis (option « :ro » seulement)`);
     }
-    out[id] = { title: m.title, image: m.image, container: m.container, command: m.command, volumes: m.volumes, endpoint: m.endpoint };
+    for (const cport of Object.keys(m.ports ?? {}))
+      if (!/^[0-9]{1,5}\/(tcp|udp)$/.test(cport)) throw new Error(`catalogue ${id} : port de conteneur invalide « ${cport} »`);
+    out[id] = { title: m.title, image: m.image, container: m.container, command: m.command, volumes: m.volumes, ports: m.ports, endpoint: m.endpoint };
   }
   return out;
 }
@@ -49,14 +52,29 @@ export function substitute(s: string, env: Record<string, string | undefined>): 
   return s.replace(/\$\{([A-Z0-9_]+)(?::-([^}]*))?\}/g, (_m, name: string, def?: string) => env[name] ?? def ?? "");
 }
 
+/** Ports publies : port du conteneur (catalogue) -> port de l'hote (catalogue, apres substitution). */
+export function portBindings(m: ModuleSpec, env: Record<string, string | undefined>): Record<string, { HostPort: string }[]> {
+  const out: Record<string, { HostPort: string }[]> = {};
+  for (const [cport, host] of Object.entries(m.ports ?? {})) {
+    const hp = substitute(host, env);
+    const n = Number(hp);
+    if (!Number.isInteger(n) || n < 1 || n > 65535) throw new Error(`port publie invalide pour ${cport} : « ${hp} »`);
+    out[cport] = [{ HostPort: String(n) }];
+  }
+  return out;
+}
+
 /** Corps de POST /containers/create pour un module. Aucune option dangereuse n'est exprimable ici. */
 export function containerCreateBody(id: string, m: ModuleSpec, network: string, env: Record<string, string | undefined>) {
+  const ports = portBindings(m, env);
   return {
     Image: m.image,
     Cmd: m.command?.map((c) => substitute(c, env)),
     Labels: { [MANAGED_LABEL]: "true", [MODULE_LABEL]: id },
+    ExposedPorts: Object.fromEntries(Object.keys(ports).map((p) => [p, {}])),
     HostConfig: {
       Binds: Object.entries(m.volumes ?? {}).map(([vol, target]) => `${vol}:${target}`),
+      PortBindings: ports,
       RestartPolicy: { Name: "unless-stopped" },
       NetworkMode: network,
       Privileged: false,

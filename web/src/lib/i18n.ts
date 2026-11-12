@@ -56,7 +56,7 @@ interface S {
   legacyHint: string; legacyLink: string;
   // vue parametres (admin)
   settingsTitle: string; settingsLead: string; dbKindLabel: string; dbSqlite: string; dbMongoBundled: string; dbMongoExternal: string;
-  publicUrlLabel: string; brokerUrlLabel: string; saveSettingsBtn: string; settingsSaved: string; settingsError: string;
+  publicUrlLabel: string; brokerUrlLabel: string;
 }
 
 export const STRINGS = {
@@ -115,7 +115,6 @@ export const STRINGS = {
     settingsTitle: 'Paramètres', settingsLead: "Configuration de l'instance, définie à l'installation.",
     dbKindLabel: 'Base de données', dbSqlite: 'SQLite (embarqué)', dbMongoBundled: 'MongoDB (fourni)', dbMongoExternal: 'MongoDB (externe)',
     publicUrlLabel: 'URL publique du portail', brokerUrlLabel: 'URL publique du broker MQTT',
-    saveSettingsBtn: 'Enregistrer', settingsSaved: 'Enregistré.', settingsError: 'Enregistrement impossible.',
   },
   [LANG.en]: {
     brandAria: 'ISNO Cloud, home', themeToggle: 'Toggle light / dark theme', menu: 'Menu',
@@ -172,7 +171,6 @@ export const STRINGS = {
     settingsTitle: 'Settings', settingsLead: 'Instance configuration, set at install time.',
     dbKindLabel: 'Database', dbSqlite: 'SQLite (embedded)', dbMongoBundled: 'MongoDB (bundled)', dbMongoExternal: 'MongoDB (external)',
     publicUrlLabel: 'Public portal URL', brokerUrlLabel: 'Public MQTT broker URL',
-    saveSettingsBtn: 'Save', settingsSaved: 'Saved.', settingsError: 'Could not save.',
   },
 } satisfies Record<Lang, S>;
 

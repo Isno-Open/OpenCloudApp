@@ -24,7 +24,7 @@ export const POST: APIRoute = async ({ request }) => {
   const hosts = await checkHosts(String(b.appHost ?? ''), String(b.brokerHost ?? ''), scheme);
   if (!hosts.ok) return json(400, { error: 'noms d\'hôte non vérifiés', checks: hosts.checks });
   const publicAppUrl = `${scheme}://${normalizeHost(String(b.appHost))}`;
-  const brokerPublicUrl = `mqtts://${normalizeHost(String(b.brokerHost))}:${BROKER_PUBLIC_PORT}`;
+  const brokerPublicUrl = `mqtts://${normalizeHost(String(b.brokerHost))!.replace(/:\d+$/, '')}:${BROKER_PUBLIC_PORT}`;
 
   let db: DbConfig;
   if (kind === DB_KIND.mongoExternal) {

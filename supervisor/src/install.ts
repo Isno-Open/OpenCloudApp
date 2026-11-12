@@ -2,7 +2,7 @@
 // creation et demarrage du conteneur sur le reseau de la pile. Idempotent : un module deja installe est
 // seulement (re)demarre. Un conteneur du meme nom SANS notre etiquette n'est jamais touche.
 import { MANAGED_LABEL, MODULE_LABEL, containerCreateBody, splitImage, type Catalog } from "./catalog.js";
-import { docker, inspectContainer, streamJson } from "./docker.js";
+import { docker, inspectContainer, streamJson, volumeExists } from "./docker.js";
 import { MODULE_STATE, PullProgress, type ModuleState } from "./progress.js";
 
 type Job = { state: ModuleState; progress: number; error?: string };
@@ -43,8 +43,9 @@ async function install(cat: Catalog, id: string, network: string, env: Record<st
     if (!existing.State.Running) await docker("POST", `/containers/${encodeURIComponent(m.container)}/start`);
     return;
   }
+  // volume deja present (ex. cree par la pile, partage avec le serveur qui y ecrit) : on le garde tel quel
   for (const vol of Object.keys(m.volumes ?? {}))
-    await docker("POST", "/volumes/create", { Name: vol, Labels: { [MANAGED_LABEL]: "true", [MODULE_LABEL]: id } });
+    if (!(await volumeExists(vol))) await docker("POST", "/volumes/create", { Name: vol, Labels: { [MANAGED_LABEL]: "true", [MODULE_LABEL]: id } });
   const { fromImage, tag } = splitImage(m.image);
   const pull = new PullProgress();
   let pullError: string | undefined;
@@ -55,4 +56,13 @@ async function install(cat: Catalog, id: string, network: string, env: Record<st
   if (pullError) throw new Error(`telechargement de ${m.image} : ${pullError}`);
   await docker("POST", `/containers/create?name=${encodeURIComponent(m.container)}`, containerCreateBody(id, m, network, env));
   await docker("POST", `/containers/${encodeURIComponent(m.container)}/start`);
+}
+
+/** Redemarre un module installe (ex. pour qu'il relise un certificat reemis). Jamais un conteneur etranger. */
+export async function restartModule(cat: Catalog, id: string): Promise<void> {
+  const m = cat[id]!;
+  const c = await inspectContainer(m.container);
+  if (!c) throw new Error(`module ${id} non installe`);
+  if (c.Config.Labels?.[MANAGED_LABEL] !== "true") throw new Error(`un conteneur « ${m.container} » existe hors du superviseur : refus d'y toucher`);
+  await docker("POST", `/containers/${encodeURIComponent(m.container)}/restart`);
 }

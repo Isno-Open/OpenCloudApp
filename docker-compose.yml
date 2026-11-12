@@ -1,23 +1,9 @@
 # Stack cloud ISNO (open-core, auto-hebergeable).
-# Avant : ./scripts/gen-ca.sh <votre-domaine>  puis  cp .env.example .env
-# Ensuite : docker compose up -d --build, puis ouvrir https://<votre-domaine>/setup dans les 5 minutes.
-# La base se choisit dans /setup : SQLite embarque, MongoDB (installe a la demande par le superviseur),
-# ou MongoDB externe.
+#   cp .env.example .env   puis   docker compose up -d --build
+# puis ouvrir https://<votre-domaine>/setup dans les 5 minutes. Tout le reste se fait dans /setup :
+# nom du broker (son certificat est cree avec), base de donnees (SQLite embarque, MongoDB installe a
+# la demande, ou MongoDB externe). Le broker et MongoDB sont installes par le superviseur.
 services:
-  broker:
-    image: eclipse-mosquitto:2.0.22
-    container_name: isno-mqtt
-    restart: unless-stopped
-    ports:
-      - "${BROKER_PUBLIC_PORT:-8883}:8883"   # port public du broker (meme variable cote app)
-    volumes:
-      # lecture seule : le broker n'ecrit ni sa config ni ses certificats (et l'image ne reprend plus
-      # la propriete de ces dossiers du depot, ce qui bloquait les mises a jour git)
-      - ./config:/mosquitto/config:ro
-      - ./certs:/mosquitto/certs:ro
-      - broker-data:/mosquitto/data
-    networks: [stack]
-
   # Seul composant qui voit le socket Docker. Filtre : n'ouvre que images, conteneurs, volumes, reseaux,
   # creation et demarrage ; exec, build, system, swarm... restent fermes. Joignable par le seul superviseur.
   socket-proxy:
@@ -34,6 +20,7 @@ services:
       - POST=1
       - ALLOW_START=1
       - ALLOW_STOP=1
+      - ALLOW_RESTARTS=1
       - EXEC=0
       - BUILD=0
       - SYSTEM=0
@@ -50,6 +37,7 @@ services:
     environment:
       - STACK_NETWORK=isno-cloud-net
       - DOCKER_HOST=http://socket-proxy:2375
+      - BROKER_PUBLIC_PORT=${BROKER_PUBLIC_PORT:-8883}
       - MONGO_CACHE_GB=${MONGO_CACHE_GB:-0.25}
     volumes:
       - control:/control
@@ -67,18 +55,20 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8080
-      - CERTS_DIR=/certs
-      - BROKER_URL=mqtts://broker:8883
       - DB_PATH=/data/isno-cloud.db        # fichier SQLite si SQLite est choisi a l'installation
+      - PKI_DIR=/data/pki                   # CA et relais : prive au serveur (la cle de la CA ne sort pas d'ici)
+      - BROKER_CERTS_DIR=/broker-certs      # certificat du broker, partage avec lui
+      - BROKER_CONFIG_DIR=/broker-config    # mosquitto.conf + acl, partages avec lui
       - BROKER_PUBLIC_PORT=${BROKER_PUBLIC_PORT:-8883}
       - SUPERVISOR_URL=http://supervisor:8090
       - SUPERVISOR_TOKEN_FILE=/control/token
     volumes:
-      - ./certs:/certs
       - server-data:/data
       - control:/control:ro
+      - broker-certs:/broker-certs
+      - broker-config:/broker-config
     networks: [stack]
-    depends_on: [broker, supervisor]
+    depends_on: [supervisor]
 
 networks:
   stack:
@@ -87,6 +77,11 @@ networks:
     internal: true                         # pas de sortie, et l'app n'y est pas : seul le superviseur parle au filtre
 
 volumes:
-  broker-data:
   server-data:
   control:
+  # Ecrits par le serveur, montes en lecture seule par le broker (installe par le superviseur) :
+  # noms fixes, ceux du catalogue du superviseur.
+  broker-certs:
+    name: isno-broker-certs
+  broker-config:
+    name: isno-broker-config

@@ -4,9 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/server.js",
-    "test": "tsc -p tsconfig.test.json && node --test dist-test/*.test.js",
-    "test:e2e": "bash scripts/integration-test.sh"
+    "test": "tsc -p tsconfig.test.json && node --test dist-test/*.test.js"
   },
   "dependencies": {
     "mqtt": "5.16.1",

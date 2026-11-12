@@ -31,3 +31,8 @@ export async function streamJson(r: Response, onEvent: (ev: Record<string, unkno
     }
   }
 }
+
+export async function volumeExists(name: string): Promise<boolean> {
+  try { await docker("GET", `/volumes/${encodeURIComponent(name)}`); return true; }
+  catch (e) { if (e instanceof DockerError && e.status === 404) return false; throw e; }
+}

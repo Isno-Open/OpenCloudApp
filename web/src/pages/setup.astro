@@ -45,10 +45,9 @@ const windowMin = Math.round(SETUP_WINDOW_S / 60);
           <div class="module" id="modulePanel" hidden>
             <p class="note" id="moduleMsg">Vérification…</p>
             <div class="bar" id="moduleBarWrap" hidden><span id="moduleBar"></span></div>
-            <button type="button" class="btn primary" id="installBtn" hidden>Installer MongoDB</button>
           </div>
           <div class="field" id="mongoUrlField" hidden><label for="mongoUrl">URL Mongo</label><input id="mongoUrl" name="mongoUrl" type="text" placeholder="mongodb://utilisateur:motdepasse@hote:27017/isno_cloud" spellcheck="false" /></div>
-          <div class="testline"><button type="button" class="btn ghost" id="testBtn">Tester la connexion</button><span class="testmsg" id="testMsg"></span></div>
+          <div class="testline" id="testLine" hidden><button type="button" class="btn ghost" id="testBtn">Tester la connexion</button><span class="testmsg" id="testMsg"></span></div>
           <div class="row end"><button type="button" class="btn primary" data-next="1">Continuer</button></div>
         </section>
 
@@ -56,10 +55,11 @@ const windowMin = Math.round(SETUP_WINDOW_S / 60);
         <section class="step" data-step="2" hidden>
           <h3>Socle</h3>
           <div class="field"><label for="appHost">Nom d'hôte du portail</label><input id="appHost" name="appHost" type="text" placeholder="cloud.exemple.fr" spellcheck="false" autocapitalize="none" required /><span class="hint">L'adresse où vous êtes en ce moment.</span></div>
-          <div class="field"><label for="brokerHost">Nom d'hôte du broker MQTT</label><input id="brokerHost" name="brokerHost" type="text" placeholder="mqtt.exemple.fr" spellcheck="false" autocapitalize="none" required /><span class="hint" id="brokerHint">Celui inscrit dans le certificat du broker : les boîtiers n'en acceptent pas d'autre.</span></div>
-          <div class="testline"><button type="button" class="btn ghost" id="checkBtn">Vérifier les noms d'hôte</button></div>
+          <div class="field"><label for="brokerHost">Nom d'hôte du broker MQTT</label><input id="brokerHost" name="brokerHost" type="text" placeholder="mqtt.exemple.fr" spellcheck="false" autocapitalize="none" required /><span class="hint">Le nom sous lequel les boîtiers joindront le broker : public (Internet) ou réseau local. Son certificat sera créé avec ce nom.</span></div>
+          <div class="bar" id="brokerBarWrap" hidden><span id="brokerBar"></span></div>
           <ul class="checks" id="checks" hidden></ul>
           <div class="field"><label for="adminPassword">Mot de passe administrateur</label><input id="adminPassword" name="adminPassword" type="password" autocomplete="new-password" minlength="8" required /><span class="hint">8 caractères minimum. Compte <code>admin</code>, pour la connexion opérateur.</span></div>
+          <p class="note" id="finishMsg" hidden></p>
           <div class="row"><button type="button" class="btn ghost" data-prev="2">Retour</button><button type="submit" class="btn primary" id="finishBtn">Terminer et démarrer</button></div>
           <p class="formerr" id="formErr" hidden></p>
         </section>
@@ -115,128 +115,136 @@ const windowMin = Math.round(SETUP_WINDOW_S / 60);
     (function () {
       var form = document.getElementById('setupForm');
       if (!form) return;
-      var expired = document.getElementById('expired');
-      var done = false;
+      var $ = function (id) { return document.getElementById(id); };
+      var expired = $('expired'), done = false;
+      var post = function (url, body) {
+        return fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); });
+      };
+      var getJson = function (url) { return fetch(url).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); }); };
+
       // Compte a rebours de la fenetre : a zero, on bascule sur l'ecran « delai depasse ».
-      var deadline = Date.now() + remaining * 1000;
-      var cd = document.getElementById('countdown');
+      var deadline = Date.now() + remaining * 1000, cd = $('countdown');
       var tick = setInterval(function () {
         var left = Math.max(0, Math.round((deadline - Date.now()) / 1000));
         cd.textContent = Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
         if (left === 0 && !done) {
-          clearInterval(tick);
-          form.hidden = true; document.getElementById('windowBar').hidden = true;
+          clearInterval(tick); form.hidden = true; $('windowBar').hidden = true;
           document.querySelector('.steps').hidden = true; expired.hidden = false;
         }
       }, 1000);
+
       function show(n) {
         form.querySelectorAll('.step').forEach(function (s) { s.hidden = s.getAttribute('data-step') !== String(n); });
         document.querySelectorAll('.steps .st').forEach(function (d) { d.classList.toggle('active', d.getAttribute('data-dot') === String(Math.min(n, 2))); });
       }
       function kind() { var r = form.querySelector('input[name=kind]:checked'); return r ? r.getAttribute('data-k') : 'sqlite'; }
-      function dbPayload() { return { kind: KIND[kind()], mongoUrl: (document.getElementById('mongoUrl') || {}).value || '' }; }
-      // Module requis par le choix (Mongo fourni) : etat, installation par le superviseur, progression.
-      var moduleReady = true, poll = null;
-      var mp = document.getElementById('modulePanel'), mm = document.getElementById('moduleMsg');
-      var mbw = document.getElementById('moduleBarWrap'), mb = document.getElementById('moduleBar'), ib = document.getElementById('installBtn');
+      function dbPayload() { return { kind: KIND[kind()], mongoUrl: ($('mongoUrl') || {}).value || '' }; }
+
+      // Attend qu'un module soit pret en affichant sa progression (installation par le superviseur).
+      function waitModule(statusUrl, msgEl, barWrap, bar, label) {
+        return new Promise(function (resolve, reject) {
+          var tries = 0;
+          var iv = setInterval(function () {
+            tries++;
+            getJson(statusUrl).then(function (res) {
+              var m = res.d;
+              if (!res.ok) { clearInterval(iv); reject(m.error || 'superviseur indisponible'); return; }
+              if (m.ready) { clearInterval(iv); barWrap.hidden = true; resolve(m); return; }
+              if (m.error && !m.busy) { clearInterval(iv); reject(m.error); return; }
+              barWrap.hidden = false; bar.style.width = (m.progress || 0) + '%';
+              msgEl.textContent = 'Installation de ' + label + '… ' + (m.progress || 0) + ' %';
+              if (tries > 240) { clearInterval(iv); reject(label + ' ne démarre pas'); }
+            }).catch(function () {});
+          }, 1000);
+        });
+      }
+
+      // Etape 1 : on choisit ; « Continuer » verifie ou installe ce qu'il faut, puis passe a la suite.
       var next1 = form.querySelector('[data-next="1"]');
-      function renderModule(m) {
-        moduleReady = !!m.ready; next1.disabled = !moduleReady;
-        if (m.ready) { mm.textContent = '✓ ' + m.title + ' est installé et démarré.'; mbw.hidden = true; ib.hidden = true; return true; }
-        if (m.busy) { mm.textContent = 'Installation de ' + m.title + '… ' + m.progress + ' %'; mbw.hidden = false; mb.style.width = m.progress + '%'; ib.hidden = true; return false; }
-        mbw.hidden = true; ib.hidden = false; ib.disabled = false;
-        mm.textContent = m.error ? '✗ ' + m.error : m.title + " n'est pas encore installé sur ce serveur.";
-        return true;
-      }
-      function moduleError(e) { mm.textContent = '✗ ' + e; ib.hidden = true; moduleReady = false; next1.disabled = true; }
-      function checkModule() {
-        fetch('/api/setup/module?kind=' + encodeURIComponent(KIND[kind()]))
-          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
-          .then(function (res) {
-            if (!res.ok) { clearInterval(poll); poll = null; moduleError(res.d.error || 'superviseur indisponible'); return; }
-            if (renderModule(res.d) && poll) { clearInterval(poll); poll = null; }
-          })
-          .catch(function () { moduleError('erreur réseau'); });
-      }
-      ib.addEventListener('click', function () {
-        ib.disabled = true; mm.textContent = 'Démarrage de l\'installation…';
-        fetch('/api/setup/module', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ kind: KIND[kind()] }) })
-          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
-          .then(function (res) {
-            if (!res.ok) { moduleError(res.d.error || 'échec'); return; }
-            renderModule(res.d); if (!poll) poll = setInterval(checkModule, 1000);
-          })
-          .catch(function () { moduleError('erreur réseau'); });
-      });
+      var mp = $('modulePanel'), mm = $('moduleMsg');
       function onKind() {
         var k = kind();
-        document.getElementById('mongoUrlField').hidden = (k !== 'mongoExternal');
-        document.getElementById('testMsg').textContent = '';
-        if (poll) { clearInterval(poll); poll = null; }
-        if (k === 'mongoBundled') { mp.hidden = false; moduleReady = false; next1.disabled = true; mm.textContent = 'Vérification…'; checkModule(); }
-        else { mp.hidden = true; moduleReady = true; next1.disabled = false; }
+        $('mongoUrlField').hidden = (k !== 'mongoExternal');
+        $('testLine').hidden = (k !== 'mongoExternal');
+        $('testMsg').textContent = ''; mp.hidden = true;
       }
       form.querySelectorAll('input[name=kind]').forEach(function (r) { r.addEventListener('change', onKind); });
-      next1.addEventListener('click', function () { if (moduleReady) show(2); });
+      next1.addEventListener('click', function () {
+        var k = kind();
+        if (k === 'sqlite') { show(2); return; }
+        next1.disabled = true; mp.hidden = false;
+        var unlock = function (msg) { mm.textContent = '✗ ' + msg; next1.disabled = false; };
+        if (k === 'mongoExternal') {
+          mm.textContent = 'Test de la connexion…';
+          post('/api/setup/test-db', dbPayload()).then(function (res) {
+            if (res.d.ok) { mp.hidden = true; next1.disabled = false; show(2); } else unlock(res.d.error || 'connexion impossible');
+          }).catch(function () { unlock('erreur réseau'); });
+          return;
+        }
+        // MongoDB fourni : deja installe -> on passe ; sinon installation avec progression.
+        mm.textContent = 'Vérification de MongoDB…';
+        var statusUrl = '/api/setup/module?kind=' + encodeURIComponent(KIND[k]);
+        getJson(statusUrl).then(function (res) {
+          if (!res.ok) throw res.d.error || 'superviseur indisponible';
+          if (res.d.ready) return res.d;
+          return post('/api/setup/module', { kind: KIND[k] }).then(function (r2) {
+            if (!r2.ok) throw r2.d.error || 'installation impossible';
+            return waitModule(statusUrl, mm, $('moduleBarWrap'), $('moduleBar'), 'MongoDB');
+          });
+        }).then(function () { mm.textContent = '✓ MongoDB est installé et démarré.'; next1.disabled = false; setTimeout(function () { show(2); }, 600); })
+          .catch(function (e) { unlock(String(e)); });
+      });
+      $('testBtn').addEventListener('click', function () {
+        var msg = $('testMsg'); msg.className = 'testmsg'; msg.textContent = 'Test…';
+        post('/api/setup/test-db', dbPayload()).then(function (res) {
+          msg.className = 'testmsg ' + (res.d.ok ? 'ok' : 'err'); msg.textContent = res.d.ok ? '✓ connexion OK' : ('✗ ' + (res.d.error || 'échec'));
+        }).catch(function () { msg.className = 'testmsg err'; msg.textContent = '✗ erreur réseau'; });
+      });
       form.querySelector('[data-prev="2"]').addEventListener('click', function () { show(1); });
 
-      document.getElementById('testBtn').addEventListener('click', function () {
-        var msg = document.getElementById('testMsg'); msg.className = 'testmsg'; msg.textContent = 'Test…';
-        fetch('/api/setup/test-db', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(dbPayload()) })
-          .then(function (r) { return r.json(); })
-          .then(function (d) { msg.className = 'testmsg ' + (d.ok ? 'ok' : 'err'); msg.textContent = d.ok ? '✓ connexion OK' : ('✗ ' + (d.error || 'échec')); })
-          .catch(function () { msg.className = 'testmsg err'; msg.textContent = '✗ erreur réseau'; });
-      });
-
-      // Noms d'hote : pre-remplis (portail = ou l'on est ; broker = son certificat), puis verifies.
+      // Etape 2 : noms pre-remplis ; « Terminer » prepare le broker (certificat au nom choisi, installation
+      // ou redemarrage), verifie les deux noms jusqu'a cette instance, puis enregistre.
       var LABEL = { appFormat: 'Portail : format', appDns: 'Portail : DNS', appReach: 'Portail : joignable', brokerFormat: 'Broker : format', brokerCert: 'Broker : certificat', brokerDns: 'Broker : DNS', brokerPort: 'Broker : joignable' };
-      var checksEl = document.getElementById('checks');
+      var checksEl = $('checks'), fm = $('finishMsg'), err = $('formErr'), fb = $('finishBtn');
       function renderChecks(list) {
         checksEl.hidden = false; checksEl.textContent = '';
         list.forEach(function (c) { var li = document.createElement('li'); li.className = c.ok ? 'ok' : 'ko'; li.textContent = (c.ok ? '✓ ' : '✗ ') + (LABEL[c.check] || c.check) + ' : ' + c.detail; checksEl.appendChild(li); });
       }
-      fetch('/api/setup/defaults').then(function (r) { return r.json(); }).then(function (d) {
-        if (d.appHost && !document.getElementById('appHost').value) document.getElementById('appHost').value = d.appHost;
-        if (d.brokerHost && !document.getElementById('brokerHost').value) document.getElementById('brokerHost').value = d.brokerHost;
-        if (d.brokerCertNames && d.brokerCertNames.length) document.getElementById('brokerHint').textContent = 'Détecté dans le certificat du broker (port ' + d.brokerPort + ') : les boîtiers n\'acceptent pas d\'autre nom.';
+      getJson('/api/setup/defaults').then(function (res) {
+        if (res.d.appHost && !$('appHost').value) $('appHost').value = res.d.appHost;
+        if (res.d.brokerHost && !$('brokerHost').value) $('brokerHost').value = res.d.brokerHost;
       }).catch(function () {});
-      document.getElementById('checkBtn').addEventListener('click', function () {
-        var b = this; b.disabled = true; checksEl.hidden = false; checksEl.textContent = 'Vérification…';
-        fetch('/api/setup/check-hosts', { method: 'POST', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ appHost: document.getElementById('appHost').value, brokerHost: document.getElementById('brokerHost').value }) })
-          .then(function (r) { return r.json(); })
-          .then(function (d) { if (d.checks) renderChecks(d.checks); else checksEl.textContent = '✗ ' + (d.error || 'échec'); })
-          .catch(function () { checksEl.textContent = '✗ erreur réseau'; })
-          .finally(function () { b.disabled = false; });
-      });
 
       form.addEventListener('submit', function (e) {
         e.preventDefault();
-        var err = document.getElementById('formErr'); err.hidden = true;
-        var db = dbPayload();
-        var payload = {
-          kind: db.kind, mongoUrl: db.mongoUrl,
-          appHost: document.getElementById('appHost').value.trim(),
-          brokerHost: document.getElementById('brokerHost').value.trim(),
-          adminPassword: document.getElementById('adminPassword').value,
-        };
-        document.getElementById('finishBtn').disabled = true;
-        fetch('/api/setup/save', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
-          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
-          .then(function (res) {
-            if (!res.ok) { if (res.d.checks) renderChecks(res.d.checks); err.hidden = false; err.textContent = res.d.error || 'Échec'; document.getElementById('finishBtn').disabled = false; return; }
-            done = true; clearInterval(tick); document.getElementById('windowBar').hidden = true;
-            show(3);
-            var tries = 0;
-            var iv = setInterval(function () {
-              tries++;
-              fetch('/api/setup/status').then(function (r) { return r.json(); }).then(function (d) {
-                if (d.configured) { clearInterval(iv); location.href = '/connexion?local=1'; }
-              }).catch(function () {});
-              if (tries > 40) { clearInterval(iv); location.href = '/connexion?local=1'; }
-            }, 1500);
-          })
-          .catch(function () { err.hidden = false; err.textContent = 'Erreur réseau'; document.getElementById('finishBtn').disabled = false; });
+        err.hidden = true; checksEl.hidden = true; fb.disabled = true; fm.hidden = false;
+        var fail = function (msg) { fm.hidden = true; err.hidden = false; err.textContent = msg; fb.disabled = false; };
+        var hosts = { appHost: $('appHost').value.trim(), brokerHost: $('brokerHost').value.trim() };
+        fm.textContent = 'Préparation du broker (certificat au nom ' + hosts.brokerHost + ')…';
+        post('/api/setup/broker', { brokerHost: hosts.brokerHost }).then(function (res) {
+          if (!res.ok) throw res.d.error || 'préparation du broker impossible';
+          if (res.d.ready) return res.d;
+          return waitModule('/api/setup/broker', fm, $('brokerBarWrap'), $('brokerBar'), 'broker');
+        }).then(function () {
+          fm.textContent = 'Vérification des noms d\'hôte…';
+          return new Promise(function (r) { setTimeout(r, 2000); }).then(function () { return post('/api/setup/check-hosts', hosts); });
+        }).then(function (res) {
+          if (res.d.checks) renderChecks(res.d.checks);
+          if (!res.d.ok) throw 'Un nom ne mène pas à cette instance : voir le détail ci-dessus.';
+          fm.textContent = 'Enregistrement…';
+          var db = dbPayload();
+          return post('/api/setup/save', { kind: db.kind, mongoUrl: db.mongoUrl, appHost: hosts.appHost, brokerHost: hosts.brokerHost, adminPassword: $('adminPassword').value });
+        }).then(function (res) {
+          if (!res.ok) { if (res.d.checks) renderChecks(res.d.checks); throw res.d.error || 'Échec'; }
+          done = true; clearInterval(tick); $('windowBar').hidden = true; show(3);
+          var tries = 0;
+          var iv = setInterval(function () {
+            tries++;
+            getJson('/api/setup/status').then(function (r) { if (r.d.configured) { clearInterval(iv); location.href = '/connexion?local=1'; } }).catch(function () {});
+            if (tries > 40) { clearInterval(iv); location.href = '/connexion?local=1'; }
+          }, 1500);
+        }).catch(function (e) { fail(String(e)); });
       });
 
       show(1);

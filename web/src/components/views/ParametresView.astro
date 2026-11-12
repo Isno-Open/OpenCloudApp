@@ -1,6 +1,7 @@
 ---
 // Ecran operateur : la configuration de l'instance (choix fait a l'installation). La base est en lecture
-// seule (changer de store se fait par une reinstallation) ; les URLs publiques sont modifiables.
+// seule (changer de store se fait par une reinstallation). Les noms publics aussi pour l'instant : les
+// changer demande de reemettre le certificat du broker et de reverifier (meme parcours que /setup).
 import { loadConfig, DB_KIND } from '@core/config.js';
 import { t, type Lang } from '../../lib/i18n.ts';
 interface Props { lang: Lang; }
@@ -17,22 +18,7 @@ const dbLabel = cfg?.db.kind === DB_KIND.mongoExternal ? s.dbMongoExternal
   <div class="kv"><span class="k">{s.dbKindLabel}</span><span class="v">{dbLabel} <span class="ro">{s.readonly}</span></span></div>
 </div>
 
-<form class="panel" id="settingsForm" style="margin-top:.9rem">
-  <div class="field"><label for="st-app">{s.publicUrlLabel}</label><input id="st-app" name="publicAppUrl" type="url" value={cfg?.publicAppUrl ?? ''} required /></div>
-  <div class="field"><label for="st-broker">{s.brokerUrlLabel}</label><input id="st-broker" name="brokerPublicUrl" type="text" value={cfg?.brokerPublicUrl ?? ''} required /></div>
-  <div class="row end" style="margin-top:.4rem"><button class="btn primary" type="submit">{s.saveSettingsBtn}</button><span class="savemsg" id="stMsg"></span></div>
-</form>
-
-<script is:inline define:vars={{ okMsg: s.settingsSaved, errMsg: s.settingsError }}>
-  (function () {
-    var form = document.getElementById('settingsForm');
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      var msg = document.getElementById('stMsg'); msg.className = 'savemsg';
-      fetch('/api/settings/update', { method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ publicAppUrl: document.getElementById('st-app').value.trim(), brokerPublicUrl: document.getElementById('st-broker').value.trim() }) })
-        .then(function (r) { msg.className = 'savemsg ' + (r.ok ? 'ok' : 'err'); msg.textContent = r.ok ? okMsg : errMsg; })
-        .catch(function () { msg.className = 'savemsg err'; msg.textContent = errMsg; });
-    });
-  })();
-</script>
+<div class="panel" style="margin-top:.9rem">
+  <div class="kv"><span class="k">{s.publicUrlLabel}</span><span class="v">{cfg?.publicAppUrl ?? ''} <span class="ro">{s.readonly}</span></span></div>
+  <div class="kv"><span class="k">{s.brokerUrlLabel}</span><span class="v">{cfg?.brokerPublicUrl ?? ''} <span class="ro">{s.readonly}</span></span></div>
+</div>

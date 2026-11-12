@@ -1,28 +1,26 @@
 // Noms d'hote publics de l'instance : valeurs proposees a l'installation et verification qu'ils existent.
 // Le portail se demande en NOM D'HOTE seulement (le protocole vient de la requete) ; le broker aussi (son
 // port est BROKER_PUBLIC_PORT, la meme variable que la redirection de port du compose).
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { X509Certificate, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
+import { isIP } from 'node:net';
+import { brokerCertNames, brokerCertFingerprint } from '@core/pki.js';
 import { lookup } from 'node:dns/promises';
 import { connect as tlsConnect } from 'node:tls';
 
-const CERTS_DIR = process.env.CERTS_DIR ?? '/certs';
 export const BROKER_PUBLIC_PORT = Number(process.env.BROKER_PUBLIC_PORT ?? 8883);
 
 /** Identifiant aleatoire de CE process : prouve qu'une URL publique mene bien a cette instance. */
 export const INSTANCE_NONCE = randomBytes(16).toString('hex');
 
-// Noms internes du certificat du broker (reseau de la pile), jamais un nom public.
-const INTERNAL_NAMES = new Set(['broker', 'localhost']);
-
-/** Noms DNS publics inscrits dans le certificat du broker (SAN), dans l'ordre. */
-export function brokerCertNames(): string[] {
-  try {
-    const san = new X509Certificate(readFileSync(join(CERTS_DIR, 'server.crt'))).subjectAltName ?? '';
-    return san.split(',').map((s) => s.trim()).filter((s) => s.startsWith('DNS:')).map((s) => s.slice(4).toLowerCase())
-      .filter((n) => !INTERNAL_NAMES.has(n));
-  } catch { return []; }
+/** Nom propose pour le broker : celui de son certificat s'il existe deja, sinon derive du nom du
+ *  portail (app.exemple.fr -> mqtt.exemple.fr ; une IP ou un nom court -> le meme). Modifiable. */
+export function suggestBrokerHost(appHost: string): string {
+  const fromCert = brokerCertNames()[0];
+  if (fromCert) return fromCert;
+  const h = appHost.replace(/:\d+$/, '');
+  if (isIP(h) || !h.includes('.')) return h;
+  const labels = h.split('.');
+  return 'mqtt.' + (labels.length > 2 ? labels.slice(1) : labels).join('.');
 }
 
 // nom d'hote, eventuellement suivi d'un port (cas d'une instance de test sur un port local)
@@ -39,14 +37,13 @@ export const HOST_CHECK = {
 export type HostCheck = (typeof HOST_CHECK)[keyof typeof HOST_CHECK];
 export type CheckResult = { check: HostCheck; ok: boolean; detail: string };
 
-/** Empreinte du certificat de NOTRE broker (fichier local). */
-const localBrokerFingerprint = (): string | null => {
-  try { return new X509Certificate(readFileSync(join(CERTS_DIR, 'server.crt'))).fingerprint256; } catch { return null; }
-};
 /** Ouvre une connexion TLS vers host:port et rend l'empreinte du certificat presente (null si injoignable).
  *  Le broker exige un certificat client, mais il presente le sien avant : c'est lui qu'on compare. */
 const remoteFingerprint = (host: string, port: number, ms = 5000): Promise<string | null> => new Promise((res) => {
-  const s = tlsConnect({ host, port, servername: host, rejectUnauthorized: false });
+  // le nom TLS (SNI) ne peut pas etre une IP : on ne l'envoie que pour un nom DNS (cas d'un reseau local par IP)
+  let s: ReturnType<typeof tlsConnect>;
+  try { s = tlsConnect({ host, port, ...(isIP(host) ? {} : { servername: host }), rejectUnauthorized: false }); }
+  catch { res(null); return; }
   const done = (v: string | null) => { s.destroy(); res(v); };
   s.setTimeout(ms, () => done(null));
   s.once('secureConnect', () => done(s.getPeerX509Certificate()?.fingerprint256 ?? null));
@@ -59,7 +56,8 @@ const resolves = async (host: string): Promise<string | null> => {
 /** Verifie les deux noms ; chaque point est rendu, pour un message precis en cas d'echec. */
 export async function checkHosts(appHost: string, brokerHost: string, scheme: string): Promise<{ ok: boolean; checks: CheckResult[] }> {
   const checks: CheckResult[] = [];
-  const app = normalizeHost(appHost), broker = normalizeHost(brokerHost);
+  // le port du broker est BROKER_PUBLIC_PORT : un port saisi dans son nom est ignore
+  const app = normalizeHost(appHost), broker = normalizeHost(brokerHost)?.replace(/:\d+$/, '') ?? null;
   checks.push({ check: HOST_CHECK.appFormat, ok: !!app, detail: app ?? 'nom d\'hôte invalide' });
   checks.push({ check: HOST_CHECK.brokerFormat, ok: !!broker, detail: broker ?? 'nom d\'hôte invalide' });
   if (app) {
@@ -81,11 +79,11 @@ export async function checkHosts(appHost: string, brokerHost: string, scheme: st
     const inCert = names.includes(broker);
     checks.push({ check: HOST_CHECK.brokerCert, ok: inCert, detail: inCert ? 'présent dans le certificat du broker'
       : names.length ? `absent du certificat (qui contient : ${names.join(', ')})` : 'certificat du broker introuvable' });
-    const ip = await resolves(broker);
+    const ip = await resolves(broker.replace(/:\d+$/, ''));
     checks.push({ check: HOST_CHECK.brokerDns, ok: !!ip, detail: ip ? `résout vers ${ip}` : 'ne se résout pas (DNS)' });
     if (ip) {
       // preuve que le nom mene a NOTRE broker : le certificat presente doit etre le notre
-      const remote = await remoteFingerprint(broker, BROKER_PUBLIC_PORT), local = localBrokerFingerprint();
+      const remote = await remoteFingerprint(broker, BROKER_PUBLIC_PORT), local = brokerCertFingerprint();
       const same = !!remote && remote === local;
       checks.push({ check: HOST_CHECK.brokerPort, ok: same, detail: !remote ? `port ${BROKER_PUBLIC_PORT} injoignable ou fermé`
         : same ? `${broker}:${BROKER_PUBLIC_PORT} mène bien au broker de cette instance` : `${broker}:${BROKER_PUBLIC_PORT} répond, mais avec un AUTRE certificat (autre serveur)` });

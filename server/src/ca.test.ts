@@ -8,7 +8,7 @@ const dir = mkdtempSync(join(tmpdir(), "isno-ca-"));
 execFileSync("openssl", ["genrsa", "-out", join(dir, "ca.key"), "2048"], { stdio: "ignore" });
 execFileSync("openssl", ["req", "-x509", "-new", "-nodes", "-key", join(dir, "ca.key"), "-sha256",
   "-days", "3650", "-subj", "/CN=Test CA", "-out", join(dir, "ca.crt")], { stdio: "ignore" });
-process.env.CERTS_DIR = dir;
+process.env.PKI_DIR = dir;
 const { issueDeviceCert } = await import("./ca.js");
 
 test("issueDeviceCert émet un bundle CA + cert + clé", () => {

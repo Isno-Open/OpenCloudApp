@@ -26,3 +26,7 @@ async function call(method: string, path: string): Promise<SupervisorResult> {
 
 export const getModule = (id: string): Promise<SupervisorResult> => call('GET', `/modules/${encodeURIComponent(id)}`);
 export const installModule = (id: string): Promise<SupervisorResult> => call('POST', `/modules/${encodeURIComponent(id)}/install`);
+export const restartModule = (id: string): Promise<SupervisorResult> => call('POST', `/modules/${encodeURIComponent(id)}/restart`);
+
+/** Module obligatoire de la pile : le broker (identifiant du catalogue du superviseur). */
+export const BROKER_MODULE = 'broker';
