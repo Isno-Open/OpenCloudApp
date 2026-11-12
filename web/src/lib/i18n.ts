@@ -41,6 +41,16 @@ interface S {
   logoutTitle: string; logoutNote: string; logoutBtn: string;
   // connexion
   signInTitle: string; signInUser: string; signInPass: string; signInBtn: string; signInError: string;
+  // nav admin (operateur)
+  adminNav: { utilisateurs: string; parametres: string };
+  // vue utilisateurs (admin)
+  usersTitle: string; usersLead: string; userNewTitle: string; userLogin: string; userPassword: string; userCap: string;
+  userMakeAdmin: string; createUserBtn: string; usersListTitle: string; colLogin: string; colRole: string; colCap: string; colDevices: string;
+  roleAdmin: string; roleUser: string; youTag: string; removeUser: string; confirmRemoveUser: (id: string) => string;
+  createUserError: string; removeUserError: string;
+  // vue parametres (admin)
+  settingsTitle: string; settingsLead: string; dbKindLabel: string; dbSqlite: string; dbMongoBundled: string; dbMongoExternal: string;
+  publicUrlLabel: string; brokerUrlLabel: string; saveSettingsBtn: string; settingsSaved: string; settingsError: string;
 }
 
 export const STRINGS = {
@@ -75,6 +85,18 @@ export const STRINGS = {
     address: 'Adresse', connection: 'Connexion', boxesWord: 'Appareils',
     logoutTitle: 'Se déconnecter', logoutNote: 'Ferme la session sur cet appareil.', logoutBtn: 'Déconnexion',
     signInTitle: 'Connexion', signInUser: 'Compte', signInPass: 'Mot de passe', signInBtn: 'Entrer', signInError: 'Identifiants invalides.',
+    adminNav: { utilisateurs: 'utilisateurs', parametres: 'paramètres' },
+    usersTitle: 'Utilisateurs', usersLead: 'Créez et gérez les comptes qui pilotent des appareils sur ce portail.',
+    userNewTitle: 'Nouvel utilisateur', userLogin: 'Identifiant', userPassword: 'Mot de passe', userCap: "Plafond d'appareils",
+    userMakeAdmin: 'Opérateur (accès Paramètres et Utilisateurs)', createUserBtn: 'Créer', usersListTitle: 'Comptes',
+    colLogin: 'Identifiant', colRole: 'Rôle', colCap: 'Plafond', colDevices: 'Appareils',
+    roleAdmin: 'opérateur', roleUser: 'utilisateur', youTag: 'vous', removeUser: 'Supprimer',
+    confirmRemoveUser: (id) => `Supprimer le compte « ${id} » et ses appareils ?`,
+    createUserError: 'Création impossible (identifiant déjà pris ou champ invalide).', removeUserError: 'Suppression impossible.',
+    settingsTitle: 'Paramètres', settingsLead: "Configuration de l'instance, définie à l'installation.",
+    dbKindLabel: 'Base de données', dbSqlite: 'SQLite (embarqué)', dbMongoBundled: 'MongoDB (fourni)', dbMongoExternal: 'MongoDB (externe)',
+    publicUrlLabel: 'URL publique du portail', brokerUrlLabel: 'URL publique du broker MQTT',
+    saveSettingsBtn: 'Enregistrer', settingsSaved: 'Enregistré.', settingsError: 'Enregistrement impossible.',
   },
   [LANG.en]: {
     brandAria: 'ISNO Cloud, home', themeToggle: 'Toggle light / dark theme', menu: 'Menu',
@@ -107,6 +129,18 @@ export const STRINGS = {
     address: 'Address', connection: 'Sign-in', boxesWord: 'Devices',
     logoutTitle: 'Sign out', logoutNote: 'Closes the session on this device.', logoutBtn: 'Sign out',
     signInTitle: 'Sign in', signInUser: 'Account', signInPass: 'Password', signInBtn: 'Enter', signInError: 'Invalid credentials.',
+    adminNav: { utilisateurs: 'users', parametres: 'settings' },
+    usersTitle: 'Users', usersLead: 'Create and manage the accounts that control devices on this portal.',
+    userNewTitle: 'New user', userLogin: 'Login', userPassword: 'Password', userCap: 'Device limit',
+    userMakeAdmin: 'Operator (access to Settings and Users)', createUserBtn: 'Create', usersListTitle: 'Accounts',
+    colLogin: 'Login', colRole: 'Role', colCap: 'Limit', colDevices: 'Devices',
+    roleAdmin: 'operator', roleUser: 'user', youTag: 'you', removeUser: 'Remove',
+    confirmRemoveUser: (id) => `Delete account “${id}” and its devices?`,
+    createUserError: 'Could not create (login already taken or invalid field).', removeUserError: 'Could not remove.',
+    settingsTitle: 'Settings', settingsLead: 'Instance configuration, set at install time.',
+    dbKindLabel: 'Database', dbSqlite: 'SQLite (embedded)', dbMongoBundled: 'MongoDB (bundled)', dbMongoExternal: 'MongoDB (external)',
+    publicUrlLabel: 'Public portal URL', brokerUrlLabel: 'Public MQTT broker URL',
+    saveSettingsBtn: 'Save', settingsSaved: 'Saved.', settingsError: 'Could not save.',
   },
 } satisfies Record<Lang, S>;
 
@@ -131,6 +165,8 @@ export const ROUTES = {
   ajouter: { [LANG.fr]: '/ajouter', [LANG.en]: '/en/add' },
   compte: { [LANG.fr]: '/compte', [LANG.en]: '/en/account' },
   connexion: { [LANG.fr]: '/connexion', [LANG.en]: '/en/sign-in' },
+  utilisateurs: { [LANG.fr]: '/utilisateurs', [LANG.en]: '/en/users' },
+  parametres: { [LANG.fr]: '/parametres', [LANG.en]: '/en/settings' },
 } satisfies Record<string, Record<Lang, string>>;
 /** URL de configuration d'un appareil (le chemin reste /boitier pour l'historique des liens). */
 export const appareilHref = (id: string, lang: Lang): string => (lang === LANG.en ? `/en/box/${id}` : `/boitier/${id}`);
@@ -142,5 +178,14 @@ export function navItems(lang: Lang) {
     { href: ROUTES.appareils[lang], label: s.nav.appareils, active: (p: string) => p === ROUTES.appareils[lang] || p.startsWith(lang === LANG.en ? '/en/box' : '/boitier') },
     { href: ROUTES.ajouter[lang], label: s.nav.ajouter, active: (p: string) => p === ROUTES.ajouter[lang] },
     { href: ROUTES.compte[lang], label: s.nav.compte, active: (p: string) => p === ROUTES.compte[lang] },
+  ];
+}
+
+/** Items de nav reserves a l'operateur (admin) : ajoutes au menu quand le compte courant est admin. */
+export function adminNavItems(lang: Lang) {
+  const s = t(lang);
+  return [
+    { href: ROUTES.utilisateurs[lang], label: s.adminNav.utilisateurs, active: (p: string) => p === ROUTES.utilisateurs[lang] },
+    { href: ROUTES.parametres[lang], label: s.adminNav.parametres, active: (p: string) => p === ROUTES.parametres[lang] },
   ];
 }

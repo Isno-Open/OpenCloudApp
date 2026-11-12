@@ -10,7 +10,7 @@ mkdirSync(dirname(DB_PATH), { recursive: true });
 const db = new Database(DB_PATH);
 db.pragma("journal_mode = WAL");
 db.exec(`
-  CREATE TABLE IF NOT EXISTS accounts (id TEXT PRIMARY KEY, device_cap INTEGER NOT NULL DEFAULT 5, pass_hash TEXT);
+  CREATE TABLE IF NOT EXISTS accounts (id TEXT PRIMARY KEY, device_cap INTEGER NOT NULL DEFAULT 5, pass_hash TEXT, admin INTEGER NOT NULL DEFAULT 0);
   CREATE TABLE IF NOT EXISTS devices (device_id TEXT PRIMARY KEY, account_id TEXT NOT NULL, name TEXT NOT NULL, firmware TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS pairings (code TEXT PRIMARY KEY, account_id TEXT NOT NULL, device_id TEXT NOT NULL, name TEXT NOT NULL, used INTEGER NOT NULL DEFAULT 0);
   CREATE TABLE IF NOT EXISTS device_auth (
@@ -18,12 +18,35 @@ db.exec(`
     state TEXT NOT NULL, account_id TEXT, name TEXT, expires_at INTEGER NOT NULL
   );
 `);
-db.prepare("INSERT OR IGNORE INTO accounts (id, device_cap) VALUES ('admin', 5)").run();
+// Migration : ajoute la colonne admin aux bases d'avant le role operateur, puis marque 'admin' operateur.
+const accountCols = db.prepare("PRAGMA table_info(accounts)").all() as { name: string }[];
+if (!accountCols.some((c) => c.name === "admin")) db.exec("ALTER TABLE accounts ADD COLUMN admin INTEGER NOT NULL DEFAULT 0");
+db.prepare("INSERT OR IGNORE INTO accounts (id, device_cap, admin) VALUES ('admin', 5, 1)").run();
+db.prepare("UPDATE accounts SET admin = 1 WHERE id = 'admin'").run();
+
+const rowToAccount = (r: { id: string; deviceCap: number; passHash: string | null; admin: number } | undefined): Account | null =>
+  r ? { id: r.id, deviceCap: r.deviceCap, passHash: r.passHash, admin: !!r.admin } : null;
 
 export function init(): Promise<void> { return Promise.resolve(); }
 export function getAccount(id: string): Promise<Account | null> {
-  const r = db.prepare("SELECT id, device_cap AS deviceCap, pass_hash AS passHash FROM accounts WHERE id = ?").get(id) as Account | undefined;
-  return Promise.resolve(r ?? null);
+  const r = db.prepare("SELECT id, device_cap AS deviceCap, pass_hash AS passHash, admin FROM accounts WHERE id = ?").get(id) as { id: string; deviceCap: number; passHash: string | null; admin: number } | undefined;
+  return Promise.resolve(rowToAccount(r));
+}
+export function createAccount(id: string, passHash: string, cap: number, admin: boolean): Promise<void> {
+  db.prepare("INSERT INTO accounts (id, device_cap, pass_hash, admin) VALUES (?,?,?,?)").run(id, cap, passHash, admin ? 1 : 0);
+  return Promise.resolve();
+}
+export function listAccounts(): Promise<Account[]> {
+  const rows = db.prepare("SELECT id, device_cap AS deviceCap, pass_hash AS passHash, admin FROM accounts ORDER BY admin DESC, id").all() as { id: string; deviceCap: number; passHash: string | null; admin: number }[];
+  return Promise.resolve(rows.map((r) => ({ id: r.id, deviceCap: r.deviceCap, passHash: r.passHash, admin: !!r.admin })));
+}
+export function removeAccount(id: string): Promise<void> {
+  const tx = db.transaction((a: string) => {
+    db.prepare("DELETE FROM devices WHERE account_id = ?").run(a);
+    db.prepare("DELETE FROM accounts WHERE id = ?").run(a);
+  });
+  tx(id);
+  return Promise.resolve();
 }
 export function setAccountPass(id: string, passHash: string): Promise<void> {
   db.prepare("UPDATE accounts SET pass_hash = ? WHERE id = ?").run(passHash, id); return Promise.resolve();

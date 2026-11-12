@@ -47,6 +47,26 @@ test("ensureAccount : provisionne au plafond donné, idempotent", async () => {
   await s.ensureAccount("sso-user", 99);   // ne réécrit pas un compte existant
   assert.equal((await s.getAccount("sso-user"))?.deviceCap, 5);
 });
+test("comptes : admin semé est opérateur ; createAccount crée un utilisateur simple", async () => {
+  assert.equal((await s.getAccount("admin"))?.admin, true);
+  await s.createAccount("alice", "SEL:H", 3, false);
+  const a = await s.getAccount("alice");
+  assert.equal(a?.admin, false);
+  assert.equal(a?.deviceCap, 3);
+});
+test("comptes : listAccounts rend les comptes, opérateur en tête", async () => {
+  const ids = (await s.listAccounts()).map((a) => a.id);
+  assert.ok(ids.includes("admin") && ids.includes("alice"));
+  assert.equal((await s.listAccounts())[0]?.admin, true);
+});
+test("comptes : removeAccount supprime le compte ET ses appareils", async () => {
+  await s.createAccount("bob", "SEL:H", 5, false);
+  await s.addDevice({ deviceId: "bob-dev", accountId: "bob", name: "V", firmware: "openprofalux" });
+  assert.equal(await s.countDevices("bob"), 1);
+  await s.removeAccount("bob");
+  assert.equal(await s.getAccount("bob"), null);
+  assert.equal(await s.countDevices("bob"), 0);
+});
 test("claimDevice : ré-enrôlement du même compte OK, autre compte refusé", async () => {
   assert.equal(await s.claimDevice("dev-claim", "admin", "N1", "openprofalux"), true);
   assert.equal(await s.claimDevice("dev-claim", "admin", "N2", "openprofalux"), true);   // ré-enrôlement : met à jour

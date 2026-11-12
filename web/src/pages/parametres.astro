@@ -1,0 +1,12 @@
+---
+import CloudLayout from '../layouts/CloudLayout.astro';
+import ParametresView from '../components/views/ParametresView.astro';
+import { requireAdmin } from '../server/auth.ts';
+import { LANG, ROUTES, t } from '../lib/i18n.ts';
+const lang = LANG.fr;
+const acc = await requireAdmin(Astro.request);
+if (!acc) return Astro.redirect(ROUTES.appareils[lang]);
+---
+<CloudLayout title={`${t(lang).settingsTitle} · ISNO Cloud`} lang={lang} altUrl={ROUTES.parametres[LANG.en]}>
+  <ParametresView lang={lang} />
+</CloudLayout>

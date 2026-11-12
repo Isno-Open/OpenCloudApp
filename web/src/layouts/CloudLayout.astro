@@ -3,7 +3,8 @@
 // + bilingue (FR/EN) comme le site. On consomme l'identité (tokens), pas le BaseLayout marketing.
 import '../styles/tokens.css';
 import '../styles/cloud.css';
-import { otherLang, navItems, t, type Lang } from '../lib/i18n.ts';
+import { otherLang, navItems, adminNavItems, t, type Lang } from '../lib/i18n.ts';
+import { currentAccount } from '../server/auth.ts';
 
 // Drapeaux du selecteur de langue, identiques au site isno.fr (BaseLayout).
 const FLAG: Record<Lang, string> = {
@@ -16,7 +17,9 @@ const { title = 'ISNO Cloud', lang, altUrl } = Astro.props;
 const s = t(lang);
 const other = otherLang(lang);
 const path = Astro.url.pathname;
-const nav = navItems(lang);
+// Nav : items standards + items operateur quand le compte courant est admin.
+const account = await currentAccount(Astro.request);
+const nav = [...navItems(lang), ...(account?.admin ? adminNavItems(lang) : [])];
 ---
 <!doctype html>
 <html lang={lang}>

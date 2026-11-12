@@ -18,9 +18,21 @@ export async function init(): Promise<void> {
   await pairings().createIndex({ code: 1 }, { unique: true });
   await deviceAuth().createIndex({ deviceCode: 1 }, { unique: true });
   await deviceAuth().createIndex({ userCode: 1 }, { unique: true });
-  await accounts().updateOne({ id: "admin" }, { $setOnInsert: { id: "admin", deviceCap: 5, passHash: null } }, { upsert: true });
+  await accounts().updateOne({ id: "admin" }, { $setOnInsert: { id: "admin", deviceCap: 5, passHash: null, admin: true } }, { upsert: true });
 }
-export const getAccount = (id: string): Promise<Account | null> => accounts().findOne({ id }, { projection: { _id: 0 } });
+const withAdmin = (a: Account | null): Account | null => (a ? { ...a, admin: a.admin ?? false } : null);
+export const getAccount = (id: string): Promise<Account | null> => accounts().findOne({ id }, { projection: { _id: 0 } }).then(withAdmin);
+export async function createAccount(id: string, passHash: string, cap: number, admin: boolean): Promise<void> {
+  await accounts().insertOne({ id, deviceCap: cap, passHash, admin });
+}
+export async function listAccounts(): Promise<Account[]> {
+  const rows = await accounts().find({}, { projection: { _id: 0 } }).toArray();
+  return rows.map((a) => ({ ...a, admin: a.admin ?? false })).sort((x, y) => Number(y.admin) - Number(x.admin) || x.id.localeCompare(y.id));
+}
+export async function removeAccount(id: string): Promise<void> {
+  await devices().deleteMany({ accountId: id });
+  await accounts().deleteOne({ id });
+}
 export async function setAccountPass(id: string, passHash: string): Promise<void> { await accounts().updateOne({ id }, { $set: { passHash } }); }
 export const countDevices = (accountId: string): Promise<number> => devices().countDocuments({ accountId });
 export const listDevices = (accountId: string): Promise<Device[]> => devices().find({ accountId }, { projection: { _id: 0 } }).toArray();
