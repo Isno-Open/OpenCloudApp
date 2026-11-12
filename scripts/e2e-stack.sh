@@ -99,11 +99,12 @@ h=hmac.new(sec,struct.pack('>Q',step),hashlib.sha1).digest(); o=h[-1]&15
 print(str((struct.unpack('>I',h[o:o+4])[0]&0x7fffffff)%1000000).zfill(6))
 PY
 }
-setsec() { curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' -d "$1" "$B/api/settings/security"; }
+# reglages du plugin « Comptes locaux », par l'ecran generique des plugins (valeurs du formulaire declare)
+setsec() { curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' -d "{\"id\":\"local-accounts\",\"values\":$1}" "$B/api/settings/plugin"; }
 login() { curl -s -o /dev/null -w '%{redirect_url}' -c "${3:-/dev/null}" -X POST --data-urlencode "user=$1" --data-urlencode "pass=$2" "$B/api/login"; }
 chk "nom du portail enregistre" "$(curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' -d '{"appName":"Maison Durand"}' "$B/api/settings/general")" 200
 chk "nom du portail dans le titre" "$(curl -s -b "$J" "$B/parametres" | grep -c '<title>Paramètres · Maison Durand</title>')" 1
-chk "reglages de securite enregistres" "$(setsec '{"lockoutEnabled":true,"maxFailures":3,"lockMinutes":1,"totp":"optional","passwordMinLength":12}')" 200
+chk "reglages de securite enregistres" "$(setsec '{"lockoutEnabled":true,"lockoutMaxFailures":3,"lockoutMinutes":1,"totp":"optional","passwordMinLength":12}')" 200
 chk "regle de mot de passe : 10 caracteres refuses (minimum 12)" "$(curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' -d '{"email":"bob@exemple.fr","name":"Bob","password":"court12345","cap":5}' "$B/api/user/new")" 400
 chk "compte bob cree (mot de passe conforme)" "$(curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' -d '{"email":"bob@exemple.fr","name":"Bob","password":"bob-mot-de-passe","cap":5}' "$B/api/user/new")" 200
 for _ in 1 2; do login bob@exemple.fr faux >/dev/null; done
@@ -111,12 +112,12 @@ chk "3e echec : compte bloque" "$(login bob@exemple.fr faux | grep -c 'e=locked'
 chk "bloque : meme le bon mot de passe est refuse" "$(login bob@exemple.fr bob-mot-de-passe | grep -c 'e=locked')" 1
 chk "l'operateur debloque bob" "$(curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' -d '{"id":"bob@exemple.fr"}' "$B/api/user/unlock")" 200
 JB="$WORK/jar-bob"; chk "bob se connecte apres deblocage" "$(login bob@exemple.fr bob-mot-de-passe "$JB")" "$B/"
-chk "captcha active" "$(setsec '{"captcha":true,"lockoutEnabled":true,"maxFailures":3,"lockMinutes":1,"totp":"optional","passwordMinLength":12}')" 200
+chk "captcha active" "$(setsec '{"captcha":true,"lockoutEnabled":true,"lockoutMaxFailures":3,"lockoutMinutes":1,"totp":"optional","passwordMinLength":12}')" 200
 chk "captcha : connexion sans le code refusee" "$(login bob@exemple.fr bob-mot-de-passe | grep -c 'e=captcha')" 1
 PAGE=$(curl -s "$B/connexion?local=1"); TOK=$(echo "$PAGE" | grep -o 'name="captcha_token" value="[^"]*"' | cut -d'"' -f4)
 CODE=$(echo "$PAGE" | grep -o '<svg[^§]*</svg>' | head -1 | grep -o '>[A-Z0-9]</text>' | tr -d '<>/text' | tr -d '\n')
 chk "captcha : avec le bon code, connexion acceptee" "$(curl -s -o /dev/null -w '%{redirect_url}' -X POST --data-urlencode 'user=bob@exemple.fr' --data-urlencode 'pass=bob-mot-de-passe' --data-urlencode "captcha=$CODE" --data-urlencode "captcha_token=$TOK" "$B/api/login")" "$B/"
-setsec '{"captcha":false,"lockoutEnabled":true,"maxFailures":3,"lockMinutes":1,"totp":"optional","passwordMinLength":12}' >/dev/null
+setsec '{"captcha":false,"lockoutEnabled":true,"lockoutMaxFailures":3,"lockoutMinutes":1,"totp":"optional","passwordMinLength":12}' >/dev/null
 SEC=$(curl -s -b "$JB" -X POST "$B/api/account/totp/start" | python3 -c 'import sys,json;print(json.load(sys.stdin)["secret"])')
 chk "2FA : activation confirmee par un code" "$(curl -s -o /dev/null -w '%{http_code}' -b "$JB" -X POST -H 'content-type: application/json' -d "{\"code\":\"$(totp_code "$SEC" 0)\"}" "$B/api/account/totp/confirm")" 200
 JP="$WORK/jar-pending"; chk "2FA : apres le mot de passe, etape du code" "$(login bob@exemple.fr bob-mot-de-passe "$JP" | grep -c 'step=totp')" 1
@@ -138,8 +139,9 @@ link_token() { grep -o 't=[^ ]*' | head -1 | cut -c3- | python3 -c 'import sys,u
 apiJ() { curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' -d "$2" "$B$1"; }
 chk "sans messagerie : pas de lien « mot de passe oublie »" "$(curl -s "$B/connexion?local=1" | grep -c 'mot-de-passe-oublie')" 0
 chk "sans messagerie : creer un compte SANS mot de passe est refuse" "$(apiJ /api/user/new '{"email":"carole@exemple.fr","name":"Carole","cap":5}')" 400
-chk "SMTP incomplet refuse (pas d'expediteur)" "$(apiJ /api/settings/smtp '{"host":"isno-e2e-mail","port":1025,"security":"none"}')" 400
-chk "SMTP enregistre" "$(apiJ /api/settings/smtp '{"host":"isno-e2e-mail","port":1025,"security":"none","fromEmail":"portail@exemple.fr","fromName":"Maison Durand"}')" 200
+chk "SMTP incomplet refuse (pas d'expediteur)" "$(apiJ /api/settings/general '{"smtp":{"host":"isno-e2e-mail","port":1025,"security":"none"}}')" 400
+chk "SMTP enregistre" "$(apiJ /api/settings/general '{"smtp":{"host":"isno-e2e-mail","port":1025,"security":"none","fromEmail":"portail@exemple.fr","fromName":"Maison Durand"}}')" 200
+chk "messagerie enregistree sans toucher au nom du portail" "$(curl -s -b "$J" "$B/parametres" | grep -c '<title>Paramètres · Maison Durand</title>')" 1
 chk "e-mail de test envoye" "$(apiJ /api/settings/smtp-test '{"lang":"fr"}')" 200
 chk "e-mail de test recu par l'operateur" "$(mail_text operateur@exemple.fr | head -1)" "Test de messagerie : Maison Durand"
 chk "invitation : compte cree sans mot de passe" "$(apiJ /api/user/new '{"email":"carole@exemple.fr","name":"Carole","cap":5,"lang":"fr"}')" 200
@@ -167,12 +169,16 @@ chk "oubli : nouveau mot de passe enregistre" "$(curl -s -o /dev/null -w '%{http
 chk "oubli : l'ancien mot de passe ne marche plus" "$(login carole@exemple.fr carole-mot-de-passe | grep -c 'e=1$')" 1
 chk "oubli : le nouveau marche" "$(login carole@exemple.fr carole-nouveau-mdp)" "$B/"
 [ -n "${E2E_KEEP:-}" ] && { echo "pile laissee en place (E2E_KEEP)"; exit 0; }
-chk "messagerie desactivee" "$(apiJ /api/settings/smtp '{"disable":true}')" 200
+chk "messagerie retiree (serveur vide)" "$(apiJ /api/settings/general '{"smtp":{"host":""}}')" 200
 chk "sans messagerie : page « oubli » renvoie a la connexion" "$(curl -s -o /dev/null -w '%{http_code}' "$B/mot-de-passe-oublie")" 302
 chk "sans messagerie : API « oubli » fermee" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' -d '{"email":"carole@exemple.fr"}' "$B/api/password/forgot")" 404
 
-echo "== greffons : la gestion des comptes est un greffon (desactive => ecrans et connexion locale absents)"
-chk "Parametres liste le greffon « Comptes locaux »" "$(curl -s -b "$J" "$B/parametres" | grep -c 'Comptes locaux')" 1
+echo "== plugins : la gestion des comptes est un plugin (desactive => ecrans et connexion locale absents)"
+chk "Parametres liste le plugin « Comptes locaux », avec son ecrou" "$(curl -s -b "$J" "$B/parametres" | grep -c 'href="/parametres/plugin/local-accounts"')" 1
+chk "ecran du plugin : ses reglages declares" "$(curl -s -b "$J" "$B/parametres/plugin/local-accounts" | grep -c 'data-key="lockoutMaxFailures"')" 1
+chk "ecran du plugin : un seul bouton Enregistrer" "$(curl -s -b "$J" "$B/parametres/plugin/local-accounts" | grep -c '>Enregistrer</button>')" 1
+chk "Parametres : un seul bouton Enregistrer" "$(curl -s -b "$J" "$B/parametres" | grep -c '>Enregistrer</button>')" 1
+chk "plugin inconnu : reglages refuses" "$(apiJ /api/settings/plugin '{"id":"inconnu","values":{}}')" 404
 docker exec isno-cloud-server sh -c "python3 -c 1 2>/dev/null; node -e \"const f='/data/portal.config.json';const c=JSON.parse(require('fs').readFileSync(f));c.plugins=[];require('fs').writeFileSync(f,JSON.stringify(c))\""
 docker restart isno-cloud-server >/dev/null; for _ in $(seq 1 30); do curl -s -o /dev/null "$B/api/setup/status" && break; sleep 1; done
 chk "sans greffon : connexion locale refusee" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -d 'user=operateur@exemple.fr&pass=operateur-e2e' "$B/api/login")" 404

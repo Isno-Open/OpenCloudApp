@@ -1,12 +1,13 @@
 ---
-// Ecran operateur : reglages de l'instance. General (nom du portail) ; Securite, fournie par le greffon
-// « Comptes locaux » s'il est installe ; base et noms d'hote en lecture seule (les changer demande de
-// reemettre le certificat du broker et de reverifier : meme parcours que /setup) ; greffons installes.
+// Ecran operateur : reglages de l'instance.
+// - General : nom du portail et messagerie, enregistres d'un seul bouton ;
+// - base et noms d'hote en lecture seule (les changer demande de reemettre le certificat du broker et
+//   de reverifier : meme parcours que /setup) ;
+// - plugins installes, chacun avec son propre ecran de reglages (l'ecrou) s'il en declare.
 import { loadConfig, DB_KIND } from '@core/config.js';
 import { installedPlugins } from '@core/plugins.js';
-import { localAccountsSettings, TOTP_POLICY, PLUGIN_ID } from '@core/plugins/local-accounts-settings.js';
 import { smtpConfig, SMTP_SECURITY } from '@core/mail.js';
-import { t, type Lang } from '../../lib/i18n.ts';
+import { t, pluginHref, type Lang } from '../../lib/i18n.ts';
 interface Props { lang: Lang; }
 const { lang } = Astro.props;
 const s = t(lang);
@@ -14,11 +15,8 @@ const cfg = loadConfig();
 const dbLabel = cfg?.db.kind === DB_KIND.mongoExternal ? s.dbMongoExternal
   : cfg?.db.kind === DB_KIND.mongoBundled ? s.dbMongoBundled : s.dbSqlite;
 const plugins = installedPlugins();
-const hasLocal = plugins.some((p) => p.id === PLUGIN_ID);
-const sec = localAccountsSettings();
 const smtp = smtpConfig();
 const SEC_LABEL = { [SMTP_SECURITY.starttls]: 'STARTTLS', [SMTP_SECURITY.tls]: 'TLS', [SMTP_SECURITY.none]: s.smtpSecNone };
-const POLICY_LABEL = { [TOTP_POLICY.off]: s.totpPolicyOff, [TOTP_POLICY.optional]: s.totpPolicyOptional, [TOTP_POLICY.operators]: s.totpPolicyOperators, [TOTP_POLICY.all]: s.totpPolicyAll };
 ---
 <div class="page-head"><h1>{s.settingsTitle}</h1></div>
 <p class="lead">{s.settingsLead}</p>
@@ -26,43 +24,22 @@ const POLICY_LABEL = { [TOTP_POLICY.off]: s.totpPolicyOff, [TOTP_POLICY.optional
 <form class="panel" id="generalForm">
   <h3>{s.generalTitle}</h3>
   <div class="field"><label for="appName">{s.appNameLabel}</label><input id="appName" type="text" maxlength="60" value={cfg?.appName ?? ''} placeholder="ISNO Cloud" /><span class="hint">{s.appNameHint}</span></div>
-  <div class="row end"><span class="savemsg" id="generalMsg"></span><button class="btn primary" type="submit">{s.saveBtn}</button></div>
-</form>
 
-{hasLocal && (
-  <form class="panel" id="securityForm" style="margin-top:.9rem">
-    <h3>{s.securityTitle} <span class="ro">{s.securityByPlugin}</span></h3>
-    <label class="check"><input type="checkbox" id="secCaptcha" checked={sec.captcha} /> {s.secCaptcha}</label>
-    <label class="check"><input type="checkbox" id="secLockout" checked={sec.lockout.enabled} /> {s.secLockout}</label>
-    <div class="form-grid sub-grid">
-      <div class="field"><label for="secMax">{s.secMaxFailures}</label><input id="secMax" type="number" min="3" max="20" value={sec.lockout.maxFailures} /></div>
-      <div class="field"><label for="secMin">{s.secLockMinutes}</label><input id="secMin" type="number" min="1" max="1440" value={sec.lockout.minutes} /></div>
-    </div>
-    <div class="field"><label for="secTotp">{s.secTotp}</label>
-      <select id="secTotp">{Object.values(TOTP_POLICY).map((v) => <option value={v} selected={v === sec.totp}>{POLICY_LABEL[v]}</option>)}</select>
-    </div>
-    <div class="field"><label for="secPass">{s.secPasswordMin}</label><input id="secPass" type="number" min="8" max="128" value={sec.passwordMinLength} /></div>
-    <div class="row end"><span class="savemsg" id="securityMsg"></span><button class="btn primary" type="submit">{s.saveBtn}</button></div>
-  </form>
-)}
-
-<form class="panel" id="smtpForm" style="margin-top:.9rem">
-  <h3>{s.smtpTitle} {!smtp && <span class="ro">{s.smtpOff}</span>}</h3>
-  <p class="note" style="margin:0 0 .6rem">{s.smtpIntro}</p>
+  <h4 class="subhead">{s.smtpTitle} {!smtp && <span class="ro">{s.smtpOff}</span>}</h4>
+  <p class="hint" style="margin:0 0 .5rem">{s.smtpIntro}</p>
   <div class="form-grid">
-    <div class="field"><label for="smHost">{s.smtpHost}</label><input id="smHost" type="text" spellcheck="false" value={smtp?.host ?? ''} placeholder="smtp.exemple.fr" required /></div>
-    <div class="field"><label for="smPort">{s.smtpPort}</label><input id="smPort" type="number" min="1" max="65535" value={smtp?.port ?? 587} required /></div>
+    <div class="field"><label for="smHost">{s.smtpHost}</label><input id="smHost" type="text" spellcheck="false" value={smtp?.host ?? ''} placeholder="smtp.exemple.fr" /></div>
+    <div class="field"><label for="smPort">{s.smtpPort}</label><input id="smPort" type="number" min="1" max="65535" value={smtp?.port ?? 587} /></div>
     <div class="field"><label for="smSec">{s.smtpSecurity}</label>
       <select id="smSec">{Object.values(SMTP_SECURITY).map((v) => <option value={v} selected={v === (smtp?.security ?? SMTP_SECURITY.starttls)}>{SEC_LABEL[v]}</option>)}</select>
     </div>
     <div class="field"><label for="smUser">{s.smtpUser}</label><input id="smUser" type="text" spellcheck="false" autocomplete="off" value={smtp?.user ?? ''} /></div>
     <div class="field"><label for="smPass">{s.smtpPass}</label><input id="smPass" type="password" autocomplete="new-password" placeholder={smtp?.pass ? s.smtpPassKept : ''} /></div>
-    <div class="field"><label for="smFrom">{s.smtpFrom}</label><input id="smFrom" type="email" spellcheck="false" value={smtp?.fromEmail ?? ''} placeholder="portail@exemple.fr" required /></div>
+    <div class="field"><label for="smFrom">{s.smtpFrom}</label><input id="smFrom" type="email" spellcheck="false" value={smtp?.fromEmail ?? ''} placeholder="portail@exemple.fr" /></div>
     <div class="field"><label for="smFromName">{s.smtpFromName}</label><input id="smFromName" type="text" maxlength="80" value={smtp?.fromName ?? ''} placeholder={cfg?.appName || 'ISNO Cloud'} /></div>
   </div>
-  <div class="row end" style="margin-top:.4rem">
-    <span class="savemsg" id="smtpMsg"></span>
-    {smtp && <button class="btn ghost" type="button" id="smtpOffBtn">{s.smtpDisable}</button>}
+  <div class="row end" style="margin-top:.6rem">
+    <span class="savemsg" id="generalMsg"></span>
     {smtp && <button class="btn ghost" type="button" id="smtpTestBtn">{s.smtpTest}</button>}
     <button class="btn primary" type="submit">{s.saveBtn}</button>
   </div>
@@ -77,46 +54,38 @@ const POLICY_LABEL = { [TOTP_POLICY.off]: s.totpPolicyOff, [TOTP_POLICY.optional
 <div class="panel" style="margin-top:.9rem">
   <h3>{s.pluginsTitle}</h3>
   {plugins.map((p) => (
-    <div class="kv"><span class="k">{p.title}</span><span class="v"><span class="ro">{p.builtin ? s.pluginBuiltin : s.pluginExternal}</span></span></div>
+    <div class="plugin-row">
+      <span class="k">{p.title}</span>
+      <span class="ro">{p.builtin ? s.pluginBuiltin : s.pluginExternal}</span>
+      {p.configurable
+        ? <a class="gear" href={pluginHref(p.id, lang)} title={s.pluginSettings} aria-label={`${s.pluginSettings} : ${p.title}`}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+          </a>
+        : <span class="gear-none"></span>}
+    </div>
   ))}
 </div>
 
 <script is:inline define:vars={{ okMsg: s.savedMsg, errMsg: s.saveError, testOk: s.smtpTestOk }}>
   (function () {
     var $ = function (id) { return document.getElementById(id); };
-    function save(form, url, payload, msgId) {
-      form.addEventListener('submit', function (e) {
-        e.preventDefault();
-        var m = $(msgId); m.className = 'savemsg'; m.textContent = '…';
-        fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload()) })
-          .then(function (r) { m.className = 'savemsg ' + (r.ok ? 'ok' : 'err'); m.textContent = r.ok ? okMsg : errMsg; if (r.ok && url.indexOf('general') > 0) setTimeout(function () { location.reload(); }, 600); })
-          .catch(function () { m.className = 'savemsg err'; m.textContent = errMsg; });
-      });
-    }
-    save($('generalForm'), '/api/settings/general', function () { return { appName: $('appName').value }; }, 'generalMsg');
-    var sf = $('securityForm');
-    if (sf) save(sf, '/api/settings/security', function () {
-      return { captcha: $('secCaptcha').checked, lockoutEnabled: $('secLockout').checked, maxFailures: Number($('secMax').value),
-        lockMinutes: Number($('secMin').value), totp: $('secTotp').value, passwordMinLength: Number($('secPass').value) };
-    }, 'securityMsg');
-    // messagerie : enregistrer recharge la page (les boutons test / desactiver dependent de l'etat)
+    var m = $('generalMsg'), show = function (ok, text) { m.className = 'savemsg ' + (ok ? 'ok' : 'err'); m.textContent = text; };
     var post = function (url, body) { return fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); }); };
-    var sm = $('smtpMsg'), show = function (ok, text) { sm.className = 'savemsg ' + (ok ? 'ok' : 'err'); sm.textContent = text; };
-    $('smtpForm').addEventListener('submit', function (e) {
-      e.preventDefault(); sm.className = 'savemsg'; sm.textContent = '…';
-      post('/api/settings/smtp', { host: $('smHost').value.trim(), port: Number($('smPort').value), security: $('smSec').value, user: $('smUser').value.trim(),
-        pass: $('smPass').value, fromEmail: $('smFrom').value.trim(), fromName: $('smFromName').value.trim() })
-        .then(function (res) { show(res.ok, res.ok ? okMsg : (res.d.error || errMsg)); if (res.ok) setTimeout(function () { location.reload(); }, 600); })
+    $('generalForm').addEventListener('submit', function (e) {
+      e.preventDefault(); m.className = 'savemsg'; m.textContent = '…';
+      post('/api/settings/general', {
+        appName: $('appName').value,
+        smtp: { host: $('smHost').value.trim(), port: Number($('smPort').value), security: $('smSec').value, user: $('smUser').value.trim(),
+          pass: $('smPass').value, fromEmail: $('smFrom').value.trim(), fromName: $('smFromName').value.trim() },
+      }).then(function (res) { show(res.ok, res.ok ? okMsg : (res.d.error || errMsg)); if (res.ok) setTimeout(function () { location.reload(); }, 600); })
         .catch(function () { show(false, errMsg); });
     });
     var tb = $('smtpTestBtn');
     if (tb) tb.addEventListener('click', function () {
-      tb.disabled = true; sm.className = 'savemsg'; sm.textContent = '…';
+      tb.disabled = true; m.className = 'savemsg'; m.textContent = '…';
       post('/api/settings/smtp-test', { lang: document.documentElement.lang })
         .then(function (res) { show(res.ok, res.ok ? testOk + ' ' + res.d.to : (res.d.error || errMsg)); tb.disabled = false; })
         .catch(function () { show(false, errMsg); tb.disabled = false; });
     });
-    var ob = $('smtpOffBtn');
-    if (ob) ob.addEventListener('click', function () { post('/api/settings/smtp', { disable: true }).then(function () { location.reload(); }); });
   })();
 </script>

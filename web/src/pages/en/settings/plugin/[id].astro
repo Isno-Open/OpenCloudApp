@@ -1,0 +1,16 @@
+---
+import CloudLayout from '../../../../layouts/CloudLayout.astro';
+import PluginSettingsView from '../../../../components/views/PluginSettingsView.astro';
+import { requireAdmin } from '../../../../server/auth.ts';
+import { installedPlugins, pluginSettingsForm } from '@core/plugins.js';
+import { LANG, ROUTES, pluginHref } from '../../../../lib/i18n.ts';
+const lang = LANG.en;
+if (!(await requireAdmin(Astro.request))) return Astro.redirect(ROUTES.appareils[lang]);
+const id = Astro.params.id ?? '';
+const plugin = installedPlugins().find((p) => p.id === id);
+const form = plugin ? pluginSettingsForm(id) : null;
+if (!plugin || !form) return Astro.redirect(ROUTES.parametres[lang]);
+---
+<CloudLayout title={plugin.title} lang={lang} altUrl={pluginHref(id, LANG.fr)}>
+  <PluginSettingsView lang={lang} plugin={plugin} fields={form.fields} values={form.values} />
+</CloudLayout>

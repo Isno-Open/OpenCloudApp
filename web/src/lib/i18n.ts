@@ -58,22 +58,21 @@ interface S {
   settingsTitle: string; settingsLead: string; dbKindLabel: string; dbSqlite: string; dbMongoBundled: string; dbMongoExternal: string;
   publicUrlLabel: string; brokerUrlLabel: string;
   pluginsTitle: string; pluginBuiltin: string; pluginExternal: string; noLoginMethod: string;
-  // connexion securisee (greffon Comptes locaux)
+  // connexion securisee (plugin Comptes locaux)
   loginCaptchaLabel: string;
   forgotLink: string; forgotTitle: string; forgotIntro: string; forgotBtn: string; forgotSent: string; backToLogin: string;
   setPasswordTitle: string; newPassword: string; confirmPassword: string; setPasswordBtn: string; passwordMismatch: string;
   linkExpired: string; askNewLink: string; passwordSetOk: string;
   userPassInviteHint: string; invitedTag: string; resendInviteBtn: string;
+  pluginSettings: string; pluginSettingsLead: string;
   smtpTitle: string; smtpOff: string; smtpIntro: string; smtpHost: string; smtpPort: string; smtpSecurity: string; smtpSecNone: string;
-  smtpUser: string; smtpPass: string; smtpPassKept: string; smtpFrom: string; smtpFromName: string; smtpDisable: string; smtpTest: string; smtpTestOk: string; loginCaptchaError: string; loginLocked: string; loginTotpPrompt: string; loginTotpError: string; loginExpired: string; totpCodeLabel: string;
+  smtpUser: string; smtpPass: string; smtpPassKept: string; smtpFrom: string; smtpFromName: string; smtpTest: string; smtpTestOk: string; loginCaptchaError: string; loginLocked: string; loginTotpPrompt: string; loginTotpError: string; loginExpired: string; totpCodeLabel: string;
   // double authentification (Compte)
   totpTitle: string; totpIntro: string; totpEnable: string; totpManual: string; totpConfirm: string; totpOnNote: string; totpDisable: string; totpRequiredNotice: string;
   // utilisateurs : etat de securite
   lockedTag: string; unlockBtn: string; totpResetBtn: string;
   // parametres
   generalTitle: string; appNameLabel: string; appNameHint: string; saveBtn: string; savedMsg: string; saveError: string;
-  securityTitle: string; securityByPlugin: string; secCaptcha: string; secLockout: string; secMaxFailures: string; secLockMinutes: string;
-  secTotp: string; secPasswordMin: string; totpPolicyOff: string; totpPolicyOptional: string; totpPolicyOperators: string; totpPolicyAll: string;
 }
 
 export const STRINGS = {
@@ -133,8 +132,8 @@ export const STRINGS = {
     settingsTitle: 'Paramètres', settingsLead: "Configuration de l'instance, définie à l'installation.",
     dbKindLabel: 'Base de données', dbSqlite: 'SQLite (embarqué)', dbMongoBundled: 'MongoDB (fourni)', dbMongoExternal: 'MongoDB (externe)',
     publicUrlLabel: 'URL publique du portail', brokerUrlLabel: 'URL publique du broker MQTT',
-    pluginsTitle: 'Greffons installés', pluginBuiltin: 'intégré', pluginExternal: 'externe',
-    noLoginMethod: "Aucun mode de connexion n'est installé sur ce portail (greffon manquant).",
+    pluginsTitle: 'Plugins installés', pluginBuiltin: 'intégré', pluginExternal: 'externe',
+    noLoginMethod: "Aucun mode de connexion n'est installé sur ce portail (plugin manquant).",
     loginCaptchaLabel: 'Recopiez le code',
     forgotLink: 'Mot de passe oublié ?', forgotTitle: 'Mot de passe oublié', forgotIntro: 'Indiquez votre e-mail : si un compte y est rattaché, vous recevrez un lien pour choisir un nouveau mot de passe.',
     forgotBtn: 'Envoyer le lien', forgotSent: 'Si un compte existe pour cette adresse, un e-mail vient de partir. Pensez à regarder les indésirables.', backToLogin: 'Retour à la connexion',
@@ -142,9 +141,10 @@ export const STRINGS = {
     passwordMismatch: 'Les deux mots de passe ne correspondent pas.', linkExpired: 'Ce lien a expiré ou a déjà servi.', askNewLink: 'Demander un nouveau lien',
     passwordSetOk: 'Mot de passe enregistré. Vous pouvez vous connecter.',
     userPassInviteHint: "Laissez vide pour envoyer une invitation par e-mail : l'utilisateur choisira son mot de passe.", invitedTag: 'invité', resendInviteBtn: "Renvoyer l'invitation",
-    smtpTitle: 'Messagerie (SMTP)', smtpOff: 'non configurée', smtpIntro: 'Sert aux invitations et au mot de passe oublié. Sans messagerie, ces fonctions restent masquées.',
+    pluginSettings: 'Réglages', pluginSettingsLead: 'Réglages de ce plugin.',
+    smtpTitle: 'Messagerie (SMTP)', smtpOff: 'non configurée', smtpIntro: 'Sert aux invitations et au mot de passe oublié. Serveur vide : pas de messagerie, et ces fonctions restent masquées.',
     smtpHost: 'Serveur', smtpPort: 'Port', smtpSecurity: 'Sécurité', smtpSecNone: 'Aucune', smtpUser: 'Identifiant', smtpPass: 'Mot de passe', smtpPassKept: 'inchangé',
-    smtpFrom: 'Adresse d’expédition', smtpFromName: 'Nom d’expéditeur', smtpDisable: 'Désactiver', smtpTest: "Envoyer un test", smtpTestOk: 'E-mail de test envoyé à', loginCaptchaError: 'Code de vérification incorrect.',
+    smtpFrom: 'Adresse d’expédition', smtpFromName: 'Nom d’expéditeur', smtpTest: "Envoyer un test", smtpTestOk: 'E-mail de test envoyé à', loginCaptchaError: 'Code de vérification incorrect.',
     loginLocked: 'Compte temporairement bloqué après trop de tentatives. Réessayez plus tard, ou demandez à un opérateur de le débloquer.',
     loginTotpPrompt: "Saisissez le code à 6 chiffres de votre appli d'authentification.", loginTotpError: 'Code incorrect.',
     loginExpired: 'Délai dépassé : reconnectez-vous.', totpCodeLabel: 'Code',
@@ -155,11 +155,6 @@ export const STRINGS = {
     lockedTag: 'bloqué', unlockBtn: 'Débloquer', totpResetBtn: 'Réinitialiser la 2FA',
     generalTitle: 'Général', appNameLabel: 'Nom du portail', appNameHint: 'Affiché dans la barre et le titre des onglets. Vide : la marque par défaut.',
     saveBtn: 'Enregistrer', savedMsg: 'Enregistré.', saveError: 'Enregistrement impossible.',
-    securityTitle: 'Sécurité des comptes locaux', securityByPlugin: 'greffon Comptes locaux',
-    secCaptcha: 'Captcha à la connexion', secLockout: 'Bloquer un compte après plusieurs échecs',
-    secMaxFailures: "Nombre d'échecs", secLockMinutes: 'Durée du blocage (minutes)',
-    secTotp: 'Double authentification', secPasswordMin: 'Longueur minimale du mot de passe',
-    totpPolicyOff: 'Désactivée', totpPolicyOptional: 'Facultative', totpPolicyOperators: 'Exigée pour les opérateurs', totpPolicyAll: 'Exigée pour tous',
   },
   [LANG.en]: {
     brandAria: 'ISNO Cloud, home', themeToggle: 'Toggle light / dark theme', menu: 'Menu',
@@ -226,9 +221,10 @@ export const STRINGS = {
     passwordMismatch: "The two passwords don't match.", linkExpired: 'This link has expired or was already used.', askNewLink: 'Request a new link',
     passwordSetOk: 'Password saved. You can sign in.',
     userPassInviteHint: 'Leave empty to send an email invitation: the user will choose their password.', invitedTag: 'invited', resendInviteBtn: 'Resend invitation',
-    smtpTitle: 'Mail (SMTP)', smtpOff: 'not configured', smtpIntro: 'Used for invitations and password resets. Without mail, these features stay hidden.',
+    pluginSettings: 'Settings', pluginSettingsLead: 'Settings of this plugin.',
+    smtpTitle: 'Mail (SMTP)', smtpOff: 'not configured', smtpIntro: 'Used for invitations and password resets. Empty server: no mail, and these features stay hidden.',
     smtpHost: 'Server', smtpPort: 'Port', smtpSecurity: 'Security', smtpSecNone: 'None', smtpUser: 'Username', smtpPass: 'Password', smtpPassKept: 'unchanged',
-    smtpFrom: 'Sender address', smtpFromName: 'Sender name', smtpDisable: 'Disable', smtpTest: 'Send a test', smtpTestOk: 'Test email sent to', loginCaptchaError: 'Wrong verification code.',
+    smtpFrom: 'Sender address', smtpFromName: 'Sender name', smtpTest: 'Send a test', smtpTestOk: 'Test email sent to', loginCaptchaError: 'Wrong verification code.',
     loginLocked: 'Account temporarily locked after too many attempts. Try again later, or ask an operator to unlock it.',
     loginTotpPrompt: 'Enter the 6-digit code from your authenticator app.', loginTotpError: 'Wrong code.',
     loginExpired: 'Timed out: please sign in again.', totpCodeLabel: 'Code',
@@ -239,11 +235,6 @@ export const STRINGS = {
     lockedTag: 'locked', unlockBtn: 'Unlock', totpResetBtn: 'Reset 2FA',
     generalTitle: 'General', appNameLabel: 'Portal name', appNameHint: 'Shown in the top bar and tab titles. Empty: default branding.',
     saveBtn: 'Save', savedMsg: 'Saved.', saveError: 'Could not save.',
-    securityTitle: 'Local accounts security', securityByPlugin: 'Local accounts plugin',
-    secCaptcha: 'Captcha at sign-in', secLockout: 'Lock an account after repeated failures',
-    secMaxFailures: 'Failed attempts', secLockMinutes: 'Lock duration (minutes)',
-    secTotp: 'Two-factor authentication', secPasswordMin: 'Minimum password length',
-    totpPolicyOff: 'Off', totpPolicyOptional: 'Optional', totpPolicyOperators: 'Required for operators', totpPolicyAll: 'Required for everyone',
   },
 } satisfies Record<Lang, S>;
 
@@ -275,6 +266,8 @@ export const ROUTES = {
   oubli: { [LANG.fr]: '/mot-de-passe-oublie', [LANG.en]: '/en/forgot-password' },
 } satisfies Record<string, Record<Lang, string>>;
 /** URL de configuration d'un appareil (le chemin reste /boitier pour l'historique des liens). */
+/** Ecran de reglages d'un plugin. */
+export const pluginHref = (id: string, lang: Lang): string => `${ROUTES.parametres[lang]}/plugin/${encodeURIComponent(id)}`;
 export const appareilHref = (id: string, lang: Lang): string => (lang === LANG.en ? `/en/box/${id}` : `/boitier/${id}`);
 
 /** Items de nav pour une langue, avec test d'activite sur le chemin courant. */
@@ -287,11 +280,11 @@ export function navItems(lang: Lang) {
   ];
 }
 
-/** Items de nav reserves a l'operateur. Utilisateurs n'apparait que si un greffon gere les comptes. */
+/** Items de nav reserves a l'operateur. Utilisateurs n'apparait que si un plugin gere les comptes. */
 export function adminNavItems(lang: Lang, opts: { userAdmin: boolean }) {
   const s = t(lang);
   return [
     ...(opts.userAdmin ? [{ href: ROUTES.utilisateurs[lang], label: s.adminNav.utilisateurs, active: (p: string) => p === ROUTES.utilisateurs[lang] }] : []),
-    { href: ROUTES.parametres[lang], label: s.adminNav.parametres, active: (p: string) => p === ROUTES.parametres[lang] },
+    { href: ROUTES.parametres[lang], label: s.adminNav.parametres, active: (p: string) => p === ROUTES.parametres[lang] || p.startsWith(`${ROUTES.parametres[lang]}/`) },
   ];
 }
