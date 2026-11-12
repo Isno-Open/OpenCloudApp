@@ -1,7 +1,10 @@
-# isno-cloud
+# OpenCloudApp
 
 Stack cloud **auto-hébergeable** pour le pilotage à distance des firmwares ISNO (OpenProfalux,
 OpenXtraflame…). Open-core : hébergez le vôtre, ou utilisez l'instance ISNO.
+
+Les noms techniques (conteneurs `isno-cloud-*`, volumes `isno-*`, images) gardent leur ancien
+préfixe : les renommer casserait les installations existantes et leurs données.
 
 ## Contenu
 - **broker** (module) : Mosquitto en **mTLS**, isolation **par appareil** (ACL `openprofalux/{device_id}/#`).
