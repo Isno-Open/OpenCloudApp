@@ -1,0 +1,11 @@
+{
+  "$comment": "Catalogue des modules que le superviseur sait installer. Seuls ces identifiants sont acceptes. Volumes NOMMES uniquement (jamais de dossier de l'hote), jamais de mode privilegie : le superviseur le verifie au chargement.",
+  "mongo": {
+    "title": "MongoDB",
+    "image": "mongo:9.0.8",
+    "container": "isno-mongo",
+    "command": ["--wiredTigerCacheSizeGB", "${MONGO_CACHE_GB:-0.25}"],
+    "volumes": { "isno-mongo-data": "/data/db" },
+    "endpoint": "mongodb://isno-mongo:27017"
+  }
+}

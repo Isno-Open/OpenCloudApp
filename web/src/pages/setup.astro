@@ -40,8 +40,13 @@ const windowMin = Math.round(SETUP_WINDOW_S / 60);
         <section class="step" data-step="1">
           <h3>Base de données</h3>
           <label class="opt"><input type="radio" name="kind" value="" data-k="sqlite" checked /><span><b>SQLite</b> (embarqué, recommandé). Rien à installer, un fichier sur le volume. Idéal pour un parc modeste.</span></label>
-          <label class="opt"><input type="radio" name="kind" value="" data-k="mongoBundled" /><span><b>MongoDB fourni</b>. Un conteneur Mongo dans la pile (greffon <code>docker-compose.mongo.yml</code>). Pour grandir.</span></label>
+          <label class="opt"><input type="radio" name="kind" value="" data-k="mongoBundled" /><span><b>MongoDB fourni</b>. Installé automatiquement sur ce serveur (téléchargement de quelques centaines de Mo). Pour grandir.</span></label>
           <label class="opt"><input type="radio" name="kind" value="" data-k="mongoExternal" /><span><b>MongoDB externe</b>. Votre propre serveur Mongo.</span></label>
+          <div class="module" id="modulePanel" hidden>
+            <p class="note" id="moduleMsg">Vérification…</p>
+            <div class="bar" id="moduleBarWrap" hidden><span id="moduleBar"></span></div>
+            <button type="button" class="btn primary" id="installBtn" hidden>Installer MongoDB</button>
+          </div>
           <div class="field" id="mongoUrlField" hidden><label for="mongoUrl">URL Mongo</label><input id="mongoUrl" name="mongoUrl" type="text" placeholder="mongodb://utilisateur:motdepasse@hote:27017/isno_cloud" spellcheck="false" /></div>
           <div class="testline"><button type="button" class="btn ghost" id="testBtn">Tester la connexion</button><span class="testmsg" id="testMsg"></span></div>
           <div class="row end"><button type="button" class="btn primary" data-next="1">Continuer</button></div>
@@ -90,6 +95,10 @@ const windowMin = Math.round(SETUP_WINDOW_S / 60);
     .opt { display: flex; gap: .6rem; align-items: start; padding: .6rem .7rem; border: 1px solid var(--border); border-radius: var(--radius-sm); margin: .5rem 0; cursor: pointer; font-size: .88rem; color: var(--text-muted); }
     .opt input { margin-top: .2rem; accent-color: var(--accent); }
     .opt b { color: var(--text); font-weight: 650; }
+    .module { margin: .6rem 0; padding: .7rem .8rem; border: 1px dashed var(--accent-line); border-radius: var(--radius-sm); background: var(--accent-weak); display: flex; flex-direction: column; gap: .5rem; }
+    .module .note { margin: 0; }
+    .bar { height: 8px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); overflow: hidden; }
+    .bar span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .4s ease; }
     .testline { display: flex; align-items: center; gap: .7rem; margin: .4rem 0 .2rem; flex-wrap: wrap; }
     .testmsg { font-size: .82rem; }
     .testmsg.ok { color: var(--ok); } .testmsg.err { color: var(--danger); }
@@ -122,13 +131,49 @@ const windowMin = Math.round(SETUP_WINDOW_S / 60);
       }
       function kind() { var r = form.querySelector('input[name=kind]:checked'); return r ? r.getAttribute('data-k') : 'sqlite'; }
       function dbPayload() { return { kind: KIND[kind()], mongoUrl: (document.getElementById('mongoUrl') || {}).value || '' }; }
-      form.querySelectorAll('input[name=kind]').forEach(function (r) {
-        r.addEventListener('change', function () {
-          document.getElementById('mongoUrlField').hidden = (kind() !== 'mongoExternal');
-          document.getElementById('testMsg').textContent = '';
-        });
+      // Module requis par le choix (Mongo fourni) : etat, installation par le superviseur, progression.
+      var moduleReady = true, poll = null;
+      var mp = document.getElementById('modulePanel'), mm = document.getElementById('moduleMsg');
+      var mbw = document.getElementById('moduleBarWrap'), mb = document.getElementById('moduleBar'), ib = document.getElementById('installBtn');
+      var next1 = form.querySelector('[data-next="1"]');
+      function renderModule(m) {
+        moduleReady = !!m.ready; next1.disabled = !moduleReady;
+        if (m.ready) { mm.textContent = '✓ ' + m.title + ' est installé et démarré.'; mbw.hidden = true; ib.hidden = true; return true; }
+        if (m.busy) { mm.textContent = 'Installation de ' + m.title + '… ' + m.progress + ' %'; mbw.hidden = false; mb.style.width = m.progress + '%'; ib.hidden = true; return false; }
+        mbw.hidden = true; ib.hidden = false; ib.disabled = false;
+        mm.textContent = m.error ? '✗ ' + m.error : m.title + " n'est pas encore installé sur ce serveur.";
+        return true;
+      }
+      function moduleError(e) { mm.textContent = '✗ ' + e; ib.hidden = true; moduleReady = false; next1.disabled = true; }
+      function checkModule() {
+        fetch('/api/setup/module?kind=' + encodeURIComponent(KIND[kind()]))
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+          .then(function (res) {
+            if (!res.ok) { clearInterval(poll); poll = null; moduleError(res.d.error || 'superviseur indisponible'); return; }
+            if (renderModule(res.d) && poll) { clearInterval(poll); poll = null; }
+          })
+          .catch(function () { moduleError('erreur réseau'); });
+      }
+      ib.addEventListener('click', function () {
+        ib.disabled = true; mm.textContent = 'Démarrage de l\'installation…';
+        fetch('/api/setup/module', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ kind: KIND[kind()] }) })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+          .then(function (res) {
+            if (!res.ok) { moduleError(res.d.error || 'échec'); return; }
+            renderModule(res.d); if (!poll) poll = setInterval(checkModule, 1000);
+          })
+          .catch(function () { moduleError('erreur réseau'); });
       });
-      form.querySelector('[data-next="1"]').addEventListener('click', function () { show(2); });
+      function onKind() {
+        var k = kind();
+        document.getElementById('mongoUrlField').hidden = (k !== 'mongoExternal');
+        document.getElementById('testMsg').textContent = '';
+        if (poll) { clearInterval(poll); poll = null; }
+        if (k === 'mongoBundled') { mp.hidden = false; moduleReady = false; next1.disabled = true; mm.textContent = 'Vérification…'; checkModule(); }
+        else { mp.hidden = true; moduleReady = true; next1.disabled = false; }
+      }
+      form.querySelectorAll('input[name=kind]').forEach(function (r) { r.addEventListener('change', onKind); });
+      next1.addEventListener('click', function () { if (moduleReady) show(2); });
       form.querySelector('[data-prev="2"]').addEventListener('click', function () { show(1); });
 
       document.getElementById('testBtn').addEventListener('click', function () {

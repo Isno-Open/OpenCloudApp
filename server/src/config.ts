@@ -10,6 +10,8 @@ export const DB_KIND = { sqlite: "sqlite", mongoBundled: "mongo-bundled", mongoE
 export type DbKind = (typeof DB_KIND)[keyof typeof DB_KIND];
 
 export type DbConfig = { kind: DbKind; mongoUrl?: string; sqlitePath?: string };
+// Module du superviseur a installer pour chaque choix de base (null : rien a installer).
+export const DB_MODULE = { [DB_KIND.sqlite]: null, [DB_KIND.mongoBundled]: "mongo", [DB_KIND.mongoExternal]: null } as const satisfies Record<DbKind, string | null>;
 export type PortalConfig = {
   configured: true;
   db: DbConfig;

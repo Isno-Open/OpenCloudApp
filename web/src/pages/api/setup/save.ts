@@ -3,6 +3,8 @@
 import type { APIRoute } from 'astro';
 import { isConfigured, setupWindowOpen, saveConfig, DB_KIND, type PortalConfig, type DbKind, type DbConfig } from '@core/config.js';
 import { hashPass } from '@core/auth.js';
+import { DB_MODULE } from '@core/config.js';
+import { getModule } from '../../../server/supervisor.ts';
 import { readBody, json } from '../../../server/http.ts';
 
 const KINDS: readonly DbKind[] = [DB_KIND.sqlite, DB_KIND.mongoBundled, DB_KIND.mongoExternal];
@@ -26,7 +28,10 @@ export const POST: APIRoute = async ({ request }) => {
     if (!mongoUrl) return json(400, { error: 'URL Mongo requise' });
     db = { kind, mongoUrl };
   } else if (kind === DB_KIND.mongoBundled) {
-    db = { kind, mongoUrl: 'mongodb://mongo:27017' };
+    const r = await getModule(DB_MODULE[DB_KIND.mongoBundled]);
+    if (!r.ok) return json(502, { error: r.error });
+    if (!r.module.ready || !r.module.endpoint) return json(409, { error: "MongoDB n'est pas encore installé" });
+    db = { kind, mongoUrl: r.module.endpoint };
   } else {
     db = { kind };
   }

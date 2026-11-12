@@ -16,3 +16,6 @@ web/.astro
 
 # harnais specifique ISNO (non public)
 docker-compose.override.yml
+supervisor/node_modules
+supervisor/dist
+supervisor/dist-test

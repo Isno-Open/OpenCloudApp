@@ -4,35 +4,48 @@ Stack cloud **auto-hébergeable** pour le pilotage à distance des firmwares ISN
 OpenXtraflame…). Open-core : hébergez le vôtre, ou utilisez l'instance ISNO.
 
 ## Contenu
-- **broker** - Mosquitto en **mTLS**, isolation **par device** (ACL `openprofalux/{device_id}/#`).
-- **server** (TS/Node) - **enrôlement** (code de pairing -> cert device), **auth** (session), **app**
-  de pilotage SSR, **relais** authentifié (le navigateur ne parle jamais au broker).
-
-## Base de données : SQLite par défaut, MongoDB en greffon
-Le serveur ne connaît qu'une **interface de store** (`server/src/store.ts`) ; l'implémentation est
-choisie **au démarrage** :
-- **sans configuration** -> **SQLite** embarqué (un fichier, aucune base à administrer). C'est le
-  défaut self-host.
-- **si `MONGO_URL` est défini** -> **MongoDB** (instance ISNO, ou toute base existante).
-
-Changer de base ne touche que `store.ts` : un seul fichier, pas de JSON en guise de base.
+- **broker** : Mosquitto en **mTLS**, isolation **par appareil** (ACL `openprofalux/{device_id}/#`).
+- **server** (TypeScript, Astro SSR) : installation, comptes, enrôlement des appareils, **relais**
+  authentifié (le navigateur ne parle jamais au broker), app de pilotage.
+- **supervisor** : installe **à la demande** les modules optionnels (aujourd'hui MongoDB), façon
+  Supervisor de Home Assistant. Catalogue déclaré dans `supervisor/modules.json`.
+- **socket-proxy** : seul composant qui voit le socket Docker, filtré (pas d'`exec`, de `build`, de
+  `system`…), et joignable par le seul superviseur.
 
 ## Démarrer
     ./scripts/gen-ca.sh mqtt.mondomaine.fr   # CA + cert serveur + cert relais (clés chez vous)
     cp .env.example .env                     # puis remplir les secrets
-    docker compose up -d --build             # défaut : SQLite
+    docker compose up -d --build
 
-### Avec MongoDB (greffon)
-    docker compose -f docker-compose.yml -f docker-compose.mongo.yml up -d --build
+Puis ouvrir `https://<votre-domaine>/setup` **dans les 5 minutes** qui suivent le démarrage
+(`PORTAL_SETUP_WINDOW_S`). Passé ce délai, l'installation se verrouille : `docker compose restart server`
+la rouvre. Une fois l'instance configurée, `/setup` est fermé définitivement.
 
-Le firmware se configure avec `cloud_uri = mqtts://mqtt.mondomaine.fr:8883`, et récupère son cert
-**au pairing** (il reçoit un code depuis l'app).
+## Base de données
+Choisie à l'installation, dans `/setup` :
+- **SQLite** (défaut) : un fichier sur le volume, rien à administrer ;
+- **MongoDB fourni** : téléchargé et démarré par le superviseur au moment où on le choisit ;
+- **MongoDB externe** : votre propre serveur, URL saisie et testée.
 
-### Enrôler un device
-    # crée un code de pairing (admin)
-    curl -X POST http://IP:8080/api/device/new -H "authorization: Bearer $ADMIN_TOKEN" \
-         -H "content-type: application/json" -d '{"name":"Volet salon"}'
-    # le boîtier (ou un test) l'échange contre son bundle
-    curl -X POST http://IP:8080/api/enroll -H "content-type: application/json" -d '{"code":"XXXXXX"}'
+Le serveur ne connaît qu'une interface de store (`server/src/store.ts`). La configuration de l'instance
+vit dans **un seul fichier**, `/data/portal.config.json`. Déploiement automatisé sans écran :
+`PORTAL_SEED=1` et les variables décrites dans `.env.example`.
+
+## Modules et sécurité du superviseur
+Le superviseur n'installe que les identifiants de son catalogue, avec des **volumes nommés** seulement
+(jamais un dossier de l'hôte), **jamais en mode privilégié**, sur le réseau de la pile. Il étiquette ce
+qu'il crée et refuse de toucher un conteneur sans son étiquette. L'app l'appelle avec un secret partagé,
+généré au premier démarrage dans un volume qu'elle monte en lecture seule.
+
+## Comptes
+Comptes locaux gérés par l'opérateur (écran **Utilisateurs**), connexion opérateur sur
+`/connexion?local=1`. Un fournisseur d'identité externe (SSO) se branche par le point d'extension
+`AuthProvider` (`server/src/auth-provider.ts`), chargé depuis `HARNESS_MODULE`.
+
+## Enrôler un appareil
+Le boîtier lance l'appairage (onglet Cloud) et affiche un **code et un QR code**. L'utilisateur le scanne
+ou le saisit sur `/lier`, confirme, et le boîtier récupère son certificat tout seul
+(*device authorization grant*, RFC 8628 : `/api/device/start`, `/api/device/poll`). Firmware antérieur :
+code obtenu dans « Ajouter » puis saisi dans le boîtier (`/api/enroll`).
 
 > Les clés privées, `.env` et les fichiers de base ne sont **jamais** commités (`.gitignore`).

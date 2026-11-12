@@ -1,7 +1,8 @@
-# Stack cloud ISNO (open-core, auto-hébergeable). Par défaut : broker MQTT mTLS + serveur, avec
-# SQLite embarqué (aucune base à gérer). Pour passer sur MongoDB, ajouter le greffon :
-#   docker compose -f docker-compose.yml -f docker-compose.mongo.yml up -d --build
+# Stack cloud ISNO (open-core, auto-hebergeable).
 # Avant : ./scripts/gen-ca.sh <votre-domaine>  puis  cp .env.example .env
+# Ensuite : docker compose up -d --build, puis ouvrir https://<votre-domaine>/setup dans les 5 minutes.
+# La base se choisit dans /setup : SQLite embarque, MongoDB (installe a la demande par le superviseur),
+# ou MongoDB externe.
 services:
   broker:
     image: eclipse-mosquitto:2.0.22
@@ -13,6 +14,46 @@ services:
       - ./config:/mosquitto/config
       - ./certs:/mosquitto/certs
       - broker-data:/mosquitto/data
+    networks: [stack]
+
+  # Seul composant qui voit le socket Docker. Filtre : n'ouvre que images, conteneurs, volumes, reseaux,
+  # creation et demarrage ; exec, build, system, swarm... restent fermes. Joignable par le seul superviseur.
+  socket-proxy:
+    image: lscr.io/linuxserver/socket-proxy:3.4.7
+    container_name: isno-socket-proxy
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/run]
+    environment:
+      - CONTAINERS=1
+      - IMAGES=1
+      - VOLUMES=1
+      - NETWORKS=1
+      - POST=1
+      - ALLOW_START=1
+      - ALLOW_STOP=1
+      - EXEC=0
+      - BUILD=0
+      - SYSTEM=0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [dockerapi]
+
+  # Superviseur : installe les modules du catalogue a la demande de l'app (facon Supervisor de Home
+  # Assistant). Non expose ; secret partage genere au premier demarrage dans le volume de controle.
+  supervisor:
+    build: ./supervisor
+    container_name: isno-supervisor
+    restart: unless-stopped
+    environment:
+      - STACK_NETWORK=isno-cloud-net
+      - DOCKER_HOST=http://socket-proxy:2375
+      - MONGO_CACHE_GB=${MONGO_CACHE_GB:-0.25}
+    volumes:
+      - control:/control
+    networks: [stack, dockerapi]
+    depends_on: [socket-proxy]
+
   server:
     build: .                                # image unique : coeur backend + app Astro SSR (web/)
     container_name: isno-cloud-server
@@ -26,12 +67,23 @@ services:
       - PORT=8080
       - CERTS_DIR=/certs
       - BROKER_URL=mqtts://broker:8883
-      - DB_PATH=/data/isno-cloud.db        # store SQLite par défaut (ignoré si MONGO_URL défini)
+      - DB_PATH=/data/isno-cloud.db        # fichier SQLite si SQLite est choisi a l'installation
+      - SUPERVISOR_URL=http://supervisor:8090
+      - SUPERVISOR_TOKEN_FILE=/control/token
     volumes:
       - ./certs:/certs
       - server-data:/data
-    depends_on:
-      - broker
+      - control:/control:ro
+    networks: [stack]
+    depends_on: [broker, supervisor]
+
+networks:
+  stack:
+    name: isno-cloud-net                   # nom fixe : les modules installes s'y rattachent
+  dockerapi:
+    internal: true                         # pas de sortie, et l'app n'y est pas : seul le superviseur parle au filtre
+
 volumes:
   broker-data:
   server-data:
+  control:
