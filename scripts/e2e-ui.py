@@ -44,6 +44,25 @@ with sync_playwright() as p:
     pg.goto(B+"/compte"); pg.wait_for_load_state("networkidle"); pg.click("#logoutBtn")
     pg.wait_for_url(lambda u: "/compte" not in u, timeout=15000)   # la deconnexion quitte la page
     pg.goto(B+"/compte"); ok("compte : deconnecte", "/connexion" in pg.url)
+    # Application installable : un service worker ne s'enregistre que sur une origine sure ; localhost en est une
+    L="http://localhost:18080"
+    ctx=b.new_context(); pl=ctx.new_page()
+    pl.on("pageerror", lambda e: errs.append("pageerror: "+str(e)))
+    pl.goto(L+"/connexion?local=1"); pl.fill("input[name=user]","ui@exemple.fr"); pl.fill("input[name=pass]","ui-mot-de-passe"); pl.click("button[type=submit]"); pl.wait_for_load_state("networkidle")
+    r=pl.request.post(L+"/api/plugins/enable", data={"id":"installable-app"})
+    ok("pwa : plugin active", r.ok)
+    import time
+    time.sleep(3)
+    for _ in range(60):
+        try:
+            if pl.request.get(L+"/api/setup/status").ok: break
+        except Exception: pass
+        time.sleep(1)
+    pl.goto(L+"/", wait_until="networkidle")
+    ok("pwa : la page declare son manifeste", pl.locator('link[rel="manifest"]').count()==1)
+    reg=pl.evaluate("() => navigator.serviceWorker.ready.then(r => !!r.active)")
+    ok("pwa : service worker enregistre et actif", reg is True)
+    ctx.close()
     res.append("erreurs JS : "+str(errs))
     b.close()
 print("\n".join(res))

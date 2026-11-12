@@ -308,6 +308,24 @@ chk "deconnexion : cookie partage efface sur le domaine commun" "$(echo "$LOGOUT
 chk "desactivation (le portail redemarre)" "$(apiJ /api/plugins/disable '{"id":"external-auth"}')" 200
 wait_restart
 chk "desactive : formulaire local de nouveau" "$(curl -s -o /dev/null -w '%{http_code}' "$B/connexion")" 200
+echo "== application installable (PWA) : un plugin, inactif par defaut"
+chk "sans le plugin : pas de manifeste" "$(curl -s -o /dev/null -w '%{http_code}' "$B/manifest.webmanifest")" 404
+chk "sans le plugin : la page ne declare pas de manifeste" "$(curl -s -b "$J" "$B/" | grep -c 'rel="manifest"')" 0
+chk "activation (le portail redemarre)" "$(apiJ /api/plugins/enable '{"id":"installable-app"}')" 200
+wait_restart
+MF=$(curl -s "$B/manifest.webmanifest")
+chk "manifeste : nom du portail, plein ecran" "$(echo "$MF" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['name'],d['display'],d['start_url'])")" "Maison Durand standalone /"
+chk "manifeste : icones 192 et 512" "$(echo "$MF" | python3 -c "import sys,json;print(' '.join(i['sizes'] for i in json.load(sys.stdin)['icons']))")" "192x192 512x512"
+chk "page : manifeste et icone iOS declares" "$(curl -s -b "$J" "$B/" | grep -o 'rel="manifest" href="/manifest.webmanifest"\|rel="apple-touch-icon"' | wc -l)" 2
+chk "service worker servi" "$(curl -s -o /dev/null -w '%{http_code}' "$B/service-worker.js")" 200
+chk "page hors ligne servie" "$(curl -s "$B/pwa/offline.html" | grep -c 'Portail injoignable')" 2
+chk "icone 512 servie" "$(curl -s -o /dev/null -w '%{http_code} %{content_type}' "$B/pwa/icon-512.png")" "200 image/png"
+chk "nom sous l'icone regle (12 caracteres au plus)" "$(apiJ /api/settings/plugin '{"id":"installable-app","values":{"shortName":"Maison Durand 2026"}}')" 200
+chk "manifeste : nom court borne" "$(curl -s "$B/manifest.webmanifest" | python3 -c "import sys,json;print(json.load(sys.stdin)['short_name'])")" "Maison Duran"
+chk "desactivation (le portail redemarre)" "$(apiJ /api/plugins/disable '{"id":"installable-app"}')" 200
+wait_restart
+chk "desactive : plus de manifeste" "$(curl -s -o /dev/null -w '%{http_code}' "$B/manifest.webmanifest")" 404
+
 echo "== types d'appareils : chacun est un plugin, active d'office, desactivable"
 chk "plugin du type volet : actif d'office" "$(curl -s -b "$J" "$B/plugins" | grep -c 'data-disable="device-volet"')" 1
 chk "type volet desactive (le portail redemarre)" "$(apiJ /api/plugins/disable '{"id":"device-volet"}')" 200

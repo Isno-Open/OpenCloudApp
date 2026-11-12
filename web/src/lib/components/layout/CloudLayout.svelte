@@ -9,6 +9,7 @@
   import LangFlag from './LangFlag.svelte';
   import Brand from './Brand.svelte';
   import ThemeHead from './ThemeHead.svelte';
+  import AppHead from './AppHead.svelte';
 
   interface Props { title?: string; lang: Lang; altUrl: string; shell: Shell; children: Snippet; }
   const { title, lang, altUrl, shell, children }: Props = $props();
@@ -32,6 +33,7 @@
   <link rel="alternate" hreflang={other} href={altUrl} />
 </svelte:head>
 <ThemeHead theme={shell.theme} />
+<AppHead app={shell.app} />
 <svelte:window onkeydown={(e) => { if (e.key === 'Escape') menuOpen = false; }} />
 
 <header class="topbar">

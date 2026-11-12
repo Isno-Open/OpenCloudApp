@@ -72,6 +72,10 @@ l'opérateur. Un plugin a un seul contrat, `register(api)` (`server/src/plugin-t
 - apporter un **type d'appareil** (`registerDeviceType`) : identifiant tel que le boîtier le publie,
   nom, icône (un caractère ou un tracé SVG), libellés FR/EN des trois commandes. Le cœur dessine la
   carte ; rien de ce qu'un plugin déclare n'est du HTML ;
+- apporter un **thème** (`registerTheme`) : couleurs (sombre et clair) parmi les jetons de
+  `plugin-contract.ts` (`THEME_TOKENS`), polices (familles Google Fonts), logo (image PNG, WebP ou SVG
+  en data: URL, 100 Ko au plus). Tout est vérifié : jamais de CSS ni de balisage libres. Le thème se
+  choisit dans Paramètres ; **le pied de page « powered by » n'est pas thématisable** ;
 - **déclarer ses réglages** (`settings`) : interrupteur, nombre, choix, texte ou adresse, secret.
   Le cœur dessine l'écran (l'écrou du plugin), le plugin valide les valeurs.
 
@@ -82,6 +86,8 @@ Plugins **intégrés** (livrés avec le portail) :
 | `local-accounts` | Gestion des comptes : écran Utilisateurs, invitations, sécurité (captcha, blocage, double authentification, longueur du mot de passe) | actif |
 | `external-auth` | Connexion par un site externe (connexion unique, voir plus bas) | inactif |
 | `device-volet`, `device-portail` | Types d'appareils volet et portail | actifs d'office, même sur une instance déjà configurée |
+| `theme-isno` | Thème ISNO (sombre par défaut, clair au choix) | actif d'office |
+| `installable-app` | Application installable (PWA) : manifeste, icône, service worker | inactif |
 
 Un type publié par un boîtier qu'aucun plugin ne déclare s'affiche comme **appareil inconnu**, sans
 commandes.
@@ -99,6 +105,14 @@ remplacé) :
 **Mises à jour** : l'installation laisse dans le dossier du plugin l'image copiée (`.image`). Le
 superviseur la compare au catalogue ; une version différente affiche « Mettre à jour (a → b) ».
 Exemple de plugin à copier : `plugins/example`.
+
+## Application installable
+Plugin `installable-app` (inactif par défaut). Actif, le portail s'installe comme une application :
+manifeste (`/manifest.webmanifest` : nom du portail, nom court réglable, plein écran), icônes, et
+service worker minimal qui affiche une page « portail injoignable » hors connexion **sans garder la
+moindre donnée en cache**. L'icône est le logo du thème s'il en a un, sinon l'icône ISNO, dessinée une
+fois dans `web/static/pwa/icon.svg` (PNG produits par `scripts/make-pwa-icons.py`). Un service worker
+ne s'enregistre que sur une origine sûre (https, ou `localhost`).
 
 ## Comptes
 La connexion par e-mail et mot de passe est **native** : le compte créé à l'installation peut toujours
@@ -134,6 +148,11 @@ pour chaque appareil `<slug>` :
 | `openprofalux/<device_id>/cover/<slug>/attrs` | JSON : `type` (identifiant déclaré par un plugin, ex. `volet`, `portail`), `positional` (booléen) |
 | `openprofalux/<device_id>/cover/<slug>/state` | état : `open`, `closed`, `opening`, `closing`, `stopped` |
 | `openprofalux/<device_id>/cover/<slug>/position` | position en % d'ouverture (100 = ouvert), si l'appareil est positionnel |
+
+Il annonce sa **présence** sur `openprofalux/<device_id>/status` : `online` (retenu) à sa connexion, et
+`offline` en testament (LWT), que le broker publie s'il disparaît. Le portail s'y fie, et date la
+dernière activité réelle d'un boîtier (gardée dans la base) pour afficher « vu il y a … » quand il
+est hors ligne.
 
 Il reçoit les commandes sur `openprofalux/<device_id>/cover/<slug>/set` (`OPEN`, `STOP`, `CLOSE`). Un
 appareil sans `attrs`, ou d'un type qu'aucun plugin ne déclare, s'affiche comme **appareil inconnu**.

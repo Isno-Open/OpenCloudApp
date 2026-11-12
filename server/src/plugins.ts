@@ -10,6 +10,7 @@ import { shutterTypePlugin, gateTypePlugin } from "./plugins/device-types.js";
 import { registerDeviceType } from "./device-types.js";
 import { registerTheme } from "./themes.js";
 import { isnoThemePlugin } from "./plugins/theme-isno.js";
+import { installableAppPlugin } from "./plugins/installable-app.js";
 import type { PortalConfig } from "./config.js";
 import { registerAuthProvider, localProvider } from "./auth-provider.js";
 import { ensureAccount } from "./store.js";
@@ -25,6 +26,7 @@ export { CAPABILITY, type Capability, type Plugin, type PluginApi, type PluginIn
 export const BUILTIN_PLUGINS: Record<string, Plugin> = {
   [localAccountsPlugin.id]: localAccountsPlugin, [externalAuthPlugin.id]: externalAuthPlugin,
   [shutterTypePlugin.id]: shutterTypePlugin, [gateTypePlugin.id]: gateTypePlugin, [isnoThemePlugin.id]: isnoThemePlugin,
+  [installableAppPlugin.id]: installableAppPlugin,
 };
 /** Actives quand la config n'en dit rien. */
 export const DEFAULT_PLUGINS: readonly string[] = [localAccountsPlugin.id];

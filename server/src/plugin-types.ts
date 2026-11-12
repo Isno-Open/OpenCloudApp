@@ -6,6 +6,7 @@ import type { AuthProvider } from "./auth-provider.js";
 export const CAPABILITY = {
   localLogin: "localLogin",   // formulaire de connexion e-mail + mot de passe (fourni par le COEUR)
   userAdmin: "userAdmin",     // ecran Utilisateurs (creation, roles, suppression)
+  installableApp: "installableApp",   // portail installable comme une application (manifeste, service worker)
 } as const;
 export type Capability = (typeof CAPABILITY)[keyof typeof CAPABILITY];
 

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Icone d'application du portail (PWA) : les ondes de la marque, sur le fond sombre ISNO.
+       SOURCE des PNG (scripts/make-pwa-icons.py) ; meme dessin que web/src/lib/components/layout/Brand.svelte. -->
+  <rect width="512" height="512" rx="96" fill="#0a1424"/>
+  <g transform="translate(64 64) scale(13.7)" color="#2e86ff">
+    <circle cx="6" cy="14" r="2.6" fill="currentColor"/>
+    <g fill="none" stroke="currentColor" stroke-linecap="round">
+      <path d="M11 8 A8 8 0 0 1 11 20" stroke-width="2.2"/>
+      <path d="M15.5 5 A12.5 12.5 0 0 1 15.5 23" stroke-width="2.2" opacity=".65"/>
+      <path d="M20 2.5 A16.5 16.5 0 0 1 20 25.5" stroke-width="2" opacity=".38"/>
+    </g>
+  </g>
+</svg>

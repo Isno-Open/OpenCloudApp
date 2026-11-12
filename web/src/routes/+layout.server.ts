@@ -8,7 +8,8 @@ import { hasCapability, CAPABILITY } from '@opencloudapp/core/plugins.js';
 import { currentAccount, plugins } from '#lib/server/auth.ts';
 import { portalName, portalNameIsCustom } from '#lib/server/portal.ts';
 import { navItems, adminNavItems } from '#lib/i18n.ts';
-import type { Shell, ShellTheme } from '#lib/shell.ts';
+import type { Shell, ShellTheme, ShellApp } from '#lib/shell.ts';
+import { installableEnabled, themeIcon, MANIFEST_PATH, THEME_ICON_PATH, DEFAULT_APPLE_ICON } from '#lib/server/pwa.ts';
 import type { Lang } from '#lib/i18n.ts';
 
 const NO_THEME: ShellTheme = { css: '', fontsHref: null, logo: null };
@@ -22,6 +23,12 @@ async function shellTheme(lang: Lang): Promise<ShellTheme> {
   return { css: themeCss(t), fontsHref: themeFontsHref(t), logo: t.logo ? { src: t.logo.src, alt: t.logo.alt?.[lang] ?? '' } : null };
 }
 
+/** Application installable (plugin) : manifeste et icone iOS, ou rien. */
+async function shellApp(): Promise<ShellApp> {
+  if (!isConfigured() || !(await installableEnabled())) return null;
+  return { manifest: MANIFEST_PATH, appleIcon: themeIcon()?.type === 'image/png' ? THEME_ICON_PATH : DEFAULT_APPLE_ICON };
+}
+
 export const load: LayoutServerLoad = async ({ request, locals }) => {
   const lang = locals.lang;
   const account = isConfigured() ? await currentAccount(request) : null;
@@ -29,6 +36,7 @@ export const load: LayoutServerLoad = async ({ request, locals }) => {
     portalName: portalName(), portalNameIsCustom: portalNameIsCustom(),
     nav: [...navItems(lang), ...(account?.admin ? adminNavItems(lang, { userAdmin: hasCapability(CAPABILITY.userAdmin) }) : [])],
     theme: await shellTheme(lang),
+    app: await shellApp(),
   };
   return { lang, shell };
 };

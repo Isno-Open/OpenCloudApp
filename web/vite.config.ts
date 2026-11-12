@@ -15,6 +15,8 @@ export default defineConfig({
     // verification d'origine casse derriere un reverse-proxy (origine deduite != hote reel) : levee,
     // comme avant (Astro, checkOrigin: false).
     csrf: { trustedOrigins: ['*'] },
+    // service worker enregistre par la page SEULEMENT si le plugin « Application installable » est actif
+    serviceWorker: { register: false },
   })],
   server: { host: '0.0.0.0', port: 4321, fs: { allow: [repoRoot] } },
   ssr: {
