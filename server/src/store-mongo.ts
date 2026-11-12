@@ -70,6 +70,9 @@ export async function approveDeviceAuth(userCode: string, accountId: string, nam
     { returnDocument: "after", projection: { _id: 0 } });
   return r ?? null;
 }
+export async function purgeExpiredDeviceAuth(now: number): Promise<number> {
+  return (await deviceAuth().deleteMany({ expiresAt: { $lt: now } })).deletedCount;
+}
 export async function consumeDeviceAuth(deviceCode: string, now: number): Promise<DeviceAuth | null> {
   const r = await deviceAuth().findOneAndUpdate(
     { deviceCode, state: DEVICE_AUTH_STATE.approved, expiresAt: { $gt: now } },

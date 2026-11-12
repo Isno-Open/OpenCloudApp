@@ -3,9 +3,13 @@ import CloudLayout from '../layouts/CloudLayout.astro';
 import AppareilsView from '../components/views/AppareilsView.astro';
 import { resolveAccountId } from '../server/auth.ts';
 import { LANG, ROUTES, t } from '../lib/i18n.ts';
+import { LINK_COOKIE } from '../lib/link.ts';
 const lang = LANG.fr;
 const acc = await resolveAccountId(Astro.request);
 if (!acc) return Astro.redirect(ROUTES.connexion[lang]);
+// un code scanne avant la connexion attend : on reprend la liaison
+const pending = Astro.cookies.get(LINK_COOKIE)?.value;
+if (pending) return Astro.redirect(`${ROUTES.lier[lang]}?code=${encodeURIComponent(pending)}`);
 ---
 <CloudLayout title={`${t(lang).appareilsTitle} · ISNO Cloud`} lang={lang} altUrl={ROUTES.appareils[LANG.en]}>
   <AppareilsView lang={lang} accountId={acc} />

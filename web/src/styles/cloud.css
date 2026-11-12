@@ -118,8 +118,6 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.015em; margin: 0; }
 .grp-head .dot.off { background: var(--text-faint); box-shadow: none; }
 .grp-name { font-family: var(--font-sans); font-weight: 700; font-size: 1.06rem; letter-spacing: -.01em; color: var(--text); }
 .grp-sub { font-family: var(--font-mono); font-size: .72rem; color: var(--text-faint); }
-.empty-cta { display: inline-flex; align-items: center; gap: .5rem; margin-top: 1rem; padding: .7rem 1.1rem; border: 1px dashed var(--accent-line); border-radius: var(--radius); background: var(--accent-weak); color: var(--accent); font-weight: 550; font-size: .92rem; text-decoration: none; transition: .15s; }
-.empty-cta:hover { border-style: solid; border-color: var(--accent); }
 
 /* ===== boitiers ===== */
 .box-card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.15rem; box-shadow: var(--shadow); margin-bottom: .8rem; display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; }
@@ -198,3 +196,16 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.015em; margin: 0; }
 .role { font-size: .72rem; font-weight: 600; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-muted); }
 .role.op { color: var(--accent); border-color: var(--accent-line); background: var(--accent-weak); }
 .youtag { margin-left: .45rem; font-family: var(--font-mono); font-size: .66rem; color: var(--accent2); border: 1px solid var(--border); border-radius: 6px; padding: 1px 5px; }
+
+/* ===== liaison d'un appareil + accueil sans appareil ===== */
+.linkcode { display: flex; flex-direction: column; gap: .35rem; }
+.linkcode label { font-size: .82rem; color: var(--text-muted); }
+.linkcode-row { display: flex; gap: .6rem; flex-wrap: wrap; }
+.linkcode-row input { flex: 1 1 10rem; min-width: 0; font-family: var(--font-mono); font-size: 1.05rem; letter-spacing: .12em; text-transform: uppercase; padding: .55rem .7rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-2); color: var(--text); }
+.linkcode-row input:focus { outline: none; border-color: var(--accent); }
+.welcome { margin-top: .6rem; padding: 1.3rem; border: 1px dashed var(--accent-line); border-radius: var(--radius); background: var(--accent-weak); display: flex; flex-direction: column; gap: .7rem; }
+.welcome h2 { font-size: 1.25rem; font-weight: 750; letter-spacing: -.01em; margin: 0; }
+.welcome .note { margin: 0; }
+.welcome-steps { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: .35rem; color: var(--text); font-size: .92rem; }
+.legacy { font-size: .84rem; color: var(--text-muted); margin: 0; }
+.legacy a { color: var(--accent); }

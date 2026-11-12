@@ -2,6 +2,7 @@
 // Accueil : « Mes appareils ». Un appareil = un boitier OpenProfalux. On liste les appareils, chacun en
 // section avec ses volets/portails (cartes au visuel firmware) dessous. La roue crantee ouvre la config.
 import VoletCard from '../VoletCard.astro';
+import LinkCodeForm from '../LinkCodeForm.astro';
 import { getAccountInfo, listBoitiers, listAppareils } from '../../lib/cloud-data.ts';
 import { t, ROUTES, appareilHref, type Lang } from '../../lib/i18n.ts';
 import type { Appareil } from '../../lib/types.ts';
@@ -40,7 +41,17 @@ const coversOf = (boitierId: string): Appareil[] => appareils.filter((a) => a.bo
     </section>
   );
 }) : (
-  <a class="empty-cta" href={ROUTES.ajouter[lang]}>{s.voletsEmpty}</a>
+  <section class="welcome">
+    <h2>{s.welcomeTitle}</h2>
+    <p class="note">{s.welcomeLead}</p>
+    <ol class="welcome-steps">
+      <li>{s.welcomeStep1}</li>
+      <li>{s.welcomeStep2}</li>
+      <li>{s.welcomeStep3}</li>
+    </ol>
+    <LinkCodeForm lang={lang} />
+    <p class="legacy">{s.legacyHint} <a href={ROUTES.ajouter[lang]}>{s.legacyLink}</a></p>
+  </section>
 )}
 
 <script is:inline>

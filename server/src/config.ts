@@ -2,7 +2,7 @@
 // web (/setup) ou seme depuis l'environnement pour le deploiement automatise ISNO. Lu par requete : aucune
 // valeur de deploiement n'est figee a l'import d'un module. Ce module ne charge AUCUN store (il sert aussi
 // a decider le mode setup sans base), donc il ne depend que de fs + crypto.
-import { readFileSync, writeFileSync, existsSync, mkdirSync, chmodSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, chmodSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 
@@ -79,6 +79,8 @@ export function ensureSetupToken(): string {
   try { mkdirSync(dirname(TOKEN_PATH), { recursive: true }); writeFileSync(TOKEN_PATH, tok, { mode: 0o600 }); } catch { /* ephemere */ }
   return tok;
 }
+// Une fois l'instance configuree, le jeton n'a plus d'usage : on le detruit (il a pu fuiter par le journal).
+export function clearSetupToken(): void { try { rmSync(TOKEN_PATH, { force: true }); } catch { /* deja absent */ } }
 export function verifySetupToken(given: string): boolean {
   const want = ensureSetupToken();
   const a = Buffer.from(given); const b = Buffer.from(want);

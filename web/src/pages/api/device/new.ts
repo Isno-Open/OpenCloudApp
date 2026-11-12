@@ -20,8 +20,7 @@ export const POST: APIRoute = async ({ request }) => {
   const acc = await getAccount(accountId);
   if (!acc) return json(404, { error: 'account inconnu' });
   if (overCap(await countDevices(accountId), acc.deviceCap))
-    return json(403, { error: 'plafond atteint', cap: acc.deviceCap,
-      offer: `Au-delà de ${acc.deviceCap} appareils, une offre mensuelle est nécessaire.` });
+    return json(403, { error: 'plafond atteint', cap: acc.deviceCap });
   const p = { code: code6(), accountId, deviceId, name: String(b.name ?? deviceId) };
   await addPairing(p);
   return json(200, { code: p.code, deviceId });

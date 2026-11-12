@@ -146,9 +146,9 @@ if (isConfigured()) return Astro.redirect('/');
             var iv = setInterval(function () {
               tries++;
               fetch('/api/setup/status').then(function (r) { return r.json(); }).then(function (d) {
-                if (d.configured) { clearInterval(iv); location.href = '/'; }
+                if (d.configured) { clearInterval(iv); location.href = '/connexion?local=1'; }
               }).catch(function () {});
-              if (tries > 40) { clearInterval(iv); location.href = '/'; }
+              if (tries > 40) { clearInterval(iv); location.href = '/connexion?local=1'; }
             }, 1500);
           })
           .catch(function () { err.hidden = false; err.textContent = 'Erreur réseau'; document.getElementById('finishBtn').disabled = false; });

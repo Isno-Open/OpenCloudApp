@@ -17,7 +17,7 @@ interface S {
   nav: { appareils: string; ajouter: string; compte: string };
   footNote: string;
   // vue appareils (accueil)
-  appareilsTitle: string; voletsEmpty: string; noCovers: string;
+  appareilsTitle: string; noCovers: string;
   leadAppareils: (n: number) => string;
   // carte volet/portail
   details: string; rename: string; typeWord: string; positional: string; impulsional: string;
@@ -48,6 +48,12 @@ interface S {
   userMakeAdmin: string; createUserBtn: string; usersListTitle: string; colLogin: string; colRole: string; colCap: string; colDevices: string;
   roleAdmin: string; roleUser: string; youTag: string; removeUser: string; confirmRemoveUser: (id: string) => string;
   createUserError: string; removeUserError: string;
+  // liaison d'un appareil (device grant) + onboarding utilisateur
+  linkTitle: string; linkLead: string; linkCodeLabel: string; linkCodePh: string; linkContinue: string;
+  linkConfirmTitle: string; linkIdWord: string; linkNameLabel: string; linkNamePh: string; linkConfirmBtn: string;
+  linkDoneTitle: string; linkDoneNote: string; linkGoDevices: string; linkInvalid: string; linkCapError: (cap: number) => string;
+  welcomeTitle: string; welcomeLead: string; welcomeStep1: string; welcomeStep2: string; welcomeStep3: string;
+  legacyHint: string; legacyLink: string;
   // vue parametres (admin)
   settingsTitle: string; settingsLead: string; dbKindLabel: string; dbSqlite: string; dbMongoBundled: string; dbMongoExternal: string;
   publicUrlLabel: string; brokerUrlLabel: string; saveSettingsBtn: string; settingsSaved: string; settingsError: string;
@@ -59,7 +65,7 @@ export const STRINGS = {
     langSwitch: 'View this page in English', langName: 'EN',
     nav: { appareils: 'appareils', ajouter: 'ajouter', compte: 'compte' },
     footNote: 'app.isno.fr',
-    appareilsTitle: 'Mes appareils', voletsEmpty: 'Aucun appareil. Ajoutez-en un.', noCovers: 'Aucun volet pour cet appareil.',
+    appareilsTitle: 'Mes appareils', noCovers: 'Aucun volet pour cet appareil.',
     leadAppareils: (n) => `${n} appareil${n > 1 ? 's' : ''}`,
     details: 'Détails', rename: 'Renommer', typeWord: 'Type', positional: 'positionnel', impulsional: 'impulsionnel',
     posWord: 'Position', radioState: (d) => `reçu ${d} dBm`, offline: 'hors ligne', offlineSuffix: ' · hors ligne', nameLabel: 'Nom',
@@ -77,10 +83,10 @@ export const STRINGS = {
     deleteBtn: 'Supprimer de mon compte', confirmDelete: (n) => `Confirmer la suppression de « ${n} » ?`, yesDelete: 'Oui, supprimer', cancel: 'Annuler',
     renameError: 'Le renommage a échoué.', deleteError: 'La suppression a échoué.',
     addTitle: 'Ajouter un appareil', addLead: 'Associez un appareil OpenProfalux à votre compte.',
-    getCodeTitle: "Obtenir un code d'appairage", getCodeNote: "À saisir dans l'onglet « Cloud » de l'interface de l'appareil, sur votre réseau local.",
+    getCodeTitle: 'Votre boîtier vous demande un code ?', getCodeNote: "Firmware antérieur : obtenez un code ici, puis saisissez-le dans l'onglet « Cloud » de l'interface du boîtier.",
     getCodeBtn: 'Obtenir un code', pairCode: (c) => `Code d’appairage : ${c}`, errPrefix: (e) => `Erreur : ${e}`, netErr: 'Erreur réseau, réessayez.',
     howTitle: 'Comment ça marche',
-    howText: "1. Générez un code ci-dessus. 2. Ouvrez l'interface de l'appareil sur votre réseau, onglet Cloud. 3. Collez le code : l'appareil s'enrôle et apparaît dans « Appareils ». Vous pourrez alors le nommer. Le code expire après quelques minutes.",
+    howText: "Sur le boîtier (interface locale, onglet Cloud), lancez l'appairage : il affiche un QR code et un code court. Scannez le QR avec votre téléphone, ou saisissez le code ci-dessus, puis confirmez. Le boîtier récupère son certificat tout seul et apparaît dans « Appareils ». Le code expire après dix minutes.",
     accountTitle: 'Compte', accountLead: 'Connecté via votre compte isno.fr', identity: 'Identité',
     address: 'Adresse', connection: 'Connexion', boxesWord: 'Appareils',
     logoutTitle: 'Se déconnecter', logoutNote: 'Ferme la session sur cet appareil.', logoutBtn: 'Déconnexion',
@@ -93,6 +99,19 @@ export const STRINGS = {
     roleAdmin: 'opérateur', roleUser: 'utilisateur', youTag: 'vous', removeUser: 'Supprimer',
     confirmRemoveUser: (id) => `Supprimer le compte « ${id} » et ses appareils ?`,
     createUserError: 'Création impossible (identifiant déjà pris ou champ invalide).', removeUserError: 'Suppression impossible.',
+    linkTitle: 'Lier un appareil', linkLead: 'Saisissez le code affiché par votre boîtier, ou scannez son QR code.',
+    linkCodeLabel: 'Code affiché par le boîtier', linkCodePh: 'XXXX-XXXX', linkContinue: 'Continuer',
+    linkConfirmTitle: 'Ajouter cet appareil à votre compte ?', linkIdWord: 'Identifiant',
+    linkNameLabel: 'Nom (facultatif)', linkNamePh: 'Maison, Résidence…', linkConfirmBtn: 'Confirmer',
+    linkDoneTitle: 'Appareil lié', linkDoneNote: 'Votre boîtier récupère son certificat et se connecte dans quelques secondes.',
+    linkGoDevices: 'Voir mes appareils',
+    linkInvalid: "Code inconnu ou expiré. Relancez l'appairage sur le boîtier pour obtenir un nouveau code.",
+    linkCapError: (cap) => `Plafond atteint (${cap} appareils). Supprimez un appareil pour en ajouter un autre.`,
+    welcomeTitle: 'Bienvenue', welcomeLead: 'Ajoutez votre premier appareil en trois étapes.',
+    welcomeStep1: 'Branchez votre boîtier OpenProfalux et connectez-le à votre Wi-Fi.',
+    welcomeStep2: "Ouvrez son interface sur votre réseau, onglet Cloud, et lancez l'appairage : il affiche un QR code.",
+    welcomeStep3: 'Scannez ce QR code avec votre téléphone, ou saisissez le code ci-dessous.',
+    legacyHint: 'Votre boîtier vous demande un code ?', legacyLink: 'Obtenez-en un ici',
     settingsTitle: 'Paramètres', settingsLead: "Configuration de l'instance, définie à l'installation.",
     dbKindLabel: 'Base de données', dbSqlite: 'SQLite (embarqué)', dbMongoBundled: 'MongoDB (fourni)', dbMongoExternal: 'MongoDB (externe)',
     publicUrlLabel: 'URL publique du portail', brokerUrlLabel: 'URL publique du broker MQTT',
@@ -103,7 +122,7 @@ export const STRINGS = {
     langSwitch: 'Voir cette page en français', langName: 'FR',
     nav: { appareils: 'devices', ajouter: 'add', compte: 'account' },
     footNote: 'app.isno.fr',
-    appareilsTitle: 'My devices', voletsEmpty: 'No device yet. Add one.', noCovers: 'No shutter on this device.',
+    appareilsTitle: 'My devices', noCovers: 'No shutter on this device.',
     leadAppareils: (n) => `${n} device${n === 1 ? '' : 's'}`,
     details: 'Details', rename: 'Rename', typeWord: 'Type', positional: 'positional', impulsional: 'pulsed',
     posWord: 'Position', radioState: (d) => `received ${d} dBm`, offline: 'offline', offlineSuffix: ' · offline', nameLabel: 'Name',
@@ -121,10 +140,10 @@ export const STRINGS = {
     deleteBtn: 'Remove from my account', confirmDelete: (n) => `Confirm deletion of “${n}”?`, yesDelete: 'Yes, delete', cancel: 'Cancel',
     renameError: 'Rename failed.', deleteError: 'Delete failed.',
     addTitle: 'Add a device', addLead: 'Link an OpenProfalux device to your account.',
-    getCodeTitle: 'Get a pairing code', getCodeNote: 'Enter it in the “Cloud” tab of the device interface, on your local network.',
+    getCodeTitle: 'Your device asks you for a code?', getCodeNote: 'Older firmware: get a code here, then enter it in the “Cloud” tab of the device interface.',
     getCodeBtn: 'Get a code', pairCode: (c) => `Pairing code: ${c}`, errPrefix: (e) => `Error: ${e}`, netErr: 'Network error, try again.',
     howTitle: 'How it works',
-    howText: '1. Generate a code above. 2. Open the device interface on your network, Cloud tab. 3. Paste the code: the device enrolls and appears under “Devices”. You can then name it. The code expires after a few minutes.',
+    howText: 'On the device (local interface, Cloud tab), start pairing: it shows a QR code and a short code. Scan the QR with your phone, or enter the code above, then confirm. The device fetches its certificate on its own and appears under “Devices”. The code expires after ten minutes.',
     accountTitle: 'Account', accountLead: 'Signed in with your isno.fr account', identity: 'Identity',
     address: 'Address', connection: 'Sign-in', boxesWord: 'Devices',
     logoutTitle: 'Sign out', logoutNote: 'Closes the session on this device.', logoutBtn: 'Sign out',
@@ -137,6 +156,19 @@ export const STRINGS = {
     roleAdmin: 'operator', roleUser: 'user', youTag: 'you', removeUser: 'Remove',
     confirmRemoveUser: (id) => `Delete account “${id}” and its devices?`,
     createUserError: 'Could not create (login already taken or invalid field).', removeUserError: 'Could not remove.',
+    linkTitle: 'Link a device', linkLead: 'Enter the code shown by your device, or scan its QR code.',
+    linkCodeLabel: 'Code shown by the device', linkCodePh: 'XXXX-XXXX', linkContinue: 'Continue',
+    linkConfirmTitle: 'Add this device to your account?', linkIdWord: 'ID',
+    linkNameLabel: 'Name (optional)', linkNamePh: 'Home, Seaside…', linkConfirmBtn: 'Confirm',
+    linkDoneTitle: 'Device linked', linkDoneNote: 'Your device is fetching its certificate and will connect in a few seconds.',
+    linkGoDevices: 'See my devices',
+    linkInvalid: 'Unknown or expired code. Restart pairing on the device to get a new code.',
+    linkCapError: (cap) => `Limit reached (${cap} devices). Remove a device to add another one.`,
+    welcomeTitle: 'Welcome', welcomeLead: 'Add your first device in three steps.',
+    welcomeStep1: 'Plug in your OpenProfalux device and connect it to your Wi-Fi.',
+    welcomeStep2: 'Open its interface on your network, Cloud tab, and start pairing: it shows a QR code.',
+    welcomeStep3: 'Scan that QR code with your phone, or enter the code below.',
+    legacyHint: 'Your device asks you for a code?', legacyLink: 'Get one here',
     settingsTitle: 'Settings', settingsLead: 'Instance configuration, set at install time.',
     dbKindLabel: 'Database', dbSqlite: 'SQLite (embedded)', dbMongoBundled: 'MongoDB (bundled)', dbMongoExternal: 'MongoDB (external)',
     publicUrlLabel: 'Public portal URL', brokerUrlLabel: 'Public MQTT broker URL',
@@ -167,6 +199,7 @@ export const ROUTES = {
   connexion: { [LANG.fr]: '/connexion', [LANG.en]: '/en/sign-in' },
   utilisateurs: { [LANG.fr]: '/utilisateurs', [LANG.en]: '/en/users' },
   parametres: { [LANG.fr]: '/parametres', [LANG.en]: '/en/settings' },
+  lier: { [LANG.fr]: '/lier', [LANG.en]: '/en/link' },
 } satisfies Record<string, Record<Lang, string>>;
 /** URL de configuration d'un appareil (le chemin reste /boitier pour l'historique des liens). */
 export const appareilHref = (id: string, lang: Lang): string => (lang === LANG.en ? `/en/box/${id}` : `/boitier/${id}`);

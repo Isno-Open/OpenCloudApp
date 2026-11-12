@@ -126,6 +126,10 @@ export function approveDeviceAuth(userCode: string, accountId: string, name: str
   });
   return Promise.resolve(tx());
 }
+// Purge des demandes expirées (la route de démarrage est publique : la table ne doit pas grossir).
+export function purgeExpiredDeviceAuth(now: number): Promise<number> {
+  return Promise.resolve(db.prepare("DELETE FROM device_auth WHERE expires_at < ?").run(now).changes);
+}
 // La box interroge et récupère son certificat : approved -> consumed, une seule fois.
 export function consumeDeviceAuth(deviceCode: string, now: number): Promise<DeviceAuth | null> {
   const tx = db.transaction((): DeviceAuth | null => {

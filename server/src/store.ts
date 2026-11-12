@@ -31,4 +31,5 @@ export const startDeviceAuth = (d: DeviceAuth): Promise<void> => m().startDevice
 export const getDeviceAuthByUserCode = (userCode: string): Promise<DeviceAuth | null> => m().getDeviceAuthByUserCode(userCode);
 export const pollDeviceAuth = (deviceCode: string): Promise<DeviceAuth | null> => m().pollDeviceAuth(deviceCode);
 export const approveDeviceAuth = (userCode: string, accountId: string, name: string, now: number): Promise<DeviceAuth | null> => m().approveDeviceAuth(userCode, accountId, name, now);
+export const purgeExpiredDeviceAuth = (now: number): Promise<number> => m().purgeExpiredDeviceAuth(now);
 export const consumeDeviceAuth = (deviceCode: string, now: number): Promise<DeviceAuth | null> => m().consumeDeviceAuth(deviceCode, now);

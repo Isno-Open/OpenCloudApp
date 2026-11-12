@@ -91,6 +91,13 @@ test("device-auth : nom vide retombe sur le deviceId", async () => {
   await s.startDeviceAuth({ deviceCode: "DC2", userCode: "UC2", deviceId: "m5-2", firmware: "openprofalux", state: "pending", accountId: null, name: null, expiresAt: future });
   assert.equal((await s.approveDeviceAuth("UC2", "admin", "  ", Date.now()))?.name, "m5-2");
 });
+test("device-auth : la purge retire les demandes expirées et garde les autres", async () => {
+  await s.startDeviceAuth({ deviceCode: "DCP1", userCode: "UCP1", deviceId: "m5-p1", firmware: "openprofalux", state: "pending", accountId: null, name: null, expiresAt: Date.now() - 1000 });
+  await s.startDeviceAuth({ deviceCode: "DCP2", userCode: "UCP2", deviceId: "m5-p2", firmware: "openprofalux", state: "pending", accountId: null, name: null, expiresAt: Date.now() + 60000 });
+  assert.ok((await s.purgeExpiredDeviceAuth(Date.now())) >= 1);
+  assert.equal(await s.pollDeviceAuth("DCP1"), null);
+  assert.equal((await s.pollDeviceAuth("DCP2"))?.state, "pending");
+});
 test("device-auth : une demande expirée n'est pas approuvable", async () => {
   await s.startDeviceAuth({ deviceCode: "DC3", userCode: "UC3", deviceId: "m5-3", firmware: "openprofalux", state: "pending", accountId: null, name: null, expiresAt: Date.now() - 1 });
   assert.equal(await s.approveDeviceAuth("UC3", "admin", "X", Date.now()), null);

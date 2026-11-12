@@ -12,7 +12,7 @@ export const POST: APIRoute = async ({ request }) => {
   const lang: Lang = b.lang === LANG.en ? LANG.en : LANG.fr;
   const a = await getAccount(String(b.user ?? ''));
   if (!a || !a.passHash || !verifyPass(String(b.pass ?? ''), a.passHash)) {
-    return new Response(null, { status: 303, headers: { Location: `${ROUTES.connexion[lang]}?e=1` } });
+    return new Response(null, { status: 303, headers: { Location: `${ROUTES.connexion[lang]}?local=1&e=1` } });
   }
   return new Response(null, {
     status: 303,
