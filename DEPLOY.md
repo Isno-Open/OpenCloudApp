@@ -40,6 +40,15 @@ réutiliser les comptes de www.isno.fr :
    défaut 5). Au-delà du plafond, l'enrôlement renvoie une invite d'offre mensuelle.
 Inerte tant que `SSO_SECRET` n'est pas défini : aucun changement de comportement.
 
+Côté site (à la connexion réussie), poser le cookie :
+```ts
+import { createHmac } from "node:crypto";
+const sso = `${accountId}.${createHmac("sha256", process.env.SSO_SECRET).update(accountId).digest("hex")}`;
+cookies.set("sso", sso, { domain: ".isno.fr", path: "/", httpOnly: true, sameSite: "lax", secure: true });
+```
+Vérifié en prod le 2026-11-12 : un cookie `sso` valide ouvre l'app (compte provisionné), un cookie
+falsifié est rejeté.
+
 ## À durcir plus tard
 - Cookie de session `Secure` (le serveur est en HTTP derrière le TLS de Caddy).
 - Store MongoDB (greffon) si besoin de montée en charge.
