@@ -18,7 +18,7 @@ services:
     container_name: isno-cloud-server
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"              # derriere votre reverse-proxy ; pas d'exposition publique directe
     env_file:
       - .env
     environment:

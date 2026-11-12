@@ -13,3 +13,6 @@ server/dist-test
 web/node_modules
 web/dist
 web/.astro
+
+# harnais specifique ISNO (non public)
+docker-compose.override.yml
