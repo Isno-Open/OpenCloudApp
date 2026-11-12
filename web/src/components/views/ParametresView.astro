@@ -1,21 +1,19 @@
 ---
 // Ecran operateur : reglages de l'instance.
 // - General : nom du portail et messagerie, enregistres d'un seul bouton ;
-// - base et noms d'hote en lecture seule (les changer demande de reemettre le certificat du broker et
-//   de reverifier : meme parcours que /setup) ;
-// - plugins installes, chacun avec son propre ecran de reglages (l'ecrou) s'il en declare.
+// - Instance : adresse du portail modifiable (verifiee) ; broker et base en lecture seule, avec la raison.
+// Les plugins ont leur propre page.
 import { loadConfig, DB_KIND } from '@core/config.js';
-import { installedPlugins } from '@core/plugins.js';
 import { smtpConfig, SMTP_SECURITY } from '@core/mail.js';
-import { t, pluginHref, type Lang } from '../../lib/i18n.ts';
+import { t, type Lang } from '../../lib/i18n.ts';
 interface Props { lang: Lang; }
 const { lang } = Astro.props;
 const s = t(lang);
 const cfg = loadConfig();
 const dbLabel = cfg?.db.kind === DB_KIND.mongoExternal ? s.dbMongoExternal
   : cfg?.db.kind === DB_KIND.mongoBundled ? s.dbMongoBundled : s.dbSqlite;
-const plugins = installedPlugins();
 const smtp = smtpConfig();
+const appHost = (cfg?.publicAppUrl ?? '').replace(/^[a-z]+:\/\//, '');
 const SEC_LABEL = { [SMTP_SECURITY.starttls]: 'STARTTLS', [SMTP_SECURITY.tls]: 'TLS', [SMTP_SECURITY.none]: s.smtpSecNone };
 ---
 <div class="page-head"><h1>{s.settingsTitle}</h1></div>
@@ -45,26 +43,18 @@ const SEC_LABEL = { [SMTP_SECURITY.starttls]: 'STARTTLS', [SMTP_SECURITY.tls]: '
   </div>
 </form>
 
-<div class="panel" style="margin-top:.9rem">
-  <div class="kv"><span class="k">{s.dbKindLabel}</span><span class="v">{dbLabel} <span class="ro">{s.readonly}</span></span></div>
-  <div class="kv"><span class="k">{s.publicUrlLabel}</span><span class="v">{cfg?.publicAppUrl ?? ''} <span class="ro">{s.readonly}</span></span></div>
-  <div class="kv"><span class="k">{s.brokerUrlLabel}</span><span class="v">{cfg?.brokerPublicUrl ?? ''} <span class="ro">{s.readonly}</span></span></div>
-</div>
-
-<div class="panel" style="margin-top:.9rem">
-  <h3>{s.pluginsTitle}</h3>
-  {plugins.map((p) => (
-    <div class="plugin-row">
-      <span class="k">{p.title}</span>
-      <span class="ro">{p.builtin ? s.pluginBuiltin : s.pluginExternal}</span>
-      {p.configurable
-        ? <a class="gear" href={pluginHref(p.id, lang)} title={s.pluginSettings} aria-label={`${s.pluginSettings} : ${p.title}`}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
-          </a>
-        : <span class="gear-none"></span>}
-    </div>
-  ))}
-</div>
+<form class="panel" id="hostForm" style="margin-top:.9rem">
+  <h3>{s.instanceTitle}</h3>
+  <div class="field"><label for="appHost">{s.portalHostLabel}</label>
+    <div class="row"><input id="appHost" type="text" spellcheck="false" value={appHost} style="flex:1" /><button class="btn ghost" type="submit">{s.portalHostBtn}</button></div>
+    <span class="hint">{s.portalHostHint}</span>
+  </div>
+  <ul class="checks" id="hostChecks" hidden></ul>
+  <div class="kv" style="margin-top:.7rem"><span class="k">{s.brokerUrlLabel}</span><span class="v">{cfg?.brokerPublicUrl ?? ''} <span class="ro">{s.readonly}</span></span></div>
+  <span class="hint">{s.brokerRoReason}</span>
+  <div class="kv" style="margin-top:.5rem"><span class="k">{s.dbKindLabel}</span><span class="v">{dbLabel} <span class="ro">{s.readonly}</span></span></div>
+  <span class="hint">{s.dbRoReason}</span>
+</form>
 
 <script is:inline define:vars={{ okMsg: s.savedMsg, errMsg: s.saveError, testOk: s.smtpTestOk }}>
   (function () {
@@ -79,6 +69,16 @@ const SEC_LABEL = { [SMTP_SECURITY.starttls]: 'STARTTLS', [SMTP_SECURITY.tls]: '
           pass: $('smPass').value, fromEmail: $('smFrom').value.trim(), fromName: $('smFromName').value.trim() },
       }).then(function (res) { show(res.ok, res.ok ? okMsg : (res.d.error || errMsg)); if (res.ok) setTimeout(function () { location.reload(); }, 600); })
         .catch(function () { show(false, errMsg); });
+    });
+    $('hostForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var list = $('hostChecks'); list.hidden = false; list.innerHTML = '<li>…</li>';
+      post('/api/settings/portal-host', { host: $('appHost').value.trim() }).then(function (res) {
+        list.innerHTML = '';
+        (res.d.checks || []).forEach(function (c) { var li = document.createElement('li'); li.className = c.ok ? 'ok' : 'ko'; li.textContent = (c.ok ? '✓ ' : '✗ ') + c.detail; list.appendChild(li); });
+        if (res.ok) { var li = document.createElement('li'); li.className = 'ok'; li.textContent = okMsg; list.appendChild(li); }
+        else if (!res.d.checks) { var l2 = document.createElement('li'); l2.className = 'ko'; l2.textContent = res.d.error || errMsg; list.appendChild(l2); }
+      }).catch(function () { list.innerHTML = '<li class="ko">' + errMsg + '</li>'; });
     });
     var tb = $('smtpTestBtn');
     if (tb) tb.addEventListener('click', function () {

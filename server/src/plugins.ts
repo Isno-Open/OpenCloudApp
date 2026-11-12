@@ -1,15 +1,18 @@
-// Greffons du portail (facon WordPress). Le coeur ne cable AUCUNE gestion de comptes en dur : il charge
+// Plugins du portail (facon WordPress). Le coeur ne cable AUCUNE gestion de comptes en dur : il charge
 // des greffons au meme contrat, `register(api)`. Un greffon peut fournir un mode de connexion
 // (registerAuthProvider) et declarer des CAPACITES que l'app consulte pour afficher ses ecrans.
 //
 // - Integres (livres avec le portail) : actives par la config (`plugins`), « comptes locaux » par defaut.
-// - Externes (ex. greffon prive ISNO) : modules charges depuis HARNESS_MODULE (chemins separes par « , »).
+// - Ajoutes depuis le catalogue ISNO : le superviseur copie leur code dans PLUGINS_DIR/<id>/index.js.
+// - Developpement : modules charges depuis HARNESS_MODULE (chemins separes par « , »).
 import { registerAuthProvider } from "./auth-provider.js";
 import { ensureAccount } from "./store.js";
 import { DEFAULT_CAP } from "./entitlement.js";
 import { localAccountsPlugin } from "./plugins/local-accounts.js";
 import { loadConfig } from "./config.js";
-import { CAPABILITY, type Capability, type Plugin, type PluginApi, type PluginInfo, type PluginSettings, type SettingValue } from "./plugin-types.js";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+import { CAPABILITY, type Capability, type Plugin, type PluginApi, type PluginInfo, type PluginSettings, type SettingValue, type LocalizedText } from "./plugin-types.js";
 export { CAPABILITY, type Capability, type Plugin, type PluginApi, type PluginInfo };
 
 /** Greffons livres avec le portail. */
@@ -20,12 +23,44 @@ export const DEFAULT_PLUGINS: readonly string[] = [localAccountsPlugin.id];
 const installed: PluginInfo[] = [];
 const settingsById = new Map<string, PluginSettings>();
 const capabilities = new Set<Capability>();
-const api: PluginApi = {
-  registerAuthProvider,
-  provideCapability: (c) => { capabilities.add(c); },
-  ensureAccount,
-  defaultCap: DEFAULT_CAP,
-};
+
+/** Dossier des plugins ajoutes depuis le catalogue (volume isno-plugins, en lecture seule). */
+export const PLUGINS_DIR = process.env.PLUGINS_DIR ?? "/plugins";
+/** Identifiant de plugin = nom de dossier : la meme regle que le superviseur. */
+export const PLUGIN_ID_RE = /^[a-z0-9][a-z0-9-]{1,40}$/;
+
+/** Enregistre un plugin avec une api qui note ce qu'IL fournit (connexion, capacites). */
+async function registerOne(p: Plugin, builtin: boolean): Promise<void> {
+  let signIn = false;
+  const api: PluginApi = {
+    registerAuthProvider: (prov) => { signIn = true; registerAuthProvider(prov); },
+    provideCapability: (c) => { if (c === CAPABILITY.localLogin) signIn = true; capabilities.add(c); },
+    ensureAccount,
+    defaultCap: DEFAULT_CAP,
+  };
+  await p.register(api);
+  installed.push({ id: p.id, title: p.title, description: p.description, builtin, configurable: !!p.settings, signIn });
+  if (p.settings) settingsById.set(p.id, p.settings);
+}
+
+/** Un module charge a-t-il la forme d'un plugin ? (export par defaut, ou exports nommes). Code venu
+ *  d'ailleurs : chaque morceau est verifie avant d'etre garde, rien n'est pris sur parole. */
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object";
+const isText = (v: unknown): v is LocalizedText => isObj(v) && typeof v.fr === "string" && typeof v.en === "string";
+const isSettings = (v: unknown): v is PluginSettings =>
+  isObj(v) && Array.isArray(v.fields) && typeof v.toForm === "function" && typeof v.fromForm === "function";
+function asPlugin(m: Record<string, unknown>, fallbackId: string): Plugin {
+  const c = isObj(m.default) ? m.default : m;
+  const register = c.register;
+  if (typeof register !== "function") throw new Error("pas de register(api)");
+  return {
+    id: typeof c.id === "string" ? c.id : fallbackId,
+    title: typeof c.title === "string" ? c.title : fallbackId,
+    description: isText(c.description) ? c.description : undefined,
+    settings: isSettings(c.settings) ? c.settings : undefined,
+    register: (api: PluginApi) => register.call(c, api),
+  };
+}
 
 export const hasCapability = (c: Capability): boolean => capabilities.has(c);
 export const installedPlugins = (): readonly PluginInfo[] => installed;
@@ -42,27 +77,29 @@ export function pluginSettingsFromForm(id: string, input: Record<string, unknown
 }
 
 let loaded: Promise<void> | null = null;
-/** Charge les greffons une seule fois : integres actives, puis externes. */
+/** Charge les plugins une seule fois : ceux de la config (integres, ou ajoutes depuis le catalogue et
+ *  copies dans PLUGINS_DIR), puis ceux de HARNESS_MODULE (developpement). */
 export function loadPlugins(enabled: readonly string[] = DEFAULT_PLUGINS): Promise<void> {
   if (!loaded) loaded = (async () => {
     for (const id of enabled) {
-      const p = BUILTIN_PLUGINS[id];
-      if (!p) { console.error(`[greffons] greffon integre inconnu : ${id}`); continue; }
-      await p.register(api);
-      installed.push({ id: p.id, title: p.title, builtin: true, configurable: !!p.settings });
-      if (p.settings) settingsById.set(p.id, p.settings);
-    }
-    for (const mod of (process.env.HARNESS_MODULE ?? "").split(",").map((s) => s.trim()).filter(Boolean)) {
       try {
-        const m = (await import(/* @vite-ignore */ mod)) as Partial<Plugin> & { register?: Plugin["register"] };
-        if (typeof m.register !== "function") throw new Error("pas de register(api)");
-        await m.register(api);
-        installed.push({ id: m.id ?? mod, title: m.title ?? mod, builtin: false, configurable: !!m.settings });
-        if (m.settings) settingsById.set(m.id ?? mod, m.settings);
+        const builtin = BUILTIN_PLUGINS[id];
+        if (builtin) { await registerOne(builtin, true); continue; }
+        if (!PLUGIN_ID_RE.test(id)) throw new Error("identifiant invalide");
+        const p = asPlugin((await import(/* @vite-ignore */ pathToFileURL(join(PLUGINS_DIR, id, "index.js")).href)) as Record<string, unknown>, id);
+        if (p.id !== id) throw new Error(`le module se declare « ${p.id} »`);
+        await registerOne(p, false);
       } catch (e) {
-        console.error(`[greffons] ${mod} non charge :`, e instanceof Error ? e.message : e);
+        console.error(`[plugins] ${id} non charge :`, e instanceof Error ? e.message : e);
       }
+    }
+    for (const mod of (process.env.HARNESS_MODULE ?? "").split(",").map((x) => x.trim()).filter(Boolean)) {
+      try { await registerOne(asPlugin((await import(/* @vite-ignore */ mod)) as Record<string, unknown>, mod), false); }
+      catch (e) { console.error(`[plugins] ${mod} non charge :`, e instanceof Error ? e.message : e); }
     }
   })();
   return loaded;
 }
+
+/** Plugins actives par la config (ceux qui seront charges au prochain demarrage). */
+export const enabledPlugins = (): readonly string[] => loadConfig()?.plugins ?? DEFAULT_PLUGINS;

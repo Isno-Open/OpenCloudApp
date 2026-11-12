@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package.json tsconfig.json ./
 RUN npm install --no-audit --no-fund
 COPY src ./src
-COPY modules.json ./
+COPY modules.json plugins.json ./
 RUN npm run build && npm prune --omit=dev \
   && mkdir -p /control && chown node:node /control   # le volume de controle herite de ce proprietaire
 USER node

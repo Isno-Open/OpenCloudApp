@@ -67,6 +67,7 @@ services:
       - control:/control:ro
       - broker-certs:/broker-certs
       - broker-config:/broker-config
+      - plugins:/plugins:ro                # code des plugins ajoutes depuis le catalogue (copie par le superviseur)
     networks: [stack]
     depends_on: [supervisor]
 
@@ -85,3 +86,7 @@ volumes:
     name: isno-broker-certs
   broker-config:
     name: isno-broker-config
+  # Plugins ajoutes depuis la page Plugins : ecrits par le superviseur (conteneur de copie jetable), lus
+  # en lecture seule par le serveur.
+  plugins:
+    name: isno-plugins

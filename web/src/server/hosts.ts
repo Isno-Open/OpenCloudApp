@@ -53,6 +53,31 @@ const resolves = async (host: string): Promise<string | null> => {
   try { return (await lookup(host.replace(/:\d+$/, ''))).address; } catch { return null; }
 };
 
+/** DNS puis preuve que le nom mene a CETTE instance (nonce du process). */
+async function appReachChecks(app: string, scheme: string): Promise<CheckResult[]> {
+  const out: CheckResult[] = [];
+  const ip = await resolves(app);
+  out.push({ check: HOST_CHECK.appDns, ok: !!ip, detail: ip ? `résout vers ${ip}` : 'ne se résout pas (DNS)' });
+  if (!ip) return out;
+  let reach = 'injoignable';
+  try {
+    const r = await fetch(`${scheme}://${app}/api/setup/whoami`, { signal: AbortSignal.timeout(6000) });
+    const d = (await r.json().catch(() => ({}))) as { nonce?: string };
+    reach = d.nonce === INSTANCE_NONCE ? 'mène bien à cette instance'
+      : d.nonce ? 'répond, mais mène à une AUTRE instance' : 'répond, mais ce n\'est pas ce portail';
+  } catch (e) { reach = `injoignable (${e instanceof Error ? (e.cause instanceof Error ? e.cause.message : e.message) : String(e)})`; }
+  out.push({ check: HOST_CHECK.appReach, ok: reach === 'mène bien à cette instance', detail: `${scheme}://${app} ${reach}` });
+  return out;
+}
+
+/** Verifie le seul nom du portail (changement depuis Parametres). */
+export async function checkAppHost(appHost: string, scheme: string): Promise<{ ok: boolean; host: string | null; checks: CheckResult[] }> {
+  const app = normalizeHost(appHost);
+  const checks: CheckResult[] = [{ check: HOST_CHECK.appFormat, ok: !!app, detail: app ?? 'nom d\'hôte invalide' }];
+  if (app) checks.push(...(await appReachChecks(app, scheme)));
+  return { ok: checks.every((c) => c.ok), host: app, checks };
+}
+
 /** Verifie les deux noms ; chaque point est rendu, pour un message precis en cas d'echec. */
 export async function checkHosts(appHost: string, brokerHost: string, scheme: string): Promise<{ ok: boolean; checks: CheckResult[] }> {
   const checks: CheckResult[] = [];
@@ -60,20 +85,7 @@ export async function checkHosts(appHost: string, brokerHost: string, scheme: st
   const app = normalizeHost(appHost), broker = normalizeHost(brokerHost)?.replace(/:\d+$/, '') ?? null;
   checks.push({ check: HOST_CHECK.appFormat, ok: !!app, detail: app ?? 'nom d\'hôte invalide' });
   checks.push({ check: HOST_CHECK.brokerFormat, ok: !!broker, detail: broker ?? 'nom d\'hôte invalide' });
-  if (app) {
-    const ip = await resolves(app);
-    checks.push({ check: HOST_CHECK.appDns, ok: !!ip, detail: ip ? `résout vers ${ip}` : 'ne se résout pas (DNS)' });
-    if (ip) {
-      let reach = 'injoignable';
-      try {
-        const r = await fetch(`${scheme}://${app}/api/setup/whoami`, { signal: AbortSignal.timeout(6000) });
-        const d = (await r.json().catch(() => ({}))) as { nonce?: string };
-        reach = d.nonce === INSTANCE_NONCE ? 'mène bien à cette instance'
-          : d.nonce ? 'répond, mais mène à une AUTRE instance' : 'répond, mais ce n\'est pas ce portail';
-      } catch (e) { reach = `injoignable (${e instanceof Error ? (e.cause instanceof Error ? e.cause.message : e.message) : String(e)})`; }
-      checks.push({ check: HOST_CHECK.appReach, ok: reach === 'mène bien à cette instance', detail: `${scheme}://${app} ${reach}` });
-    }
-  }
+  if (app) checks.push(...(await appReachChecks(app, scheme)));
   if (broker) {
     const names = brokerCertNames();
     const inCert = names.includes(broker);

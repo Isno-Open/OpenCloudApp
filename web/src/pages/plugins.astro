@@ -1,0 +1,11 @@
+---
+import CloudLayout from '../layouts/CloudLayout.astro';
+import PluginsView from '../components/views/PluginsView.astro';
+import { requireAdmin } from '../server/auth.ts';
+import { LANG, ROUTES, t } from '../lib/i18n.ts';
+const lang = LANG.fr;
+if (!(await requireAdmin(Astro.request))) return Astro.redirect(ROUTES.appareils[lang]);
+---
+<CloudLayout title={t(lang).pluginsTitle} lang={lang} altUrl={ROUTES.plugins[LANG.en]}>
+  <PluginsView lang={lang} />
+</CloudLayout>

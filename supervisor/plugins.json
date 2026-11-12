@@ -1,0 +1,3 @@
+{
+  "$comment": "Catalogue ISNO des plugins compatibles, propose par la page Plugins du portail. Chaque plugin est une image (version exacte) qui contient son code dans /plugin (index.js, module ES) et un shell (busybox suffit). Le superviseur copie ce dossier dans le volume isno-plugins, que le portail lit en lecture seule, puis le portail redemarre et le charge. L'exemple de reference est plugins/example du depot. Vide pour l'instant : le plugin ISNO y entrera une fois son image publiee."
+}

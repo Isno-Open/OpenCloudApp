@@ -7,6 +7,7 @@ import { LOCAL_ACCOUNTS_SETTINGS } from "./local-accounts-settings.js";
 export const localAccountsPlugin: Plugin = {
   id: "local-accounts",
   title: "Comptes locaux",
+  description: { fr: "Le portail gère lui-même ses utilisateurs : connexion par e-mail et mot de passe, écran Utilisateurs.", en: "The portal manages its own users: email and password sign-in, Users screen." },
   settings: LOCAL_ACCOUNTS_SETTINGS,
   register(api) {
     api.registerAuthProvider(localProvider);

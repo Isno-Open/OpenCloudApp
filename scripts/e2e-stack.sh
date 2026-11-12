@@ -18,12 +18,22 @@ services:
       - "0.0.0.0:18080:8080"
     environment:
       - PORTAL_SETUP_WINDOW_S=1800
+  supervisor:
+    environment:
+      - PLUGIN_CATALOG_PATH=/e2e/plugins.json
+    volumes:
+      - $WORK/plugins.json:/e2e/plugins.json:ro
 EOF
+# catalogue de test : le plugin d'exemple du depot, construit ici (image locale, pas de registre)
+cat > "$WORK/plugins.json" <<'JSON'
+{ "example": { "title": "Exemple", "description": { "fr": "Plugin de reference.", "en": "Reference plugin." }, "image": "isno-cloud-plugin-example:e2e" } }
+JSON
+docker build -q -f plugins/example/Dockerfile -t isno-cloud-plugin-example:e2e . >/dev/null || { echo "construction du plugin d'exemple impossible"; exit 2; }
 C=(docker compose -p isnoe2e -f docker-compose.yml -f "$WORK/override.yml")
 teardown() {
   docker rm -f isno-mqtt isno-mongo isno-e2e-device isno-e2e-mail >/dev/null 2>&1
   "${C[@]}" down -v >/dev/null 2>&1
-  docker volume rm isno-broker-data isno-mongo-data >/dev/null 2>&1
+  docker volume rm isno-broker-data isno-mongo-data isno-plugins >/dev/null 2>&1
   [ "$ENV_CREATED" = 1 ] && rm -f .env
   rm -rf "$WORK"
 }
@@ -173,10 +183,41 @@ chk "messagerie retiree (serveur vide)" "$(apiJ /api/settings/general '{"smtp":{
 chk "sans messagerie : page « oubli » renvoie a la connexion" "$(curl -s -o /dev/null -w '%{http_code}' "$B/mot-de-passe-oublie")" 302
 chk "sans messagerie : API « oubli » fermee" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' -d '{"email":"carole@exemple.fr"}' "$B/api/password/forgot")" 404
 
+echo "== page Plugins : catalogue ISNO, installation par le superviseur, reglages, retrait"
+# le portail redemarre de lui-meme apres activation ou retrait : on attend son retour, puis on se reconnecte
+wait_restart() { sleep 2; for _ in $(seq 1 60); do curl -s -o /dev/null "$B/api/setup/status" && break; sleep 1; done; sleep 1; curl -s -o /dev/null -c "$J" -X POST -d 'user=operateur@exemple.fr&pass=operateur-e2e' "$B/api/login"; }
+PL=$(curl -s -b "$J" "$B/plugins")
+chk "Plugins : « Comptes locaux » installe, avec son ecrou" "$(echo "$PL" | grep -c 'href="/plugins/local-accounts"')" 1
+chk "Plugins : seul moyen de connexion, pas de bouton de retrait" "$(echo "$PL" | grep -c 'data-disable="local-accounts"')" 0
+chk "dernier moyen de connexion : retrait refuse" "$(apiJ /api/plugins/disable '{"id":"local-accounts"}')" 409
+chk "Plugins : l'exemple du catalogue est propose" "$(echo "$PL" | grep -c 'data-install="example"')" 1
+chk "activer un plugin non installe : refuse" "$(apiJ /api/plugins/enable '{"id":"example"}')" 404
+chk "installation lancee" "$(apiJ /api/plugins/install '{"id":"example"}')" 200
+for _ in $(seq 1 60); do curl -s -b "$J" "$B/api/plugins/status?id=example" | grep -q '"busy":false' && break; sleep 1; done
+chk "installation terminee sans erreur" "$(curl -s -b "$J" "$B/api/plugins/status?id=example" | grep -c '"error"')" 0
+chk "activation (le portail redemarre)" "$(apiJ /api/plugins/enable '{"id":"example"}')" 200
+wait_restart
+PL=$(curl -s -b "$J" "$B/plugins")
+chk "apres redemarrage : l'exemple est installe" "$(echo "$PL" | grep -c 'href="/plugins/example"')" 1
+chk "apres redemarrage : il n'est plus propose" "$(echo "$PL" | grep -c 'data-install="example"')" 0
+chk "ecran de l'exemple : ses reglages declares" "$(curl -s -b "$J" "$B/plugins/example" | grep -c 'data-key="times"')" 1
+chk "reglage hors bornes enregistre" "$(apiJ /api/settings/plugin '{"id":"example","values":{"greet":true,"times":9}}')" 200
+chk "le plugin a borne la valeur (9 -> 5)" "$(curl -s -b "$J" "$B/plugins/example" | grep -o 'data-key="times"[^>]*' | grep -c 'value="5"')" 1
+chk "desinstallation (le portail redemarre)" "$(apiJ /api/plugins/disable '{"id":"example"}')" 200
+wait_restart
+chk "apres desinstallation : de nouveau propose" "$(curl -s -b "$J" "$B/plugins" | grep -c 'data-install="example"')" 1
+for _ in $(seq 1 20); do docker run --rm -v isno-plugins:/p:ro busybox:1.38.0-musl test -e /p/example || break; sleep 1; done
+chk "apres desinstallation : code retire du volume" "$(docker run --rm -v isno-plugins:/p:ro busybox:1.38.0-musl sh -c 'test -e /p/example && echo present || echo absent')" absent
+
+echo "== Instance : adresse du portail modifiable apres verification"
+chk "adresse qui mene a ce portail : enregistree" "$(apiJ /api/settings/portal-host "{\"host\":\"$APP\"}")" 200
+chk "adresse qui ne se resout pas : refusee" "$(apiJ /api/settings/portal-host '{"host":"nexiste-pas.invalid"}')" 400
+chk "adresse refusee : la config n'a pas change" "$(curl -s -b "$J" "$B/parametres" | grep -c "value=\"$APP\"")" 1
+
 echo "== plugins : la gestion des comptes est un plugin (desactive => ecrans et connexion locale absents)"
-chk "Parametres liste le plugin « Comptes locaux », avec son ecrou" "$(curl -s -b "$J" "$B/parametres" | grep -c 'href="/parametres/plugin/local-accounts"')" 1
-chk "ecran du plugin : ses reglages declares" "$(curl -s -b "$J" "$B/parametres/plugin/local-accounts" | grep -c 'data-key="lockoutMaxFailures"')" 1
-chk "ecran du plugin : un seul bouton Enregistrer" "$(curl -s -b "$J" "$B/parametres/plugin/local-accounts" | grep -c '>Enregistrer</button>')" 1
+chk "Parametres ne liste plus les plugins (page a part)" "$(curl -s -b "$J" "$B/parametres" | grep -c 'href="/plugins/local-accounts"')" 0
+chk "ecran du plugin : ses reglages declares" "$(curl -s -b "$J" "$B/plugins/local-accounts" | grep -c 'data-key="lockoutMaxFailures"')" 1
+chk "ecran du plugin : un seul bouton Enregistrer" "$(curl -s -b "$J" "$B/plugins/local-accounts" | grep -c '>Enregistrer</button>')" 1
 chk "Parametres : un seul bouton Enregistrer" "$(curl -s -b "$J" "$B/parametres" | grep -c '>Enregistrer</button>')" 1
 chk "plugin inconnu : reglages refuses" "$(apiJ /api/settings/plugin '{"id":"inconnu","values":{}}')" 404
 docker exec isno-cloud-server sh -c "python3 -c 1 2>/dev/null; node -e \"const f='/data/portal.config.json';const c=JSON.parse(require('fs').readFileSync(f));c.plugins=[];require('fs').writeFileSync(f,JSON.stringify(c))\""

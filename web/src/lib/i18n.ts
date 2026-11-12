@@ -42,7 +42,7 @@ interface S {
   // connexion
   signInTitle: string; signInUser: string; signInPass: string; signInBtn: string; signInError: string;
   // nav admin (operateur)
-  adminNav: { utilisateurs: string; parametres: string };
+  adminNav: { utilisateurs: string; plugins: string; parametres: string };
   // vue utilisateurs (admin)
   usersTitle: string; usersLead: string; userNewTitle: string; userLogin: string; userName: string; userPassword: string; userCap: string;
   userMakeAdmin: string; createUserBtn: string; usersListTitle: string; colLogin: string; colRole: string; colCap: string; colDevices: string;
@@ -64,7 +64,10 @@ interface S {
   setPasswordTitle: string; newPassword: string; confirmPassword: string; setPasswordBtn: string; passwordMismatch: string;
   linkExpired: string; askNewLink: string; passwordSetOk: string;
   userPassInviteHint: string; invitedTag: string; resendInviteBtn: string;
-  pluginSettings: string; pluginSettingsLead: string;
+  pluginSettings: string; pluginSettingsLead: string; pluginsLead: string; pluginsInstalled: string; pluginsAdd: string;
+  pluginCatalog: string; pluginInstall: string; pluginEnable: string; pluginDisable: string; pluginRemove: string; pluginRequired: string;
+  pluginLastSignIn: string; pluginsCatalogDown: string; pluginsNoneAvailable: string; pluginRestarting: string; pluginInstalling: string;
+  instanceTitle: string; portalHostLabel: string; portalHostHint: string; portalHostBtn: string; brokerRoReason: string; dbRoReason: string;
   smtpTitle: string; smtpOff: string; smtpIntro: string; smtpHost: string; smtpPort: string; smtpSecurity: string; smtpSecNone: string;
   smtpUser: string; smtpPass: string; smtpPassKept: string; smtpFrom: string; smtpFromName: string; smtpTest: string; smtpTestOk: string; loginCaptchaError: string; loginLocked: string; loginTotpPrompt: string; loginTotpError: string; loginExpired: string; totpCodeLabel: string;
   // double authentification (Compte)
@@ -107,7 +110,7 @@ export const STRINGS = {
     boxesWord: 'Appareils',
     logoutTitle: 'Se déconnecter', logoutNote: 'Ferme la session sur cet appareil.', logoutBtn: 'Déconnexion',
     signInTitle: 'Connexion', signInUser: 'E-mail', signInPass: 'Mot de passe', signInBtn: 'Se connecter', signInError: 'Identifiants invalides.',
-    adminNav: { utilisateurs: 'utilisateurs', parametres: 'paramètres' },
+    adminNav: { utilisateurs: 'utilisateurs', plugins: 'plugins', parametres: 'paramètres' },
     usersTitle: 'Utilisateurs', usersLead: 'Créez et gérez les comptes qui pilotent des appareils sur ce portail.',
     userNewTitle: 'Nouvel utilisateur', userLogin: 'E-mail', userName: 'Nom', userPassword: 'Mot de passe', userCap: "Plafond d'appareils",
     userMakeAdmin: 'Opérateur (accès Paramètres et Utilisateurs)', createUserBtn: 'Créer', usersListTitle: 'Comptes',
@@ -132,7 +135,7 @@ export const STRINGS = {
     settingsTitle: 'Paramètres', settingsLead: "Configuration de l'instance, définie à l'installation.",
     dbKindLabel: 'Base de données', dbSqlite: 'SQLite (embarqué)', dbMongoBundled: 'MongoDB (fourni)', dbMongoExternal: 'MongoDB (externe)',
     publicUrlLabel: 'URL publique du portail', brokerUrlLabel: 'URL publique du broker MQTT',
-    pluginsTitle: 'Plugins installés', pluginBuiltin: 'intégré', pluginExternal: 'externe',
+    pluginsTitle: 'Plugins', pluginBuiltin: 'intégré', pluginExternal: 'externe',
     noLoginMethod: "Aucun mode de connexion n'est installé sur ce portail (plugin manquant).",
     loginCaptchaLabel: 'Recopiez le code',
     forgotLink: 'Mot de passe oublié ?', forgotTitle: 'Mot de passe oublié', forgotIntro: 'Indiquez votre e-mail : si un compte y est rattaché, vous recevrez un lien pour choisir un nouveau mot de passe.',
@@ -142,6 +145,17 @@ export const STRINGS = {
     passwordSetOk: 'Mot de passe enregistré. Vous pouvez vous connecter.',
     userPassInviteHint: "Laissez vide pour envoyer une invitation par e-mail : l'utilisateur choisira son mot de passe.", invitedTag: 'invité', resendInviteBtn: "Renvoyer l'invitation",
     pluginSettings: 'Réglages', pluginSettingsLead: 'Réglages de ce plugin.',
+    pluginsLead: 'Ce que le portail sait faire en plus de son cœur. Activer ou retirer un plugin redémarre le portail (quelques secondes).',
+    pluginsInstalled: 'Installés', pluginsAdd: 'Ajouter un plugin', pluginCatalog: 'catalogue ISNO', pluginInstall: 'Installer', pluginEnable: 'Activer',
+    pluginDisable: 'Désactiver', pluginRemove: 'Désinstaller', pluginRequired: 'requis',
+    pluginLastSignIn: "Seul moyen de se connecter : le retirer fermerait le portail à tout le monde.",
+    pluginsCatalogDown: 'Catalogue indisponible', pluginsNoneAvailable: "Aucun autre plugin disponible pour l'instant.",
+    pluginRestarting: 'Redémarrage du portail…', pluginInstalling: 'Installation…',
+    instanceTitle: 'Instance', portalHostLabel: 'Adresse du portail',
+    portalHostHint: "Sert au QR d'enrôlement et aux liens des e-mails. Vérifiée avant d'être enregistrée : elle doit mener à ce portail.",
+    portalHostBtn: 'Vérifier et enregistrer',
+    brokerRoReason: "Inscrite dans chaque appareil lié : la changer couperait les appareils déjà enrôlés.",
+    dbRoReason: 'La changer suppose de migrer les comptes et les appareils vers une autre base.',
     smtpTitle: 'Messagerie (SMTP)', smtpOff: 'non configurée', smtpIntro: 'Sert aux invitations et au mot de passe oublié. Serveur vide : pas de messagerie, et ces fonctions restent masquées.',
     smtpHost: 'Serveur', smtpPort: 'Port', smtpSecurity: 'Sécurité', smtpSecNone: 'Aucune', smtpUser: 'Identifiant', smtpPass: 'Mot de passe', smtpPassKept: 'inchangé',
     smtpFrom: 'Adresse d’expédition', smtpFromName: 'Nom d’expéditeur', smtpTest: "Envoyer un test", smtpTestOk: 'E-mail de test envoyé à', loginCaptchaError: 'Code de vérification incorrect.',
@@ -187,7 +201,7 @@ export const STRINGS = {
     boxesWord: 'Devices',
     logoutTitle: 'Sign out', logoutNote: 'Closes the session on this device.', logoutBtn: 'Sign out',
     signInTitle: 'Sign in', signInUser: 'Email', signInPass: 'Password', signInBtn: 'Sign in', signInError: 'Invalid credentials.',
-    adminNav: { utilisateurs: 'users', parametres: 'settings' },
+    adminNav: { utilisateurs: 'users', plugins: 'plugins', parametres: 'settings' },
     usersTitle: 'Users', usersLead: 'Create and manage the accounts that control devices on this portal.',
     userNewTitle: 'New user', userLogin: 'Email', userName: 'Name', userPassword: 'Password', userCap: 'Device limit',
     userMakeAdmin: 'Operator (access to Settings and Users)', createUserBtn: 'Create', usersListTitle: 'Accounts',
@@ -212,7 +226,7 @@ export const STRINGS = {
     settingsTitle: 'Settings', settingsLead: 'Instance configuration, set at install time.',
     dbKindLabel: 'Database', dbSqlite: 'SQLite (embedded)', dbMongoBundled: 'MongoDB (bundled)', dbMongoExternal: 'MongoDB (external)',
     publicUrlLabel: 'Public portal URL', brokerUrlLabel: 'Public MQTT broker URL',
-    pluginsTitle: 'Installed plugins', pluginBuiltin: 'built-in', pluginExternal: 'external',
+    pluginsTitle: 'Plugins', pluginBuiltin: 'built-in', pluginExternal: 'external',
     noLoginMethod: 'No sign-in method is installed on this portal (missing plugin).',
     loginCaptchaLabel: 'Type the code',
     forgotLink: 'Forgot password?', forgotTitle: 'Forgot password', forgotIntro: "Enter your email: if an account uses it, you'll receive a link to choose a new password.",
@@ -222,6 +236,17 @@ export const STRINGS = {
     passwordSetOk: 'Password saved. You can sign in.',
     userPassInviteHint: 'Leave empty to send an email invitation: the user will choose their password.', invitedTag: 'invited', resendInviteBtn: 'Resend invitation',
     pluginSettings: 'Settings', pluginSettingsLead: 'Settings of this plugin.',
+    pluginsLead: 'What the portal can do beyond its core. Enabling or removing a plugin restarts the portal (a few seconds).',
+    pluginsInstalled: 'Installed', pluginsAdd: 'Add a plugin', pluginCatalog: 'ISNO catalog', pluginInstall: 'Install', pluginEnable: 'Enable',
+    pluginDisable: 'Disable', pluginRemove: 'Uninstall', pluginRequired: 'required',
+    pluginLastSignIn: 'Only way to sign in: removing it would lock everyone out of the portal.',
+    pluginsCatalogDown: 'Catalog unavailable', pluginsNoneAvailable: 'No other plugin available yet.',
+    pluginRestarting: 'Restarting the portal…', pluginInstalling: 'Installing…',
+    instanceTitle: 'Instance', portalHostLabel: 'Portal address',
+    portalHostHint: 'Used for the enrollment QR code and email links. Checked before saving: it must lead to this portal.',
+    portalHostBtn: 'Check and save',
+    brokerRoReason: 'Written into every linked device: changing it would cut off devices already enrolled.',
+    dbRoReason: 'Changing it means migrating accounts and devices to another database.',
     smtpTitle: 'Mail (SMTP)', smtpOff: 'not configured', smtpIntro: 'Used for invitations and password resets. Empty server: no mail, and these features stay hidden.',
     smtpHost: 'Server', smtpPort: 'Port', smtpSecurity: 'Security', smtpSecNone: 'None', smtpUser: 'Username', smtpPass: 'Password', smtpPassKept: 'unchanged',
     smtpFrom: 'Sender address', smtpFromName: 'Sender name', smtpTest: 'Send a test', smtpTestOk: 'Test email sent to', loginCaptchaError: 'Wrong verification code.',
@@ -261,13 +286,14 @@ export const ROUTES = {
   connexion: { [LANG.fr]: '/connexion', [LANG.en]: '/en/sign-in' },
   utilisateurs: { [LANG.fr]: '/utilisateurs', [LANG.en]: '/en/users' },
   parametres: { [LANG.fr]: '/parametres', [LANG.en]: '/en/settings' },
+  plugins: { [LANG.fr]: '/plugins', [LANG.en]: '/en/plugins' },
   lier: { [LANG.fr]: '/lier', [LANG.en]: '/en/link' },
   motDePasse: { [LANG.fr]: '/mot-de-passe', [LANG.en]: '/en/password' },
   oubli: { [LANG.fr]: '/mot-de-passe-oublie', [LANG.en]: '/en/forgot-password' },
 } satisfies Record<string, Record<Lang, string>>;
 /** URL de configuration d'un appareil (le chemin reste /boitier pour l'historique des liens). */
 /** Ecran de reglages d'un plugin. */
-export const pluginHref = (id: string, lang: Lang): string => `${ROUTES.parametres[lang]}/plugin/${encodeURIComponent(id)}`;
+export const pluginHref = (id: string, lang: Lang): string => `${ROUTES.plugins[lang]}/${encodeURIComponent(id)}`;
 export const appareilHref = (id: string, lang: Lang): string => (lang === LANG.en ? `/en/box/${id}` : `/boitier/${id}`);
 
 /** Items de nav pour une langue, avec test d'activite sur le chemin courant. */
@@ -285,6 +311,7 @@ export function adminNavItems(lang: Lang, opts: { userAdmin: boolean }) {
   const s = t(lang);
   return [
     ...(opts.userAdmin ? [{ href: ROUTES.utilisateurs[lang], label: s.adminNav.utilisateurs, active: (p: string) => p === ROUTES.utilisateurs[lang] }] : []),
-    { href: ROUTES.parametres[lang], label: s.adminNav.parametres, active: (p: string) => p === ROUTES.parametres[lang] || p.startsWith(`${ROUTES.parametres[lang]}/`) },
+    { href: ROUTES.plugins[lang], label: s.adminNav.plugins, active: (p: string) => p === ROUTES.plugins[lang] || p.startsWith(`${ROUTES.plugins[lang]}/`) },
+    { href: ROUTES.parametres[lang], label: s.adminNav.parametres, active: (p: string) => p === ROUTES.parametres[lang] },
   ];
 }

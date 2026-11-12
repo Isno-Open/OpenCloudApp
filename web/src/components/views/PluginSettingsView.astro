@@ -9,7 +9,7 @@ const { lang, plugin, fields, values } = Astro.props;
 const s = t(lang);
 const id = (f: SettingField) => `pf-${f.key}`;
 ---
-<a class="backlink" href={ROUTES.parametres[lang]}>← {s.settingsTitle}</a>
+<a class="backlink" href={ROUTES.plugins[lang]}>← {s.pluginsTitle}</a>
 <div class="page-head"><h1>{plugin.title}</h1></div>
 <p class="lead">{s.pluginSettingsLead} <span class="ro">{plugin.builtin ? s.pluginBuiltin : s.pluginExternal}</span></p>
 
