@@ -63,3 +63,18 @@ test("catalogue local relu a chaque appel, illisible = erreur de source, pas d'a
   assert.equal(bad.errors[0]?.unreadable, true);
   assert.deepEqual(readLocalCatalog(""), { raws: [], errors: [] });
 });
+
+test("mise a jour : decidee par l'image installee contre celle du catalogue", async () => {
+  const { updateInfo } = await import("./plugin-catalog.js");
+  assert.deepEqual(updateInfo("p:0.2.0", { present: true, image: "p:0.1.0" }), { version: "0.2.0", installedVersion: "0.1.0", updateAvailable: true });
+  assert.deepEqual(updateInfo("p:0.2.0", { present: true, image: "p:0.2.0" }), { version: "0.2.0", installedVersion: "0.2.0", updateAvailable: false });
+  assert.deepEqual(updateInfo("p:0.2.0", { present: true, image: null }), { version: "0.2.0", installedVersion: null, updateAvailable: true });
+  assert.deepEqual(updateInfo("p:0.2.0", { present: false, image: null }), { version: "0.2.0", installedVersion: null, updateAvailable: false });
+});
+
+test("installation : l'etiquette de l'image installee est posee, une image hors format refusee", async () => {
+  const { copyContainerBody, INSTALLED_IMAGE_FILE } = await import("./plugin-catalog.js");
+  const body = copyContainerBody("abc", "reg/p:1.2.3", "install");
+  assert.ok(body.Cmd[0]!.includes(`printf '%s' 'reg/p:1.2.3' > /out/abc/${INSTALLED_IMAGE_FILE}`));
+  assert.throws(() => copyContainerBody("abc", "p:1'; rm -rf /out; '", "install"));
+});

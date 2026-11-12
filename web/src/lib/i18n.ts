@@ -67,7 +67,7 @@ interface S {
   userPassInviteHint: string; invitedTag: string; resendInviteBtn: string;
   pluginSettings: string; pluginSettingsLead: string; pluginsLead: string; pluginsInstalled: string;
   pluginCatalog: string; pluginLocal: string; pluginInstall: string; pluginEnable: string; pluginDisable: string; pluginRemove: string;
-  pluginsCatalogDown: string; pluginsNoneInstalled: string; pluginsCatalogTitle: string; pluginIsInstalled: string;
+  pluginsCatalogDown: string; pluginsNoneInstalled: string; pluginsCatalogTitle: string; pluginIsInstalled: string; pluginUpdate: (from: string, to: string) => string;
   pluginSourcesTitle: string; pluginSourceIsno: string; pluginSourceRemove: string; pluginSourceAdd: string; pluginSourceAddBtn: string; pluginSourceWarn: string;
   setupUserAdmin: string; setupUserAdminHint: string; pluginRestarting: string; pluginInstalling: string;
   instanceTitle: string; portalHostLabel: string; portalHostHint: string; portalHostBtn: string; brokerRoReason: string; dbRoReason: string;
@@ -153,7 +153,7 @@ export const STRINGS = {
     pluginsInstalled: 'Installés', pluginCatalog: 'catalogue ISNO', pluginLocal: 'cette instance', pluginInstall: 'Installer', pluginEnable: 'Activer',
     pluginDisable: 'Désactiver', pluginRemove: 'Désinstaller',
     pluginsCatalogDown: 'Catalogue indisponible', pluginsNoneInstalled: 'Aucun plugin : le portail fonctionne avec le seul compte créé à l\'installation.',
-    pluginsCatalogTitle: 'Catalogue', pluginIsInstalled: 'installé',
+    pluginsCatalogTitle: 'Catalogue', pluginIsInstalled: 'installé', pluginUpdate: (from: string, to: string) => `Mettre à jour (${from} → ${to})`,
     pluginSourcesTitle: 'Sources du catalogue', pluginSourceIsno: 'Livré avec cette version du portail, toujours présent.',
     pluginSourceRemove: 'Retirer', pluginSourceAdd: 'Ajouter une source (adresse https d\'un catalogue)', pluginSourceAddBtn: 'Ajouter',
     pluginSourceWarn: "Un plugin s'exécute dans le portail : n'ajoutez que des sources dont vous connaissez l'auteur. Une source ne peut pas remplacer un plugin ISNO.",
@@ -250,7 +250,7 @@ export const STRINGS = {
     pluginsInstalled: 'Installed', pluginCatalog: 'ISNO catalog', pluginLocal: 'this instance', pluginInstall: 'Install', pluginEnable: 'Enable',
     pluginDisable: 'Disable', pluginRemove: 'Uninstall',
     pluginsCatalogDown: 'Catalog unavailable', pluginsNoneInstalled: 'No plugin: the portal runs with the single account created at installation.',
-    pluginsCatalogTitle: 'Catalog', pluginIsInstalled: 'installed',
+    pluginsCatalogTitle: 'Catalog', pluginIsInstalled: 'installed', pluginUpdate: (from: string, to: string) => `Update (${from} → ${to})`,
     pluginSourcesTitle: 'Catalog sources', pluginSourceIsno: 'Shipped with this portal version, always present.',
     pluginSourceRemove: 'Remove', pluginSourceAdd: 'Add a source (https address of a catalog)', pluginSourceAddBtn: 'Add',
     pluginSourceWarn: 'A plugin runs inside the portal: only add sources whose author you know. A source cannot replace an ISNO plugin.',

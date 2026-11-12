@@ -15,10 +15,10 @@ const sources = loadConfig()?.pluginSources ?? [];
 const catalog = await listCatalogPlugins(sources);
 // Catalogue affiche : les plugins integres (livres avec le portail) puis ceux des sources. Installes ou non :
 // il n'est donc jamais vide, et dit ce qui est deja en place.
-type Entry = { id: string; title: string; description?: { fr: string; en: string }; origin: string; builtin: boolean };
+type Entry = { id: string; title: string; description?: { fr: string; en: string }; origin: string; builtin: boolean; version?: string; installedVersion?: string | null; updateAvailable?: boolean };
 const entries: Entry[] = [
   ...Object.values(BUILTIN_PLUGINS).map((p) => ({ id: p.id, title: p.title, description: p.description, origin: s.pluginBuiltin, builtin: true })),
-  ...(catalog.ok ? catalog.plugins.map((p) => ({ id: p.id, title: p.title, description: p.description, origin: p.official ? s.pluginCatalog : p.local ? s.pluginLocal : new URL(p.source).host, builtin: false })) : []),
+  ...(catalog.ok ? catalog.plugins.map((p) => ({ id: p.id, title: p.title, description: p.description, origin: p.official ? s.pluginCatalog : p.local ? s.pluginLocal : new URL(p.source).host, builtin: false, version: p.version, installedVersion: p.installedVersion, updateAvailable: p.updateAvailable })) : []),
 ];
 const sourceErrors = catalog.ok ? catalog.errors : [];
 ---
@@ -51,10 +51,12 @@ const sourceErrors = catalog.ok ? catalog.errors : [];
   {!catalog.ok && <p class="formerr" style="margin:0 0 .5rem">{s.pluginsCatalogDown} ({catalog.error})</p>}
   {entries.map((p) => (
     <div class="plugin-row">
-      <div class="plugin-main"><span class="k">{p.title} <span class="ro">{p.origin}</span></span>{p.description && <span class="hint">{p.description[lang]}</span>}
+      <div class="plugin-main"><span class="k">{p.title} <span class="ro">{p.origin}</span>{p.version && <span class="ro">{p.version}</span>}</span>{p.description && <span class="hint">{p.description[lang]}</span>}
         {!p.builtin && <div class="bar" hidden data-bar={p.id}><span></span></div>}</div>
       <div class="plugin-act">
-        {enabled.includes(p.id) ? <span class="tag-ok">✓ {s.pluginIsInstalled}</span>
+        {enabled.includes(p.id) && p.updateAvailable
+          ? <button class="btn primary sm" type="button" data-install={p.id}>{s.pluginUpdate(p.installedVersion ?? '?', p.version ?? '?')}</button>
+          : enabled.includes(p.id) ? <span class="tag-ok">✓ {s.pluginIsInstalled}</span>
           : p.builtin ? <button class="btn primary sm" type="button" data-enable={p.id}>{s.pluginEnable}</button>
           : <button class="btn primary sm" type="button" data-install={p.id}>{s.pluginInstall}</button>}
       </div>

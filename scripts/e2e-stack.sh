@@ -237,6 +237,21 @@ chk "apres redemarrage : il n'est plus propose" "$(echo "$PL" | grep -c 'data-in
 chk "ecran de l'exemple : ses reglages declares" "$(curl -s -b "$J" "$B/plugins/example" | grep -c 'data-key="times"')" 1
 chk "reglage hors bornes enregistre" "$(apiJ /api/settings/plugin '{"id":"example","values":{"greet":true,"times":9}}')" 200
 chk "le plugin a borne la valeur (9 -> 5)" "$(curl -s -b "$J" "$B/plugins/example" | grep -o 'data-key="times"[^>]*' | grep -c 'value="5"')" 1
+echo "== mise a jour d'un plugin : version plus recente au catalogue"
+chk "installe : l'etiquette porte l'image du catalogue" "$(docker run --rm -v isno-plugins:/p:ro busybox:1.38.0-musl cat /p/example/.image)" "isno-cloud-plugin-example:e2e"
+chk "a jour : aucune mise a jour proposee" "$(curl -s -b "$J" "$B/plugins" | grep -c 'Mettre à jour')" 0
+docker tag isno-cloud-plugin-example:e2e isno-cloud-plugin-example:e2e2
+sed 's/isno-cloud-plugin-example:e2e"/isno-cloud-plugin-example:e2e2"/' "$WORK/plugins.json" > "$WORK/plugins.next" && cat "$WORK/plugins.next" > "$WORK/plugins.json"
+# le superviseur redemarre : on attend qu'il reponde de nouveau (la page affiche alors la mise a jour)
+docker restart isno-supervisor >/dev/null; for _ in $(seq 1 40); do curl -s -b "$J" "$B/plugins" | grep -q 'Mettre à jour' && break; sleep 1; done
+chk "version plus recente au catalogue : mise a jour proposee" "$(curl -s -b "$J" "$B/plugins" | grep -c 'Mettre à jour (e2e → e2e2)')" 1
+chk "mise a jour lancee" "$(apiJ /api/plugins/install '{"id":"example"}')" 200
+for _ in $(seq 1 60); do curl -s -b "$J" "$B/api/plugins/status?id=example" | grep -q '"busy":false' && break; sleep 1; done
+chk "mise a jour : nouvelle etiquette" "$(docker run --rm -v isno-plugins:/p:ro busybox:1.38.0-musl cat /p/example/.image)" "isno-cloud-plugin-example:e2e2"
+chk "mise a jour : le portail recharge (redemarrage)" "$(apiJ /api/plugins/enable '{"id":"example"}')" 200
+wait_restart
+chk "apres mise a jour : plus rien a mettre a jour" "$(curl -s -b "$J" "$B/plugins" | grep -c 'Mettre à jour')" 0
+chk "apres mise a jour : toujours installe" "$(curl -s -b "$J" "$B/plugins" | grep -c 'href="/plugins/example"')" 1
 chk "desinstallation (le portail redemarre)" "$(apiJ /api/plugins/disable '{"id":"example"}')" 200
 wait_restart
 chk "apres desinstallation : de nouveau propose" "$(curl -s -b "$J" "$B/plugins" | grep -c 'data-install="example"')" 1

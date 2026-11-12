@@ -8,7 +8,7 @@ import { dirname } from "node:path";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { loadCatalog } from "./catalog.js";
 import { moduleStatus, startInstall, restartModule } from "./install.js";
-import { loadPluginCatalog, mergeCatalogs, readLocalCatalog, isSourceUrl, PLUGIN_ACTION, ISNO_SOURCE, LOCAL_SOURCE, type MergedCatalog, type SourceError } from "./plugin-catalog.js";
+import { loadPluginCatalog, mergeCatalogs, readLocalCatalog, updateInfo, readInstalled, isSourceUrl, PLUGIN_ACTION, ISNO_SOURCE, LOCAL_SOURCE, type MergedCatalog, type SourceError } from "./plugin-catalog.js";
 import { pluginStatus, startPluginJob } from "./plugin-install.js";
 
 const PORT = Number(process.env.PORT ?? 8090);
@@ -56,7 +56,12 @@ async function refreshSources(urls: string[]): Promise<void> {
   sourceErrors = errors;
 }
 // official : la DECISION « catalogue ISNO » est prise ici, l'app ne compare pas le nom de la source
-const describe = (merged: MergedCatalog, id: string) => ({ ...pluginStatus(merged.plugins, id), source: merged.sourceOf[id], official: merged.sourceOf[id] === ISNO_SOURCE, local: merged.sourceOf[id] === LOCAL_SOURCE });
+// Dossier des plugins installes, monte en lecture : la version installee s'y lit (etiquette .image).
+const PLUGINS_MOUNT = process.env.PLUGINS_MOUNT ?? "/plugins";
+const describe = (merged: MergedCatalog, id: string) => ({
+  ...pluginStatus(merged.plugins, id), source: merged.sourceOf[id], official: merged.sourceOf[id] === ISNO_SOURCE, local: merged.sourceOf[id] === LOCAL_SOURCE,
+  ...updateInfo(merged.plugins[id]!.image, readInstalled(PLUGINS_MOUNT, id)),
+});
 const pluginList = (merged: MergedCatalog) => Object.keys(merged.plugins).map((id) => describe(merged, id));
 
 function ensureToken(): string {

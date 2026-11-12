@@ -1,12 +1,15 @@
 // Catalogue des plugins (plugins.json) et regles d'installation, en fonctions pures et testees.
 // Installer un plugin = copier son dossier /plugin, pris dans son image, vers le volume des plugins.
 // La copie se fait dans un conteneur jetable : sans reseau, jamais privilegie, avec ce seul volume.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { MANAGED_LABEL } from "./catalog.js";
 
 export const PLUGIN_LABEL = "isno.plugin";
 /** Volume partage avec le portail (nom fixe, declare aussi dans le compose). */
 export const PLUGINS_VOLUME = "isno-plugins";
+/** Etiquette laissee par l'installation dans le dossier du plugin : l'image (version comprise) copiee.
+ *  C'est elle qu'on compare au catalogue pour savoir si une mise a jour existe. */
+export const INSTALLED_IMAGE_FILE = ".image";
 
 export type LocalizedText = { fr: string; en: string };
 export type PluginSpec = { title: string; description: LocalizedText; image: string };
@@ -76,8 +79,10 @@ export type PluginAction = (typeof PLUGIN_ACTION)[keyof typeof PLUGIN_ACTION];
  *  ete valide par le catalogue : il ne peut ni sortir du volume ni injecter de commande. */
 export function copyContainerBody(id: string, image: string, action: PluginAction) {
   if (!PLUGIN_ID_RE.test(id)) throw new Error(`identifiant de plugin invalide « ${id} »`);
+  // L'image entre dans le script (etiquette) : seul le format valide par le catalogue y passe.
+  if (!IMAGE_RE.test(image)) throw new Error(`image de plugin invalide « ${image} »`);
   const script = action === PLUGIN_ACTION.install
-    ? `test -f /plugin/index.js || { echo "image sans /plugin/index.js" >&2; exit 3; }; rm -rf /out/${id} && mkdir -p /out/${id} && cp -R /plugin/. /out/${id}/`
+    ? `test -f /plugin/index.js || { echo "image sans /plugin/index.js" >&2; exit 3; }; rm -rf /out/${id} && mkdir -p /out/${id} && cp -R /plugin/. /out/${id}/ && printf '%s' '${image}' > /out/${id}/${INSTALLED_IMAGE_FILE}`
     : `rm -rf /out/${id}`;
   return {
     Image: image,
@@ -87,4 +92,27 @@ export function copyContainerBody(id: string, image: string, action: PluginActio
     Labels: { [MANAGED_LABEL]: "true", [PLUGIN_LABEL]: id },
     HostConfig: { Binds: [`${PLUGINS_VOLUME}:/out`], NetworkMode: "none", Privileged: false, RestartPolicy: { Name: "no" } },
   };
+}
+
+/** Version lisible d'une image : son etiquette (« 0.2.0 » pour « nom:0.2.0 »). */
+export const imageVersion = (image: string): string => image.slice(image.lastIndexOf(":") + 1);
+
+export type UpdateInfo = { version: string; installedVersion: string | null; updateAvailable: boolean };
+/** DECISION de mise a jour, prise ici et rendue telle quelle a la page : un plugin present dont l'image
+ *  installee n'est pas celle du catalogue a une mise a jour. Present sans etiquette (installe avant
+ *  qu'elle existe) : version inconnue, donc mise a jour proposee, ce qui pose l'etiquette. */
+export function updateInfo(catalogImage: string, installed: { present: boolean; image: string | null }): UpdateInfo {
+  return {
+    version: imageVersion(catalogImage),
+    installedVersion: installed.image ? imageVersion(installed.image) : null,
+    updateAvailable: installed.present && installed.image !== catalogImage,
+  };
+}
+
+/** Ce qui est installe pour `id` dans le dossier des plugins monte en lecture (`dir`). */
+export function readInstalled(dir: string, id: string): { present: boolean; image: string | null } {
+  const base = `${dir}/${id}`;
+  if (!PLUGIN_ID_RE.test(id) || !existsSync(`${base}/index.js`)) return { present: false, image: null };
+  try { return { present: true, image: readFileSync(`${base}/${INSTALLED_IMAGE_FILE}`, "utf8").trim() || null }; }
+  catch { return { present: true, image: null }; }
 }

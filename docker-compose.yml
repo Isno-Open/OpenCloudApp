@@ -41,6 +41,7 @@ services:
       - MONGO_CACHE_GB=${MONGO_CACHE_GB:-0.25}
     volumes:
       - control:/control
+      - plugins:/plugins:ro                 # lecture seule : la version installee de chaque plugin (.image)
     networks: [stack, dockerapi]
     depends_on: [socket-proxy]
 
