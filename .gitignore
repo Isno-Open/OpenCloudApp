@@ -11,8 +11,8 @@ server/node_modules
 server/dist
 server/dist-test
 web/node_modules
-web/dist
-web/.astro
+web/build
+web/.svelte-kit
 
 # harnais specifique ISNO (non public)
 docker-compose.override.yml

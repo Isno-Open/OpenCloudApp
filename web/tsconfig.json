@@ -1,10 +1,12 @@
 {
-  "extends": "astro/tsconfigs/strict",
+  "extends": "$app/tsconfig",
+  "include": ["src", "*"],
   "compilerOptions": {
+    "strict": true,
     "noUncheckedIndexedAccess": true,
     "verbatimModuleSyntax": true,
-    "paths": { "@core/*": ["../server/dist/*"] }
-  },
-  "include": [".astro/types.d.ts", "**/*"],
-  "exclude": ["dist"]
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "skipLibCheck": true
+  }
 }

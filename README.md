@@ -8,10 +8,11 @@ préfixe : les renommer casserait les installations existantes et leurs données
 
 ## Contenu
 - **broker** (module) : Mosquitto en **mTLS**, isolation **par appareil** (ACL `openprofalux/{device_id}/#`).
-- **server** (TypeScript ; app web Astro rendue par le serveur, écrans interactifs en Svelte) :
-  installation, comptes, enrôlement des appareils, **relais** authentifié (le navigateur ne parle
-  jamais au broker), app de pilotage, **plugins**. L'app passe progressivement entièrement en Svelte
-  (SvelteKit).
+- **server** : le cœur en TypeScript (`server/`, paquet `@opencloudapp/core`) et l'app web en
+  **SvelteKit** rendue par le serveur (`web/`), dans un seul process : installation, comptes,
+  enrôlement des appareils, **relais** authentifié (le navigateur ne parle jamais au broker), app de
+  pilotage, **plugins**. Les écrans sont faits de composants communs (`web/src/lib/components/ui`) :
+  seul leur contenu varie d'un écran à l'autre.
 - **supervisor** : installe les modules **à la demande**, façon Supervisor de Home Assistant : le
   **broker** (obligatoire, installé pendant `/setup`) et **MongoDB** (si choisi). Catalogue déclaré dans
   `supervisor/modules.json`. Il installe aussi les **plugins** du catalogue (voir plus bas).

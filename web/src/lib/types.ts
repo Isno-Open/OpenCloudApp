@@ -2,7 +2,7 @@
 // pas des chaines ecrites a la main (regle « pas de texte litteral dans le code »). Le cloud ne recode
 // pas les types : ils viennent de ce que le DEVICE declare (profiles.json cote firmware).
 
-import type { DeviceTypeDecl } from '@core/plugin-types.js';
+import type { DeviceTypeDecl } from '@opencloudapp/core/plugin-types.js';
 /** Type d'appareil tel qu'un plugin le DECLARE (nom, icone, libelles des commandes). */
 export type DeviceKind = DeviceTypeDecl;
 

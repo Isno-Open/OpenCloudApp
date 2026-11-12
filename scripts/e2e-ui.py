@@ -41,7 +41,8 @@ with sync_playwright() as p:
     pg.goto(B+"/ajouter"); pg.wait_for_load_state("networkidle"); pg.click("#pairBtn")
     pg.wait_for_selector("#pairCode:not([hidden])", timeout=10000); ok("ajouter : code obtenu", ":" in pg.inner_text("#pairCode"))
     # Compte : deconnexion
-    pg.goto(B+"/compte"); pg.wait_for_load_state("networkidle"); pg.click("#logoutBtn"); pg.wait_for_load_state("networkidle")
+    pg.goto(B+"/compte"); pg.wait_for_load_state("networkidle"); pg.click("#logoutBtn")
+    pg.wait_for_url(lambda u: "/compte" not in u, timeout=15000)   # la deconnexion quitte la page
     pg.goto(B+"/compte"); ok("compte : deconnecte", "/connexion" in pg.url)
     res.append("erreurs JS : "+str(errs))
     b.close()

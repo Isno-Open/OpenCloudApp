@@ -222,7 +222,8 @@ chk "source https valide ajoutee" "$(apiJ /api/plugins/sources '{"add":"https://
 PL=$(curl -s -b "$J" "$B/plugins")
 chk "catalogue : le plugin de la source est propose, avec son origine" "$(echo "$PL" | grep -c 'isno-e2e-catalog</span>')" 1
 chk "catalogue : la source ne remplace pas le plugin ISNO de meme identifiant" "$(echo "$PL" | grep -c 'Imposteur')" 0
-chk "sources : le conflit est signale sous la source" "$(echo "$PL" | grep -c 'existe deja')" 1
+# on compte dans le BALISAGE (la page porte aussi ses donnees serialisees pour le navigateur)
+chk "sources : le conflit est signale sous la source" "$(echo "$PL" | grep -o 'class="formerr"[^>]*>[^<]*existe deja' | wc -l)" 1
 chk "source retiree" "$(apiJ /api/plugins/sources '{"remove":"https://isno-e2e-catalog/plugins.json"}')" 200
 chk "source retiree : son plugin n'est plus propose" "$(curl -s -b "$J" "$B/plugins" | grep -c 'data-install="tiers"')" 0
 chk "aucune source gardee apres les refus" "$(curl -s -b "$J" "$B/plugins" | grep -c 'data-source-remove="')" 0
@@ -276,7 +277,7 @@ process.stdout.write(p+"."+c.createHmac("sha256",process.env.S).update(p).digest
 FORGED="isno_account=$(echo "$SSOC" | cut -d= -f2 | sed 's/.$/x/')"
 chk "visiteur sans session : renvoye vers l'adresse de connexion" "$(curl -s -o /dev/null -w '%{redirect_url}' "$B/connexion")" "https://boutique.exemple.fr/compte"
 chk "cookie signe valide : connecte" "$(curl -s -o /dev/null -w '%{http_code}' -H "cookie: $SSOC" "$B/compte")" 200
-chk "cookie signe valide : compte cree a la premiere visite" "$(curl -s -b "$J" "$B/utilisateurs" | grep -c 'client-sso@exemple.fr')" 1
+chk "cookie signe valide : compte cree a la premiere visite" "$(curl -s -b "$J" "$B/utilisateurs" | grep -o 'class="mono">client-sso@exemple.fr<' | wc -l)" 1
 chk "cookie altere : pas connecte" "$(curl -s -o /dev/null -w '%{http_code}' -H "cookie: $FORGED" "$B/compte")" 302
 LOGOUT=$(curl -s -D - -X POST -H "cookie: $SSOC" "$B/api/logout")
 chk "deconnexion : renvoie vers l'adresse de deconnexion" "$(echo "$LOGOUT" | grep -c '"redirect":"https://boutique.exemple.fr/sortie"')" 1
@@ -307,8 +308,8 @@ chk "adresse refusee : la config n'a pas change" "$(curl -s -b "$J" "$B/parametr
 echo "== compte unique : sans le plugin de gestion des comptes, la connexion reste native"
 chk "Parametres ne liste plus les plugins (page a part)" "$(curl -s -b "$J" "$B/parametres" | grep -c 'href="/plugins/local-accounts"')" 0
 chk "ecran du plugin : ses reglages declares" "$(curl -s -b "$J" "$B/plugins/local-accounts" | grep -c 'data-key="lockoutMaxFailures"')" 1
-chk "ecran du plugin : un seul bouton Enregistrer" "$(curl -s -b "$J" "$B/plugins/local-accounts" | grep -c '>Enregistrer</button>')" 1
-chk "Parametres : un seul bouton Enregistrer" "$(curl -s -b "$J" "$B/parametres" | grep -c '>Enregistrer</button>')" 1
+chk "ecran du plugin : un seul bouton Enregistrer" "$(curl -s -b "$J" "$B/plugins/local-accounts" | grep -oE '<button[^>]*>(<!--[^>]*-->)*Enregistrer(<!--[^>]*-->)*</button>' | wc -l)" 1
+chk "Parametres : un seul bouton Enregistrer" "$(curl -s -b "$J" "$B/parametres" | grep -oE '<button[^>]*>(<!--[^>]*-->)*Enregistrer(<!--[^>]*-->)*</button>' | wc -l)" 1
 chk "plugin inconnu : reglages refuses" "$(apiJ /api/settings/plugin '{"id":"inconnu","values":{}}')" 404
 chk "retrait de la gestion des comptes (le portail redemarre)" "$(apiJ /api/plugins/disable '{"id":"local-accounts"}')" 200
 wait_restart

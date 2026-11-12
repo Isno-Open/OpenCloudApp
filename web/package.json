@@ -3,16 +3,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "astro dev --host 0.0.0.0",
-    "build": "astro build",
-    "preview": "astro preview",
-    "check": "astro check && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
-    "types": "node node_modules/@typescript/native/bin/tsc --noEmit"
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
+    "types": "svelte-kit sync && node node_modules/@typescript/native/bin/tsc --noEmit"
   },
   "dependencies": {
-    "@astrojs/node": "11.1.12",
-    "@astrojs/svelte": "9.1.5",
-    "astro": "7.4.11",
+    "@opencloudapp/core": "file:../server",
     "better-sqlite3": "13.1.1",
     "mongodb": "7.9.0",
     "mqtt": "5.16.1",
@@ -21,11 +19,18 @@
     "svelte": "5.57.3"
   },
   "devDependencies": {
-    "@astrojs/check": "0.9.12",
+    "@sveltejs/adapter-node": "6.0.2",
+    "@sveltejs/kit": "3.2.0",
+    "@sveltejs/vite-plugin-svelte": "7.3.1",
     "@types/better-sqlite3": "9.6.0",
     "@types/qrcode": "1.5.6",
     "@typescript/native": "npm:typescript@7.0.2",
     "svelte-check": "4.7.8",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vite": "8.3.8"
+  },
+  "imports": {
+    "#lib": "./src/lib",
+    "#lib/*": "./src/lib/*"
   }
 }

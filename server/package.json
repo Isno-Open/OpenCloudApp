@@ -1,5 +1,5 @@
 {
-  "name": "isno-cloud-server",
+  "name": "@opencloudapp/core",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "better-sqlite3": "13.1.1",
-    "mongodb": "7.8.0",
+    "mongodb": "7.9.0",
     "mqtt": "5.16.1",
     "nodemailer": "10.5.0"
   },
@@ -16,5 +16,8 @@
     "@types/better-sqlite3": "9.6.0",
     "@types/node": "26.6.6",
     "typescript": "7.0.2"
+  },
+  "exports": {
+    "./*": "./dist/*"
   }
 }

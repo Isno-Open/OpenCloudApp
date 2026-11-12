@@ -8,6 +8,8 @@
 export const LANG = { fr: 'fr', en: 'en' } as const;
 export type Lang = (typeof LANG)[keyof typeof LANG];
 export const otherLang = (l: Lang): Lang => (l === LANG.fr ? LANG.en : LANG.fr);
+/** Langue d'une page d'apres son chemin : anglais sous /en, francais ailleurs. */
+export const langOfPath = (path: string): Lang => (path === '/en' || path.startsWith('/en/') ? LANG.en : LANG.fr);
 
 /** Forme des textes : chaque cle existe dans les deux langues (verifie par `satisfies`). */
 interface S {
@@ -292,27 +294,32 @@ export const ROUTES = {
   motDePasse: { [LANG.fr]: '/mot-de-passe', [LANG.en]: '/en/password' },
   oubli: { [LANG.fr]: '/mot-de-passe-oublie', [LANG.en]: '/en/forgot-password' },
 } satisfies Record<string, Record<Lang, string>>;
-/** URL de configuration d'un appareil (le chemin reste /boitier pour l'historique des liens). */
 /** Ecran de reglages d'un plugin. */
 export const pluginHref = (id: string, lang: Lang): string => `${ROUTES.plugins[lang]}/${encodeURIComponent(id)}`;
+/** URL de configuration d'un appareil (le chemin reste /boitier pour l'historique des liens). */
 export const appareilHref = (id: string, lang: Lang): string => (lang === LANG.en ? `/en/box/${id}` : `/boitier/${id}`);
 
-/** Items de nav pour une langue, avec test d'activite sur le chemin courant. */
-export function navItems(lang: Lang) {
+/** Item de navigation : des donnees simples (elles vont au navigateur). Actif sur son adresse exacte,
+ *  ou sous `prefix` quand il couvre des sous-pages. */
+export type NavItem = { href: string; label: string; prefix: string | null };
+export const navActive = (n: NavItem, path: string): boolean => path === n.href || (n.prefix !== null && path.startsWith(n.prefix));
+
+/** Items de nav pour une langue. */
+export function navItems(lang: Lang): NavItem[] {
   const s = t(lang);
   return [
-    { href: ROUTES.appareils[lang], label: s.nav.appareils, active: (p: string) => p === ROUTES.appareils[lang] || p.startsWith(lang === LANG.en ? '/en/box' : '/boitier') },
-    { href: ROUTES.ajouter[lang], label: s.nav.ajouter, active: (p: string) => p === ROUTES.ajouter[lang] },
-    { href: ROUTES.compte[lang], label: s.nav.compte, active: (p: string) => p === ROUTES.compte[lang] },
+    { href: ROUTES.appareils[lang], label: s.nav.appareils, prefix: appareilHref('', lang) },
+    { href: ROUTES.ajouter[lang], label: s.nav.ajouter, prefix: null },
+    { href: ROUTES.compte[lang], label: s.nav.compte, prefix: null },
   ];
 }
 
 /** Items de nav reserves a l'operateur. Utilisateurs n'apparait que si un plugin gere les comptes. */
-export function adminNavItems(lang: Lang, opts: { userAdmin: boolean }) {
+export function adminNavItems(lang: Lang, opts: { userAdmin: boolean }): NavItem[] {
   const s = t(lang);
   return [
-    ...(opts.userAdmin ? [{ href: ROUTES.utilisateurs[lang], label: s.adminNav.utilisateurs, active: (p: string) => p === ROUTES.utilisateurs[lang] }] : []),
-    { href: ROUTES.plugins[lang], label: s.adminNav.plugins, active: (p: string) => p === ROUTES.plugins[lang] || p.startsWith(`${ROUTES.plugins[lang]}/`) },
-    { href: ROUTES.parametres[lang], label: s.adminNav.parametres, active: (p: string) => p === ROUTES.parametres[lang] },
+    ...(opts.userAdmin ? [{ href: ROUTES.utilisateurs[lang], label: s.adminNav.utilisateurs, prefix: null }] : []),
+    { href: ROUTES.plugins[lang], label: s.adminNav.plugins, prefix: `${ROUTES.plugins[lang]}/` },
+    { href: ROUTES.parametres[lang], label: s.adminNav.parametres, prefix: null },
   ];
 }
