@@ -4,6 +4,7 @@ import type { APIRoute } from 'astro';
 import { isConfigured, setupWindowOpen, saveConfig, DB_KIND, type PortalConfig, type DbKind, type DbConfig } from '@core/config.js';
 import { hashPass } from '@core/auth.js';
 import { DB_MODULE } from '@core/config.js';
+import { PLUGIN_ID as LOCAL_ACCOUNTS_ID } from '@core/plugins/local-accounts-settings.js';
 import { getModule } from '../../../server/supervisor.ts';
 import { normalizeEmail, normalizeName } from '../../../lib/validate.ts';
 import { checkHosts, normalizeHost, requestScheme, BROKER_PUBLIC_PORT } from '../../../server/hosts.ts';
@@ -44,7 +45,9 @@ export const POST: APIRoute = async ({ request }) => {
     db = { kind };
   }
 
-  const cfg: PortalConfig = { configured: true, db, publicAppUrl, brokerPublicUrl, operator: { email: adminEmail, name: adminName, passHash: hashPass(adminPassword) } };
+  // Gestion des comptes : le plugin integre, active seulement si l'operateur l'a choisi (sinon compte unique).
+  const plugins = b.userAdmin === false ? [] : [LOCAL_ACCOUNTS_ID];
+  const cfg: PortalConfig = { configured: true, db, publicAppUrl, brokerPublicUrl, plugins, operator: { email: adminEmail, name: adminName, passHash: hashPass(adminPassword) } };
   saveConfig(cfg);
   setTimeout(() => process.exit(0), 400);   // redemarrage pour appliquer le store choisi
   return json(200, { ok: true });

@@ -4,7 +4,7 @@
 // (pas de jeton) : passe ce delai, il faut redemarrer le serveur. Deux etapes : base de donnees, puis
 // socle (URLs + admin) ; ecriture de la config et redemarrage. Valeurs de base issues de l'enum DB_KIND.
 import BareLayout from '../layouts/BareLayout.astro';
-import { LANG } from '../lib/i18n.ts';
+import { LANG, t } from '../lib/i18n.ts';
 import { DB_KIND, isConfigured, setupWindowRemaining, SETUP_WINDOW_S } from '@core/config.js';
 if (isConfigured()) return Astro.redirect('/');
 const remaining = setupWindowRemaining();
@@ -55,9 +55,11 @@ const windowMin = Math.round(SETUP_WINDOW_S / 60);
           <div class="field"><label for="brokerHost">Nom d'hôte du broker MQTT</label><input id="brokerHost" name="brokerHost" type="text" placeholder="mqtt.exemple.fr" spellcheck="false" autocapitalize="none" required /><span class="hint">Le nom sous lequel les boîtiers joindront le broker : public (Internet) ou réseau local. Son certificat sera créé avec ce nom.</span></div>
           <div class="bar" id="brokerBarWrap" hidden><span id="brokerBar"></span></div>
           <h3 class="sub-h">Opérateur du portail</h3>
-          <div class="field"><label for="adminEmail">E-mail</label><input id="adminEmail" name="adminEmail" type="email" autocomplete="email" required /><span class="hint">Votre identifiant de connexion. Vous aurez accès à Paramètres et Utilisateurs.</span></div>
+          <div class="field"><label for="adminEmail">E-mail</label><input id="adminEmail" name="adminEmail" type="email" autocomplete="email" required /><span class="hint">Votre identifiant de connexion. Vous aurez accès à Paramètres et Plugins.</span></div>
           <div class="field"><label for="adminName">Nom</label><input id="adminName" name="adminName" type="text" autocomplete="name" maxlength="80" required /></div>
           <div class="field"><label for="adminPassword">Mot de passe</label><input id="adminPassword" name="adminPassword" type="password" autocomplete="new-password" minlength="8" required /><span class="hint">8 caractères minimum.</span></div>
+          <label class="check" style="margin-top:.4rem"><input type="checkbox" id="userAdmin" checked /> {t(LANG.fr).setupUserAdmin}</label>
+          <span class="hint">{t(LANG.fr).setupUserAdminHint}</span>
           <div class="row"><button type="button" class="btn ghost" data-prev="2">Retour</button><button type="submit" class="btn primary" id="finishBtn">Terminer et démarrer</button></div>
           <p class="formerr" id="formErr" hidden></p>
         </section>
@@ -268,7 +270,7 @@ const windowMin = Math.round(SETUP_WINDOW_S / 60);
           lc.ok('Noms vérifiés : ' + hosts.appHost + ' et ' + hosts.brokerHost + ' mènent à cette instance');
           ls = step('save', 'Enregistrement de la configuration…');
           var db = dbPayload();
-          return post('/api/setup/save', { kind: db.kind, mongoUrl: db.mongoUrl, appHost: hosts.appHost, brokerHost: hosts.brokerHost, adminEmail: $('adminEmail').value.trim(), adminName: $('adminName').value.trim(), adminPassword: $('adminPassword').value });
+          return post('/api/setup/save', { kind: db.kind, mongoUrl: db.mongoUrl, appHost: hosts.appHost, brokerHost: hosts.brokerHost, adminEmail: $('adminEmail').value.trim(), adminName: $('adminName').value.trim(), adminPassword: $('adminPassword').value, userAdmin: $('userAdmin').checked });
         }).then(function (res) {
           if (!res.ok) { if (res.d.checks && lc) lc.sub(asLines(res.d.checks)); throw { line: ls, msg: 'Enregistrement : ' + (res.d.error || 'échec') }; }
           ls.ok('Configuration enregistrée');

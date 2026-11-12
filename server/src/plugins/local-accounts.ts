@@ -1,17 +1,15 @@
-// Greffon integre « Comptes locaux » (actif par defaut) : le portail gere lui-meme ses utilisateurs.
-// Connexion par e-mail + mot de passe (session locale signee), et ecran Utilisateurs pour l'operateur.
-import { localProvider } from "../auth-provider.js";
+// Plugin integre « Gestion des comptes » : plusieurs comptes sur le portail. Ecran Utilisateurs pour
+// l'operateur (creation, invitations, roles) et regles de securite des connexions (captcha, blocage,
+// double authentification, mot de passe). Sans lui, le portail n'a que le compte cree a l'installation.
 import { CAPABILITY, type Plugin } from "../plugin-types.js";
-import { LOCAL_ACCOUNTS_SETTINGS } from "./local-accounts-settings.js";
+import { LOCAL_ACCOUNTS_SETTINGS, PLUGIN_ID } from "./local-accounts-settings.js";
 
 export const localAccountsPlugin: Plugin = {
-  id: "local-accounts",
-  title: "Comptes locaux",
-  description: { fr: "Le portail gère lui-même ses utilisateurs : connexion par e-mail et mot de passe, écran Utilisateurs.", en: "The portal manages its own users: email and password sign-in, Users screen." },
+  id: PLUGIN_ID,
+  title: "Gestion des comptes",
+  description: { fr: "Plusieurs comptes sur le portail : écran Utilisateurs, invitations par e-mail, et règles de sécurité (captcha, blocage, double authentification). Sans lui, seul le compte créé à l'installation existe.", en: "Several accounts on the portal: Users screen, email invitations, and security rules (captcha, lockout, two-factor). Without it, only the account created at installation exists." },
   settings: LOCAL_ACCOUNTS_SETTINGS,
   register(api) {
-    api.registerAuthProvider(localProvider);
-    api.provideCapability(CAPABILITY.localLogin);
     api.provideCapability(CAPABILITY.userAdmin);
   },
 };

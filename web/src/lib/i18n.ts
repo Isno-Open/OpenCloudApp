@@ -64,9 +64,11 @@ interface S {
   setPasswordTitle: string; newPassword: string; confirmPassword: string; setPasswordBtn: string; passwordMismatch: string;
   linkExpired: string; askNewLink: string; passwordSetOk: string;
   userPassInviteHint: string; invitedTag: string; resendInviteBtn: string;
-  pluginSettings: string; pluginSettingsLead: string; pluginsLead: string; pluginsInstalled: string; pluginsAdd: string;
-  pluginCatalog: string; pluginInstall: string; pluginEnable: string; pluginDisable: string; pluginRemove: string; pluginRequired: string;
-  pluginLastSignIn: string; pluginsCatalogDown: string; pluginsNoneAvailable: string; pluginRestarting: string; pluginInstalling: string;
+  pluginSettings: string; pluginSettingsLead: string; pluginsLead: string; pluginsInstalled: string;
+  pluginCatalog: string; pluginInstall: string; pluginEnable: string; pluginDisable: string; pluginRemove: string;
+  pluginsCatalogDown: string; pluginsNoneInstalled: string; pluginsCatalogTitle: string; pluginIsInstalled: string;
+  pluginSourcesTitle: string; pluginSourceIsno: string; pluginSourceRemove: string; pluginSourceAdd: string; pluginSourceAddBtn: string; pluginSourceWarn: string;
+  setupUserAdmin: string; setupUserAdminHint: string; pluginRestarting: string; pluginInstalling: string;
   instanceTitle: string; portalHostLabel: string; portalHostHint: string; portalHostBtn: string; brokerRoReason: string; dbRoReason: string;
   smtpTitle: string; smtpOff: string; smtpIntro: string; smtpHost: string; smtpPort: string; smtpSecurity: string; smtpSecNone: string;
   smtpUser: string; smtpPass: string; smtpPassKept: string; smtpFrom: string; smtpFromName: string; smtpTest: string; smtpTestOk: string; loginCaptchaError: string; loginLocked: string; loginTotpPrompt: string; loginTotpError: string; loginExpired: string; totpCodeLabel: string;
@@ -146,10 +148,15 @@ export const STRINGS = {
     userPassInviteHint: "Laissez vide pour envoyer une invitation par e-mail : l'utilisateur choisira son mot de passe.", invitedTag: 'invité', resendInviteBtn: "Renvoyer l'invitation",
     pluginSettings: 'Réglages', pluginSettingsLead: 'Réglages de ce plugin.',
     pluginsLead: 'Ce que le portail sait faire en plus de son cœur. Activer ou retirer un plugin redémarre le portail (quelques secondes).',
-    pluginsInstalled: 'Installés', pluginsAdd: 'Ajouter un plugin', pluginCatalog: 'catalogue ISNO', pluginInstall: 'Installer', pluginEnable: 'Activer',
-    pluginDisable: 'Désactiver', pluginRemove: 'Désinstaller', pluginRequired: 'requis',
-    pluginLastSignIn: "Seul moyen de se connecter : le retirer fermerait le portail à tout le monde.",
-    pluginsCatalogDown: 'Catalogue indisponible', pluginsNoneAvailable: "Aucun autre plugin disponible pour l'instant.",
+    pluginsInstalled: 'Installés', pluginCatalog: 'catalogue ISNO', pluginInstall: 'Installer', pluginEnable: 'Activer',
+    pluginDisable: 'Désactiver', pluginRemove: 'Désinstaller',
+    pluginsCatalogDown: 'Catalogue indisponible', pluginsNoneInstalled: 'Aucun plugin : le portail fonctionne avec le seul compte créé à l\'installation.',
+    pluginsCatalogTitle: 'Catalogue', pluginIsInstalled: 'installé',
+    pluginSourcesTitle: 'Sources du catalogue', pluginSourceIsno: 'Livré avec cette version du portail, toujours présent.',
+    pluginSourceRemove: 'Retirer', pluginSourceAdd: 'Ajouter une source (adresse https d\'un catalogue)', pluginSourceAddBtn: 'Ajouter',
+    pluginSourceWarn: "Un plugin s'exécute dans le portail : n'ajoutez que des sources dont vous connaissez l'auteur. Une source ne peut pas remplacer un plugin ISNO.",
+    setupUserAdmin: 'Gestion des comptes utilisateurs',
+    setupUserAdminHint: "Plusieurs comptes, écran Utilisateurs, invitations et règles de sécurité. Décochée : un compte unique, le vôtre. Elle s'ajoute ou se retire ensuite dans Plugins.",
     pluginRestarting: 'Redémarrage du portail…', pluginInstalling: 'Installation…',
     instanceTitle: 'Instance', portalHostLabel: 'Adresse du portail',
     portalHostHint: "Sert au QR d'enrôlement et aux liens des e-mails. Vérifiée avant d'être enregistrée : elle doit mener à ce portail.",
@@ -237,10 +244,15 @@ export const STRINGS = {
     userPassInviteHint: 'Leave empty to send an email invitation: the user will choose their password.', invitedTag: 'invited', resendInviteBtn: 'Resend invitation',
     pluginSettings: 'Settings', pluginSettingsLead: 'Settings of this plugin.',
     pluginsLead: 'What the portal can do beyond its core. Enabling or removing a plugin restarts the portal (a few seconds).',
-    pluginsInstalled: 'Installed', pluginsAdd: 'Add a plugin', pluginCatalog: 'ISNO catalog', pluginInstall: 'Install', pluginEnable: 'Enable',
-    pluginDisable: 'Disable', pluginRemove: 'Uninstall', pluginRequired: 'required',
-    pluginLastSignIn: 'Only way to sign in: removing it would lock everyone out of the portal.',
-    pluginsCatalogDown: 'Catalog unavailable', pluginsNoneAvailable: 'No other plugin available yet.',
+    pluginsInstalled: 'Installed', pluginCatalog: 'ISNO catalog', pluginInstall: 'Install', pluginEnable: 'Enable',
+    pluginDisable: 'Disable', pluginRemove: 'Uninstall',
+    pluginsCatalogDown: 'Catalog unavailable', pluginsNoneInstalled: 'No plugin: the portal runs with the single account created at installation.',
+    pluginsCatalogTitle: 'Catalog', pluginIsInstalled: 'installed',
+    pluginSourcesTitle: 'Catalog sources', pluginSourceIsno: 'Shipped with this portal version, always present.',
+    pluginSourceRemove: 'Remove', pluginSourceAdd: 'Add a source (https address of a catalog)', pluginSourceAddBtn: 'Add',
+    pluginSourceWarn: 'A plugin runs inside the portal: only add sources whose author you know. A source cannot replace an ISNO plugin.',
+    setupUserAdmin: 'User account management',
+    setupUserAdminHint: 'Several accounts, Users screen, invitations and security rules. Unchecked: a single account, yours. It can be added or removed later in Plugins.',
     pluginRestarting: 'Restarting the portal…', pluginInstalling: 'Installing…',
     instanceTitle: 'Instance', portalHostLabel: 'Portal address',
     portalHostHint: 'Used for the enrollment QR code and email links. Checked before saving: it must lead to this portal.',

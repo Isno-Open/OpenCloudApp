@@ -5,7 +5,7 @@
 // - Integres (livres avec le portail) : actives par la config (`plugins`), « comptes locaux » par defaut.
 // - Ajoutes depuis le catalogue ISNO : le superviseur copie leur code dans PLUGINS_DIR/<id>/index.js.
 // - Developpement : modules charges depuis HARNESS_MODULE (chemins separes par « , »).
-import { registerAuthProvider } from "./auth-provider.js";
+import { registerAuthProvider, localProvider } from "./auth-provider.js";
 import { ensureAccount } from "./store.js";
 import { DEFAULT_CAP } from "./entitlement.js";
 import { localAccountsPlugin } from "./plugins/local-accounts.js";
@@ -22,24 +22,25 @@ export const DEFAULT_PLUGINS: readonly string[] = [localAccountsPlugin.id];
 
 const installed: PluginInfo[] = [];
 const settingsById = new Map<string, PluginSettings>();
-const capabilities = new Set<Capability>();
+// La connexion par e-mail et mot de passe est NATIVE : le compte cree a l'installation peut toujours
+// entrer, quels que soient les plugins. Un plugin ajoute le reste (plusieurs comptes, SSO...).
+const capabilities = new Set<Capability>([CAPABILITY.localLogin]);
 
 /** Dossier des plugins ajoutes depuis le catalogue (volume isno-plugins, en lecture seule). */
 export const PLUGINS_DIR = process.env.PLUGINS_DIR ?? "/plugins";
 /** Identifiant de plugin = nom de dossier : la meme regle que le superviseur. */
 export const PLUGIN_ID_RE = /^[a-z0-9][a-z0-9-]{1,40}$/;
 
-/** Enregistre un plugin avec une api qui note ce qu'IL fournit (connexion, capacites). */
+/** Enregistre un plugin. */
 async function registerOne(p: Plugin, builtin: boolean): Promise<void> {
-  let signIn = false;
   const api: PluginApi = {
-    registerAuthProvider: (prov) => { signIn = true; registerAuthProvider(prov); },
-    provideCapability: (c) => { if (c === CAPABILITY.localLogin) signIn = true; capabilities.add(c); },
+    registerAuthProvider,
+    provideCapability: (c) => { capabilities.add(c); },
     ensureAccount,
     defaultCap: DEFAULT_CAP,
   };
   await p.register(api);
-  installed.push({ id: p.id, title: p.title, description: p.description, builtin, configurable: !!p.settings, signIn });
+  installed.push({ id: p.id, title: p.title, description: p.description, builtin, configurable: !!p.settings });
   if (p.settings) settingsById.set(p.id, p.settings);
 }
 
@@ -81,6 +82,7 @@ let loaded: Promise<void> | null = null;
  *  copies dans PLUGINS_DIR), puis ceux de HARNESS_MODULE (developpement). */
 export function loadPlugins(enabled: readonly string[] = DEFAULT_PLUGINS): Promise<void> {
   if (!loaded) loaded = (async () => {
+    registerAuthProvider(localProvider);   // connexion native (voir capabilities)
     for (const id of enabled) {
       try {
         const builtin = BUILTIN_PLUGINS[id];

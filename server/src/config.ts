@@ -26,6 +26,8 @@ export type PortalConfig = {
   appName?: string;
   // Reglages propres a chaque greffon, par identifiant (chaque greffon valide les siens).
   pluginSettings?: Record<string, unknown>;
+  // Sources de plugins ajoutees par l'operateur (adresses https de catalogues), en plus du catalogue ISNO.
+  pluginSources?: string[];
   // Messagerie (SMTP), validee par mail.ts. Absente : invitation et mot de passe oublie masques.
   smtp?: unknown;
 };

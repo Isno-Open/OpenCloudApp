@@ -8,7 +8,7 @@ import { dirname } from "node:path";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { loadCatalog } from "./catalog.js";
 import { moduleStatus, startInstall, restartModule } from "./install.js";
-import { loadPluginCatalog, PLUGIN_ACTION } from "./plugin-catalog.js";
+import { loadPluginCatalog, mergeCatalogs, isSourceUrl, PLUGIN_ACTION, ISNO_SOURCE, type MergedCatalog, type SourceError } from "./plugin-catalog.js";
 import { pluginStatus, startPluginJob } from "./plugin-install.js";
 
 const PORT = Number(process.env.PORT ?? 8090);
@@ -18,7 +18,35 @@ const NETWORK = process.env.STACK_NETWORK ?? "";
 if (!NETWORK) throw new Error("STACK_NETWORK requis (reseau de la pile auquel rattacher les modules)");
 
 const catalog = loadCatalog(CATALOG);
-const plugins = loadPluginCatalog(process.env.PLUGIN_CATALOG_PATH ?? new URL("../plugins.json", import.meta.url).pathname);
+const isnoPlugins = loadPluginCatalog(process.env.PLUGIN_CATALOG_PATH ?? new URL("../plugins.json", import.meta.url).pathname);
+// catalogue courant : ISNO + sources ajoutees par l'operateur (relues a chaque ouverture de la page Plugins)
+let merged: MergedCatalog = mergeCatalogs(isnoPlugins, []);
+
+async function readBodyJson(req: IncomingMessage): Promise<unknown> {
+  let raw = "";
+  for await (const chunk of req) { raw += chunk; if (raw.length > 64_000) throw new Error("requete trop grande"); }
+  return raw ? JSON.parse(raw) : {};
+}
+/** Relit les sources ajoutees (https, 8 s, 256 Ko chacune) et refait le catalogue. */
+async function refreshSources(urls: string[]): Promise<void> {
+  const extra: { source: string; raw: unknown }[] = [];
+  const errors: SourceError[] = [];
+  for (const url of urls.slice(0, 20)) {
+    if (!isSourceUrl(url)) { errors.push({ source: url, error: "adresse https requise", unreadable: true }); continue; }
+    try {
+      const r = await fetch(url, { signal: AbortSignal.timeout(8000), redirect: "error" });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const text = await r.text();
+      if (text.length > 256_000) throw new Error("catalogue trop grand");
+      extra.push({ source: url, raw: JSON.parse(text) });
+    } catch (e) { errors.push({ source: url, error: e instanceof Error ? e.message : String(e), unreadable: true }); }
+  }
+  const m = mergeCatalogs(isnoPlugins, extra);
+  merged = { ...m, errors: [...errors, ...m.errors] };
+}
+// official : la DECISION « catalogue ISNO » est prise ici, l'app ne compare pas le nom de la source
+const describe = (id: string) => ({ ...pluginStatus(merged.plugins, id), source: merged.sourceOf[id], official: merged.sourceOf[id] === ISNO_SOURCE });
+const pluginList = () => Object.keys(merged.plugins).map(describe);
 
 function ensureToken(): string {
   if (existsSync(TOKEN_FILE)) return readFileSync(TOKEN_FILE, "utf8").trim();
@@ -44,15 +72,20 @@ createServer(async (req, res) => {
     if (!authorized(req)) return send(res, 401, { error: "unauthorized" });
     if (req.method === "GET" && url.pathname === "/modules")
       return send(res, 200, await Promise.all(Object.keys(catalog).map((id) => moduleStatus(catalog, id))));
-    if (req.method === "GET" && url.pathname === "/plugins")
-      return send(res, 200, Object.keys(plugins).map((id) => pluginStatus(plugins, id)));
+    if (req.method === "GET" && url.pathname === "/plugins") return send(res, 200, { plugins: pluginList(), errors: merged.errors });
+    if (req.method === "POST" && url.pathname === "/plugins/sources") {
+      const b = await readBodyJson(req);
+      const urls = b && typeof b === "object" && Array.isArray((b as { urls?: unknown }).urls) ? (b as { urls: unknown[] }).urls.map(String) : [];
+      await refreshSources(urls);
+      return send(res, 200, { plugins: pluginList(), errors: merged.errors });
+    }
     const pm = /^\/plugins\/([a-z0-9-]+)(\/install|\/remove)?$/.exec(url.pathname);
-    if (pm && pm[1] && plugins[pm[1]]) {
+    if (pm && pm[1] && merged.plugins[pm[1]]) {
       const id = pm[1];
-      if (req.method === "POST" && pm[2] === "/install") startPluginJob(plugins, id, PLUGIN_ACTION.install);
-      else if (req.method === "POST" && pm[2] === "/remove") startPluginJob(plugins, id, PLUGIN_ACTION.remove);
+      if (req.method === "POST" && pm[2] === "/install") startPluginJob(merged.plugins, id, PLUGIN_ACTION.install);
+      else if (req.method === "POST" && pm[2] === "/remove") startPluginJob(merged.plugins, id, PLUGIN_ACTION.remove);
       else if (!(req.method === "GET" && !pm[2])) return send(res, 405, { error: "method" });
-      return send(res, 200, pluginStatus(plugins, id));
+      return send(res, 200, describe(id));
     }
     const m = /^\/modules\/([a-z0-9_.-]+)(\/install|\/restart)?$/.exec(url.pathname);
     if (m && m[1] && catalog[m[1]]) {
@@ -66,4 +99,4 @@ createServer(async (req, res) => {
   } catch (e) {
     return send(res, 500, { error: e instanceof Error ? e.message : String(e) });
   }
-}).listen(PORT, "0.0.0.0", () => console.log(`[supervisor] pret sur :${PORT}, modules : ${Object.keys(catalog).join(", ")}, plugins : ${Object.keys(plugins).join(", ") || "aucun"}, reseau ${NETWORK}`));
+}).listen(PORT, "0.0.0.0", () => console.log(`[supervisor] pret sur :${PORT}, modules : ${Object.keys(catalog).join(", ")}, plugins ISNO : ${Object.keys(isnoPlugins).join(", ") || "aucun"}, reseau ${NETWORK}`));

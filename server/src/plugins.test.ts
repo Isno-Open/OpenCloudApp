@@ -8,7 +8,7 @@ process.env.HARNESS_MODULE = "";
 const { loadPlugins, installedPlugins, hasCapability, CAPABILITY, DEFAULT_PLUGINS } = await import("./plugins.js");
 const { authProviders } = await import("./auth-provider.js");
 
-test("par defaut : le greffon « comptes locaux » est installe et fournit connexion + gestion des comptes", async () => {
+test("par defaut : « Gestion des comptes » installe ; connexion native du coeur + ecran Utilisateurs du plugin", async () => {
   assert.deepEqual([...DEFAULT_PLUGINS], ["local-accounts"]);
   await loadPlugins();
   assert.deepEqual(installedPlugins().map((p) => [p.id, p.builtin]), [["local-accounts", true]]);

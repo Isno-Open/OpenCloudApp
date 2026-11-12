@@ -3,10 +3,12 @@
 import type { APIRoute } from 'astro';
 import { requireAdmin } from '../../../server/auth.ts';
 import { readBody, json } from '../../../server/http.ts';
-import { installCatalogPlugin } from '../../../server/supervisor.ts';
+import { installCatalogPlugin, listCatalogPlugins } from '../../../server/supervisor.ts';
+import { loadConfig } from '@core/config.js';
 
 export const POST: APIRoute = async ({ request }) => {
   if (!(await requireAdmin(request))) return json(403, { error: 'forbidden' });
+  await listCatalogPlugins(loadConfig()?.pluginSources ?? []);
   const r = await installCatalogPlugin(String((await readBody(request)).id ?? ''));
   return r.ok ? json(200, r.data) : json(502, { error: r.error });
 };

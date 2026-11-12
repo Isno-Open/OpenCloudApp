@@ -47,9 +47,13 @@ export function normalizeLocalAccountsSettings(raw: unknown): LocalAccountsSetti
   };
 }
 
-/** Reglages courants, lus dans la config de l'instance. */
-export const localAccountsSettings = (): LocalAccountsSettings =>
-  normalizeLocalAccountsSettings(loadConfig()?.pluginSettings?.[PLUGIN_ID]);
+/** Reglages courants, lus dans la config de l'instance. Plugin desactive : ses regles ne s'appliquent
+ *  plus (valeurs par defaut), sinon un captcha ou une 2FA resteraient imposes sans ecran pour les regler. */
+export function localAccountsSettings(): LocalAccountsSettings {
+  const cfg = loadConfig();
+  if (cfg?.plugins && !cfg.plugins.includes(PLUGIN_ID)) return LOCAL_ACCOUNTS_DEFAULTS;
+  return normalizeLocalAccountsSettings(cfg?.pluginSettings?.[PLUGIN_ID]);
+}
 
 export const totpAllowed = (s: LocalAccountsSettings): boolean => s.totp !== TOTP_POLICY.off;
 export const totpRequiredFor = (s: LocalAccountsSettings, isOperator: boolean): boolean =>

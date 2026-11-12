@@ -271,3 +271,5 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.015em; margin: 0; }
 /* resultat d'une verification (adresse du portail) : une ligne par controle */
 .checks { list-style: none; margin: .5rem 0 0; padding: .5rem .7rem; border: 1px solid var(--border-soft); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: .76rem; display: flex; flex-direction: column; gap: .2rem; }
 .checks .ok { color: var(--ok); } .checks .ko { color: var(--danger); }
+.tag-ok { font-size: .78rem; color: var(--ok); white-space: nowrap; }
+.plugin-row .mono { font-family: var(--font-mono); font-size: .8rem; word-break: break-all; }

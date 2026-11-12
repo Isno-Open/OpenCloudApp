@@ -32,24 +32,26 @@ export const restartModule = (id: string): Promise<SupervisorResult> => call('PO
 export const BROKER_MODULE = 'broker';
 
 /** Plugin du catalogue ISNO, vu par le superviseur (busy : installation ou retrait en cours). */
-export type CatalogPlugin = { id: string; title: string; description: { fr: string; en: string }; busy: boolean; progress: number; error?: string };
-export type PluginsResult = { ok: true; plugins: CatalogPlugin[] } | { ok: false; error: string };
+export type CatalogPlugin = { id: string; title: string; description: { fr: string; en: string }; busy: boolean; progress: number; error?: string; source: string; official: boolean };
+export type CatalogView = { plugins: CatalogPlugin[]; errors: { source: string; error: string; unreadable: boolean }[] };
+export type PluginsResult = ({ ok: true } & CatalogView) | { ok: false; error: string };
 
-async function callJson<T>(method: string, path: string): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
+async function callJson<T>(method: string, path: string, body?: unknown, timeoutMs = 5000): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
   let token: string;
   try { token = readFileSync(TOKEN_FILE, 'utf8').trim(); }
   catch { return { ok: false, error: 'superviseur absent : secret introuvable' }; }
   try {
-    const r = await fetch(URL_BASE + path, { method, headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(5000) });
+    const r = await fetch(URL_BASE + path, { method, headers: { authorization: `Bearer ${token}`, ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(timeoutMs) });
     const d = (await r.json()) as T & { error?: string };
     return r.ok ? { ok: true, data: d } : { ok: false, error: d.error ?? `superviseur : ${r.status}` };
   } catch (e) {
     return { ok: false, error: `superviseur injoignable (${e instanceof Error ? e.message : String(e)})` };
   }
 }
-export const listCatalogPlugins = async (): Promise<PluginsResult> => {
-  const r = await callJson<CatalogPlugin[]>('GET', '/plugins');
-  return r.ok ? { ok: true, plugins: r.data } : r;
+/** Catalogue courant, apres relecture des sources ajoutees (le superviseur les telecharge et les valide). */
+export const listCatalogPlugins = async (sources: readonly string[]): Promise<PluginsResult> => {
+  const r = await callJson<CatalogView>('POST', '/plugins/sources', { urls: sources }, 30_000);
+  return r.ok ? { ok: true, ...r.data } : r;
 };
 export const catalogPlugin = (id: string) => callJson<CatalogPlugin>('GET', `/plugins/${encodeURIComponent(id)}`);
 export const installCatalogPlugin = (id: string) => callJson<CatalogPlugin>('POST', `/plugins/${encodeURIComponent(id)}/install`);

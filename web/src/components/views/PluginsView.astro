@@ -3,6 +3,7 @@
 // ajouter : plugins integres desactives, et catalogue ISNO (le superviseur les installe). Activer ou
 // retirer un plugin redemarre le portail, qui le charge (ou l'oublie) au demarrage.
 import { installedPlugins, BUILTIN_PLUGINS, enabledPlugins } from '@core/plugins.js';
+import { loadConfig } from '@core/config.js';
 import { listCatalogPlugins } from '../../server/supervisor.ts';
 import { t, pluginHref, type Lang } from '../../lib/i18n.ts';
 interface Props { lang: Lang; }
@@ -10,16 +11,23 @@ const { lang } = Astro.props;
 const s = t(lang);
 const installed = installedPlugins();
 const enabled = enabledPlugins();
-const signInCount = installed.filter((p) => p.signIn).length;
-const builtinOff = Object.values(BUILTIN_PLUGINS).filter((p) => !enabled.includes(p.id));
-const catalog = await listCatalogPlugins();
-const available = catalog.ok ? catalog.plugins.filter((p) => !enabled.includes(p.id)) : [];
+const sources = loadConfig()?.pluginSources ?? [];
+const catalog = await listCatalogPlugins(sources);
+// Catalogue affiche : les plugins integres (livres avec le portail) puis ceux des sources. Installes ou non :
+// il n'est donc jamais vide, et dit ce qui est deja en place.
+type Entry = { id: string; title: string; description?: { fr: string; en: string }; origin: string; builtin: boolean };
+const entries: Entry[] = [
+  ...Object.values(BUILTIN_PLUGINS).map((p) => ({ id: p.id, title: p.title, description: p.description, origin: s.pluginBuiltin, builtin: true })),
+  ...(catalog.ok ? catalog.plugins.map((p) => ({ id: p.id, title: p.title, description: p.description, origin: p.official ? s.pluginCatalog : new URL(p.source).host, builtin: false })) : []),
+];
+const sourceErrors = catalog.ok ? catalog.errors : [];
 ---
 <div class="page-head"><h1>{s.pluginsTitle}</h1></div>
 <p class="lead">{s.pluginsLead}</p>
 
 <div class="panel">
   <h3>{s.pluginsInstalled}</h3>
+  {installed.length === 0 && <p class="hint" style="margin:0">{s.pluginsNoneInstalled}</p>}
   {installed.map((p) => (
     <div class="plugin-row">
       <div class="plugin-main">
@@ -32,34 +40,48 @@ const available = catalog.ok ? catalog.plugins.filter((p) => !enabled.includes(p
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
           </a>
         )}
-        {enabled.includes(p.id) && (p.signIn && signInCount <= 1
-          ? <span class="hint" title={s.pluginLastSignIn}>{s.pluginRequired}</span>
-          : <button class="btn ghost sm" type="button" data-disable={p.id}>{p.builtin ? s.pluginDisable : s.pluginRemove}</button>)}
+        {enabled.includes(p.id) && <button class="btn ghost sm" type="button" data-disable={p.id}>{p.builtin ? s.pluginDisable : s.pluginRemove}</button>}
       </div>
     </div>
   ))}
 </div>
 
 <div class="panel" style="margin-top:.9rem">
-  <h3>{s.pluginsAdd}</h3>
+  <h3>{s.pluginsCatalogTitle}</h3>
   {!catalog.ok && <p class="formerr" style="margin:0 0 .5rem">{s.pluginsCatalogDown} ({catalog.error})</p>}
-  {builtinOff.map((p) => (
+  {entries.map((p) => (
     <div class="plugin-row">
-      <div class="plugin-main"><span class="k">{p.title} <span class="ro">{s.pluginBuiltin}</span></span>{p.description && <span class="hint">{p.description[lang]}</span>}</div>
-      <div class="plugin-act"><button class="btn primary sm" type="button" data-enable={p.id}>{s.pluginEnable}</button></div>
+      <div class="plugin-main"><span class="k">{p.title} <span class="ro">{p.origin}</span></span>{p.description && <span class="hint">{p.description[lang]}</span>}
+        {!p.builtin && <div class="bar" hidden data-bar={p.id}><span></span></div>}</div>
+      <div class="plugin-act">
+        {enabled.includes(p.id) ? <span class="tag-ok">✓ {s.pluginIsInstalled}</span>
+          : p.builtin ? <button class="btn primary sm" type="button" data-enable={p.id}>{s.pluginEnable}</button>
+          : <button class="btn primary sm" type="button" data-install={p.id}>{s.pluginInstall}</button>}
+      </div>
     </div>
   ))}
-  {available.map((p) => (
-    <div class="plugin-row">
-      <div class="plugin-main"><span class="k">{p.title} <span class="ro">{s.pluginCatalog}</span></span><span class="hint">{p.description[lang]}</span>
-        <div class="bar" hidden data-bar={p.id}><span></span></div></div>
-      <div class="plugin-act"><button class="btn primary sm" type="button" data-install={p.id}>{s.pluginInstall}</button></div>
-    </div>
-  ))}
-  {catalog.ok && builtinOff.length === 0 && available.length === 0 && <p class="hint" style="margin:0">{s.pluginsNoneAvailable}</p>}
   <p class="formerr" id="pluginsErr" hidden></p>
   <p class="savemsg" id="pluginsMsg"></p>
 </div>
+
+<form class="panel" id="sourcesForm" style="margin-top:.9rem">
+  <h3>{s.pluginSourcesTitle}</h3>
+  <div class="plugin-row"><div class="plugin-main"><span class="k">{s.pluginCatalog}</span><span class="hint">{s.pluginSourceIsno}</span></div></div>
+  {sources.map((u) => {
+    const err = sourceErrors.find((e) => e.source === u);
+    return (
+      <div class="plugin-row">
+        <div class="plugin-main"><span class="k mono">{u}</span>{err && <span class="formerr" style="margin:0">{err.error}</span>}</div>
+        <div class="plugin-act"><button class="btn ghost sm" type="button" data-source-remove={u}>{s.pluginSourceRemove}</button></div>
+      </div>
+    );
+  })}
+  <div class="field" style="margin-top:.6rem"><label for="srcUrl">{s.pluginSourceAdd}</label>
+    <div class="row"><input id="srcUrl" type="url" spellcheck="false" placeholder="https://exemple.fr/plugins.json" style="flex:1" /><button class="btn ghost" type="submit">{s.pluginSourceAddBtn}</button></div>
+    <span class="hint">{s.pluginSourceWarn}</span>
+  </div>
+  <p class="formerr" id="srcErr" hidden></p>
+</form>
 
 <script is:inline define:vars={{ restartingMsg: s.pluginRestarting, installingMsg: s.pluginInstalling, errMsg: s.saveError }}>
   (function () {
@@ -83,6 +105,19 @@ const available = catalog.ok ? catalog.plugins.filter((p) => !enabled.includes(p
     }
     document.querySelectorAll('[data-disable]').forEach(function (b) { b.addEventListener('click', function () { act('/api/plugins/disable', b.getAttribute('data-disable')); }); });
     document.querySelectorAll('[data-enable]').forEach(function (b) { b.addEventListener('click', function () { act('/api/plugins/enable', b.getAttribute('data-enable')); }); });
+    var sf = document.getElementById('sourcesForm'), srcErr = document.getElementById('srcErr');
+    var srcFail = function (m) { srcErr.hidden = false; srcErr.textContent = m; };
+    sf.addEventListener('submit', function (e) {
+      e.preventDefault(); srcErr.hidden = true;
+      post('/api/plugins/sources', { add: document.getElementById('srcUrl').value.trim() })
+        .then(function (res) { if (res.ok) location.reload(); else srcFail(res.d.error || errMsg); }).catch(function () { srcFail(errMsg); });
+    });
+    document.querySelectorAll('[data-source-remove]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        post('/api/plugins/sources', { remove: b.getAttribute('data-source-remove') })
+          .then(function (res) { if (res.ok) location.reload(); else srcFail(res.d.error || errMsg); }).catch(function () { srcFail(errMsg); });
+      });
+    });
     document.querySelectorAll('[data-install]').forEach(function (b) {
       b.addEventListener('click', function () {
         var id = b.getAttribute('data-install'), bar = document.querySelector('[data-bar="' + id + '"]');

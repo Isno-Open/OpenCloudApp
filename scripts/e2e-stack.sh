@@ -21,9 +21,21 @@ services:
   supervisor:
     environment:
       - PLUGIN_CATALOG_PATH=/e2e/plugins.json
+      - NODE_EXTRA_CA_CERTS=/e2e/ca.pem
     volumes:
       - $WORK/plugins.json:/e2e/plugins.json:ro
+      - $WORK/ca.pem:/e2e/ca.pem:ro
 EOF
+# source de catalogue tierce, servie en https dans le reseau de la pile (AC de test, connue du seul superviseur de test)
+openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=e2e-ca" -keyout "$WORK/ca.key" -out "$WORK/ca.pem" 2>/dev/null
+openssl req -newkey rsa:2048 -nodes -subj "/CN=isno-e2e-catalog" -keyout "$WORK/src.key" -out "$WORK/src.csr" 2>/dev/null
+printf 'subjectAltName=DNS:isno-e2e-catalog\n' > "$WORK/san.ext"
+openssl x509 -req -in "$WORK/src.csr" -CA "$WORK/ca.pem" -CAkey "$WORK/ca.key" -CAcreateserial -days 1 -extfile "$WORK/san.ext" -out "$WORK/src.pem" 2>/dev/null
+cat > "$WORK/third.json" <<'JSON'
+{ "tiers": { "title": "Plugin tiers", "description": { "fr": "Venu d'une source ajoutee.", "en": "From an added source." }, "image": "tiers/plugin:1.0.0" },
+  "example": { "title": "Imposteur", "description": { "fr": "x", "en": "x" }, "image": "tiers/piege:1.0.0" } }
+JSON
+chmod 644 "$WORK"/*.pem "$WORK"/*.key "$WORK"/*.json
 # catalogue de test : le plugin d'exemple du depot, construit ici (image locale, pas de registre)
 cat > "$WORK/plugins.json" <<'JSON'
 { "example": { "title": "Exemple", "description": { "fr": "Plugin de reference.", "en": "Reference plugin." }, "image": "isno-cloud-plugin-example:e2e" } }
@@ -31,7 +43,7 @@ JSON
 docker build -q -f plugins/example/Dockerfile -t isno-cloud-plugin-example:e2e . >/dev/null || { echo "construction du plugin d'exemple impossible"; exit 2; }
 C=(docker compose -p isnoe2e -f docker-compose.yml -f "$WORK/override.yml")
 teardown() {
-  docker rm -f isno-mqtt isno-mongo isno-e2e-device isno-e2e-mail >/dev/null 2>&1
+  docker rm -f isno-mqtt isno-mongo isno-e2e-device isno-e2e-mail isno-e2e-catalog >/dev/null 2>&1
   "${C[@]}" down -v >/dev/null 2>&1
   docker volume rm isno-broker-data isno-mongo-data isno-plugins >/dev/null 2>&1
   [ "$ENV_CREATED" = 1 ] && rm -f .env
@@ -187,10 +199,21 @@ echo "== page Plugins : catalogue ISNO, installation par le superviseur, reglage
 # le portail redemarre de lui-meme apres activation ou retrait : on attend son retour, puis on se reconnecte
 wait_restart() { sleep 2; for _ in $(seq 1 60); do curl -s -o /dev/null "$B/api/setup/status" && break; sleep 1; done; sleep 1; curl -s -o /dev/null -c "$J" -X POST -d 'user=operateur@exemple.fr&pass=operateur-e2e' "$B/api/login"; }
 PL=$(curl -s -b "$J" "$B/plugins")
-chk "Plugins : « Comptes locaux » installe, avec son ecrou" "$(echo "$PL" | grep -c 'href="/plugins/local-accounts"')" 1
-chk "Plugins : seul moyen de connexion, pas de bouton de retrait" "$(echo "$PL" | grep -c 'data-disable="local-accounts"')" 0
-chk "dernier moyen de connexion : retrait refuse" "$(apiJ /api/plugins/disable '{"id":"local-accounts"}')" 409
+chk "Plugins : « Gestion des comptes » installee, avec son ecrou" "$(echo "$PL" | grep -c 'href="/plugins/local-accounts"')" 1
+chk "Plugins : elle se retire (la connexion est native)" "$(echo "$PL" | grep -c 'data-disable="local-accounts"')" 1
+chk "catalogue jamais vide : la gestion des comptes y figure, marquee installee" "$(echo "$PL" | grep -c '✓ installé')" 1
 chk "Plugins : l'exemple du catalogue est propose" "$(echo "$PL" | grep -c 'data-install="example"')" 1
+chk "source http refusee" "$(apiJ /api/plugins/sources '{"add":"http://exemple.fr/plugins.json"}')" 400
+chk "source https injoignable refusee (rien n'est garde)" "$(apiJ /api/plugins/sources '{"add":"https://nexiste-pas.invalid/plugins.json"}')" 400
+docker run -d --name isno-e2e-catalog --network isno-cloud-net -v "$WORK":/w:ro node:26.13.1-trixie-slim node -e "require('https').createServer({key:require('fs').readFileSync('/w/src.key'),cert:require('fs').readFileSync('/w/src.pem')},(q,r)=>{r.setHeader('content-type','application/json');r.end(require('fs').readFileSync('/w/third.json'))}).listen(443)" >/dev/null; sleep 2
+chk "source https valide ajoutee" "$(apiJ /api/plugins/sources '{"add":"https://isno-e2e-catalog/plugins.json"}')" 200
+PL=$(curl -s -b "$J" "$B/plugins")
+chk "catalogue : le plugin de la source est propose, avec son origine" "$(echo "$PL" | grep -c 'isno-e2e-catalog</span>')" 1
+chk "catalogue : la source ne remplace pas le plugin ISNO de meme identifiant" "$(echo "$PL" | grep -c 'Imposteur')" 0
+chk "sources : le conflit est signale sous la source" "$(echo "$PL" | grep -c 'existe deja')" 1
+chk "source retiree" "$(apiJ /api/plugins/sources '{"remove":"https://isno-e2e-catalog/plugins.json"}')" 200
+chk "source retiree : son plugin n'est plus propose" "$(curl -s -b "$J" "$B/plugins" | grep -c 'data-install="tiers"')" 0
+chk "aucune source gardee apres les refus" "$(curl -s -b "$J" "$B/plugins" | grep -c 'data-source-remove="')" 0
 chk "activer un plugin non installe : refuse" "$(apiJ /api/plugins/enable '{"id":"example"}')" 404
 chk "installation lancee" "$(apiJ /api/plugins/install '{"id":"example"}')" 200
 for _ in $(seq 1 60); do curl -s -b "$J" "$B/api/plugins/status?id=example" | grep -q '"busy":false' && break; sleep 1; done
@@ -214,15 +237,17 @@ chk "adresse qui mene a ce portail : enregistree" "$(apiJ /api/settings/portal-h
 chk "adresse qui ne se resout pas : refusee" "$(apiJ /api/settings/portal-host '{"host":"nexiste-pas.invalid"}')" 400
 chk "adresse refusee : la config n'a pas change" "$(curl -s -b "$J" "$B/parametres" | grep -c "value=\"$APP\"")" 1
 
-echo "== plugins : la gestion des comptes est un plugin (desactive => ecrans et connexion locale absents)"
+echo "== compte unique : sans le plugin de gestion des comptes, la connexion reste native"
 chk "Parametres ne liste plus les plugins (page a part)" "$(curl -s -b "$J" "$B/parametres" | grep -c 'href="/plugins/local-accounts"')" 0
 chk "ecran du plugin : ses reglages declares" "$(curl -s -b "$J" "$B/plugins/local-accounts" | grep -c 'data-key="lockoutMaxFailures"')" 1
 chk "ecran du plugin : un seul bouton Enregistrer" "$(curl -s -b "$J" "$B/plugins/local-accounts" | grep -c '>Enregistrer</button>')" 1
 chk "Parametres : un seul bouton Enregistrer" "$(curl -s -b "$J" "$B/parametres" | grep -c '>Enregistrer</button>')" 1
 chk "plugin inconnu : reglages refuses" "$(apiJ /api/settings/plugin '{"id":"inconnu","values":{}}')" 404
-docker exec isno-cloud-server sh -c "python3 -c 1 2>/dev/null; node -e \"const f='/data/portal.config.json';const c=JSON.parse(require('fs').readFileSync(f));c.plugins=[];require('fs').writeFileSync(f,JSON.stringify(c))\""
-docker restart isno-cloud-server >/dev/null; for _ in $(seq 1 30); do curl -s -o /dev/null "$B/api/setup/status" && break; sleep 1; done
-chk "sans greffon : connexion locale refusee" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -d 'user=operateur@exemple.fr&pass=operateur-e2e' "$B/api/login")" 404
-chk "sans greffon : la page de connexion le dit" "$(curl -s "$B/connexion" | grep -c 'Aucun mode de connexion')" 1
+chk "retrait de la gestion des comptes (le portail redemarre)" "$(apiJ /api/plugins/disable '{"id":"local-accounts"}')" 200
+wait_restart
+chk "sans plugin : l'operateur se connecte toujours (connexion native)" "$(curl -s -o /dev/null -w '%{redirect_url}' -c "$J" -X POST -d 'user=operateur@exemple.fr&pass=operateur-e2e' "$B/api/login")" "$B/"
+chk "sans plugin : pas d'ecran Utilisateurs dans la barre" "$(curl -s -b "$J" "$B/" | grep -c 'href="/utilisateurs"')" 0
+chk "sans plugin : l'API des comptes est fermee" "$(apiJ /api/user/new '{"email":"x@exemple.fr","name":"X","password":"mot-de-passe-long","cap":5}')" 403
+chk "sans plugin : la page Plugins propose de l'activer" "$(curl -s -b "$J" "$B/plugins" | grep -c 'data-enable="local-accounts"')" 1
 
 echo; echo "RESULTAT : $ok OK, $ko KO"; [ "$ko" = 0 ]
