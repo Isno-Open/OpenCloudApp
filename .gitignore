@@ -19,3 +19,4 @@ docker-compose.override.yml
 supervisor/node_modules
 supervisor/dist
 supervisor/dist-test
+web/dist
