@@ -1,55 +1,49 @@
 # Déploiement (instance ISNO)
 
-Comment l'instance hébergée est câblée sur le VPS. Le dépôt reste auto-hébergeable (voir
+Comment l'instance hébergée app.isno.fr est câblée sur le VPS. Le dépôt reste auto-hébergeable (voir
 `README.md`) ; ceci décrit l'instance ISNO, pas une procédure imposée au public.
 
 ## Vue d'ensemble
-- **VPS** : 146.59.45.179 (ubuntu@).
-- **Broker** : conteneur `isno-mqtt` (Mosquitto mTLS), port 8883, `mqtt.isno.fr`. CA + certs dans
-  `/home/ubuntu/isno-mqtt/certs` (ca, server, relay, + certs device). ACL : chaque device limité à
-  `openprofalux/<CN>/#` ; l'identité `relay` a l'accès complet.
-- **Serveur** : conteneur `isno-cloud-server` (ce dépôt, build sur place). Monte la CA du broker sur
-  `/certs`, donc les certs device qu'il émet sont signés par la même CA. Store SQLite (volume
-  `isno-cloud-data`). Relais vers `mqtts://mqtt.isno.fr:8883` (via `--add-host mqtt.isno.fr:172.17.0.1`).
-- **app.isno.fr** : TLS par le Caddy `winnza-proxy` (`/root/winnza-proxy/Caddyfile`, bloc
-  `app.isno.fr { reverse_proxy isno-cloud-server:8080 }`) ; le serveur est joint sur le réseau `coolify`.
-- **DNS** : `app.isno.fr` et `mqtt.isno.fr` -> 146.59.45.179 (zone BIND master sur le Synology, ns2 = VPS).
-- **Secrets** (ADMIN_TOKEN, ADMIN_PASS, SESSION_SECRET) : coffre Vaultwarden « isno-cloud (app.isno.fr) »
-  et `/home/ubuntu/isno-cloud/.env`. Jamais dans le dépôt.
+- **VPS** : 146.59.45.179 (ubuntu@), dépôt cloné dans `~/isno-cloud` (branche `feat/cloud-app`).
+- **Pile** : `docker compose` du dépôt (serveur, superviseur, socket-proxy), plus
+  `docker-compose.override.yml` propre au VPS (non versionné) :
+  - le serveur rejoint aussi le réseau `coolify`, pour que le Caddy le joigne par son nom ;
+  - le superviseur monte le dossier `~/isno-cloud-local` en `/local` (catalogue local de plugins,
+    `PLUGIN_LOCAL_CATALOG_PATH=/local/plugins.json`, vide aujourd'hui).
+- **Modules installés par le superviseur** : broker `isno-mqtt` (Mosquitto mTLS, port 8883,
+  `mqtt.isno.fr`) et MongoDB `isno-mongo` (base de l'instance).
+- **app.isno.fr** : TLS par le Caddy `winnza-proxy` (`/root/winnza-proxy/Caddyfile`), qui renvoie vers
+  `isno-cloud-server:8080`.
+- **DNS** : `app.isno.fr` et `mqtt.isno.fr` -> 146.59.45.179 (zone BIND maître sur le Synology, ns2 = VPS).
+- **Configuration de l'instance** : `/data/portal.config.json` dans le serveur (installation, base,
+  plugins actifs et leurs réglages). Secrets créés par les plugins : `/data/plugin-secrets.json`.
+- **Environnement** (`~/isno-cloud/.env`, jamais dans le dépôt ; secrets aussi au coffre Vaultwarden
+  « isno-cloud (app.isno.fr) ») : `SESSION_SECRET`, `ADMIN_TOKEN`, `ADMIN_PASS`, `BROKER_URL_PUBLIC`,
+  `MONGO_CACHE_GB`, `SSO_SECRET`.
 
-## Mettre à jour le serveur
+## Mettre à jour
     ssh ubuntu@146.59.45.179
     cd ~/isno-cloud && git pull
-    sudo docker build -t isno-cloud-server:prod ./server
-    sudo docker rm -f isno-cloud-server
-    sudo docker run -d --name isno-cloud-server --restart unless-stopped \
-      --add-host mqtt.isno.fr:172.17.0.1 -p 127.0.0.1:8090:8080 \
-      -v /home/ubuntu/isno-mqtt/certs:/certs -v isno-cloud-data:/data --env-file .env \
-      -e CERTS_DIR=/certs -e DB_PATH=/data/isno-cloud.db -e BROKER_URL=mqtts://mqtt.isno.fr:8883 \
-      isno-cloud-server:prod
-    sudo docker network connect coolify isno-cloud-server
+    sudo docker compose up -d --build server supervisor
 
-## SSO (comptes du site)
-L'auth est pluggable. Sans configuration, le cloud a son propre login (compte `admin`). Pour
-réutiliser les comptes de www.isno.fr :
-1. Poser le MÊME secret des deux côtés : `SSO_SECRET=<secret>` dans le `.env` du serveur, et le même
-   secret côté site.
-2. À la connexion, le site pose un cookie scopé `.isno.fr` :
-   `sso=<accountId>.<HMAC-SHA256(SSO_SECRET, accountId)>` (hex). Le cloud le valide avec le même
-   secret et, à la première visite, **provisionne le compte** avec le plafond par défaut (`DEVICE_CAP`,
-   défaut 5). Au-delà du plafond, l'enrôlement renvoie une invite d'offre mensuelle.
-Inerte tant que `SSO_SECRET` n'est pas défini : aucun changement de comportement.
+Le serveur redémarre en quelques secondes ; la configuration et les données (volumes) sont gardées.
 
-Côté site (à la connexion réussie), poser le cookie :
-```ts
-import { createHmac } from "node:crypto";
-const sso = `${accountId}.${createHmac("sha256", process.env.SSO_SECRET).update(accountId).digest("hex")}`;
-cookies.set("sso", sso, { domain: ".isno.fr", path: "/", httpOnly: true, sameSite: "lax", secure: true });
-```
-Vérifié en prod le 2026-11-12 : un cookie `sso` valide ouvre l'app (compte provisionné), un cookie
-falsifié est rejeté.
+## Connexion par le compte www.isno.fr
+Plugin intégré `external-auth` (« Connexion par un site externe »), réglé dans son écrou :
+- adresse de connexion : `https://www.isno.fr/compte?next=https://app.isno.fr/` ;
+- cookie `isno_account`, domaine `.isno.fr` ;
+- pas d'adresse de déconnexion : le cookie est commun à la boutique et au portail, l'effacer à la
+  déconnexion du portail déconnecte aussi la boutique.
+
+Le cookie est posé par le connecteur de la boutique (dépôt isno-compta, `shop-api-main.ts`), signé par
+`SSO_SECRET`, le **même** des deux côtés (sur le VPS, celui de l'environnement a priorité sur celui que
+le plugin créerait). Le connecteur n'accepte de renvoyer vers `next` que sur le domaine déclaré dans sa
+configuration (`shop.account_domain`, `isno.fr`) et ses sous-domaines.
+
+Ce plugin remplace depuis le 2026-11-12 le plugin privé `isno-sso` (dépôt Isno-Open/isno-cloud-hosted,
+gardé pour mémoire).
 
 ## À durcir plus tard
-- Cookie de session `Secure` (le serveur est en HTTP derrière le TLS de Caddy).
-- Store MongoDB (greffon) si besoin de montée en charge.
-- Auth SSO sur les comptes du site au lieu du seul compte admin.
+- Une déconnexion faite sur la boutique n'est connue que d'elle : sur un autre navigateur, le portail
+  accepte le cookie jusqu'à son échéance (30 jours au plus).
+- Registre d'images ISNO pour publier des plugins dans le catalogue officiel.

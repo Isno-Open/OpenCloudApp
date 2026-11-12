@@ -8,11 +8,13 @@ préfixe : les renommer casserait les installations existantes et leurs données
 
 ## Contenu
 - **broker** (module) : Mosquitto en **mTLS**, isolation **par appareil** (ACL `openprofalux/{device_id}/#`).
-- **server** (TypeScript, Astro SSR) : installation, comptes, enrôlement des appareils, **relais**
-  authentifié (le navigateur ne parle jamais au broker), app de pilotage.
+- **server** (TypeScript ; app web Astro rendue par le serveur, écrans interactifs en Svelte) :
+  installation, comptes, enrôlement des appareils, **relais** authentifié (le navigateur ne parle
+  jamais au broker), app de pilotage, **plugins**. L'app passe progressivement entièrement en Svelte
+  (SvelteKit).
 - **supervisor** : installe les modules **à la demande**, façon Supervisor de Home Assistant : le
   **broker** (obligatoire, installé pendant `/setup`) et **MongoDB** (si choisi). Catalogue déclaré dans
-  `supervisor/modules.json`.
+  `supervisor/modules.json`. Il installe aussi les **plugins** du catalogue (voir plus bas).
 - **socket-proxy** : seul composant qui voit le socket Docker, filtré (pas d'`exec`, de `build`, de
   `system`…), et joignable par le seul superviseur.
 
@@ -51,12 +53,61 @@ généré au premier démarrage dans un volume qu'elle monte en lecture seule.
     scripts/e2e-stack.sh sqlite     # SQLite
 
 Monte la vraie pile sur la machine (ports 18080 / 18883), rejoue l'installation, simule un boîtier
-(appairage, mTLS, commande reçue, isolation), teste la réconciliation, puis démonte tout.
+(appairage, mTLS, commande reçue, isolation, types d'appareils), teste la réconciliation, les comptes
+et leur sécurité, la messagerie, les plugins (catalogues, installation, mise à jour, réglages,
+connexion externe), puis démonte tout. `E2E_KEEP=1` laisse la pile en place pour l'explorer (supprimer
+ensuite le `.env` de test qu'il a créé).
+
+## Plugins
+Ce que le portail sait faire en plus de son cœur vient de **plugins**, page **Plugins** de
+l'opérateur. Un plugin a un seul contrat, `register(api)` (`server/src/plugin-types.ts`), et peut :
+- apporter un mode de **connexion** (`registerAuthProvider`) ;
+- apporter un **type d'appareil** (`registerDeviceType`) : identifiant tel que le boîtier le publie,
+  nom, icône (un caractère ou un tracé SVG), libellés FR/EN des trois commandes. Le cœur dessine la
+  carte ; rien de ce qu'un plugin déclare n'est du HTML ;
+- **déclarer ses réglages** (`settings`) : interrupteur, nombre, choix, texte ou adresse, secret.
+  Le cœur dessine l'écran (l'écrou du plugin), le plugin valide les valeurs.
+
+Plugins **intégrés** (livrés avec le portail) :
+
+| Plugin | Rôle | Par défaut |
+|---|---|---|
+| `local-accounts` | Gestion des comptes : écran Utilisateurs, invitations, sécurité (captcha, blocage, double authentification, longueur du mot de passe) | actif |
+| `external-auth` | Connexion par un site externe (connexion unique, voir plus bas) | inactif |
+| `device-volet`, `device-portail` | Types d'appareils volet et portail | actifs d'office, même sur une instance déjà configurée |
+
+Un type publié par un boîtier qu'aucun plugin ne déclare s'affiche comme **appareil inconnu**, sans
+commandes.
+
+Plugins **ajoutés** : une image (version exacte) qui contient son code dans `/plugin`. Le superviseur
+copie ce dossier dans le volume `isno-plugins`, que le portail lit en lecture seule, puis le portail
+redémarre et le charge. Les catalogues, par ordre de priorité (un identifiant déjà pris n'est jamais
+remplacé) :
+1. le catalogue ISNO, livré avec le superviseur (`supervisor/plugins.json`) ;
+2. le catalogue **local** de l'instance (`PLUGIN_LOCAL_CATALOG_PATH`), relu à chaque demande. Monter
+   son **dossier** dans le superviseur, pas le fichier seul : un éditeur qui remplace le fichier
+   laisserait le conteneur sur l'ancienne version ;
+3. les sources https ajoutées par l'opérateur.
+
+**Mises à jour** : l'installation laisse dans le dossier du plugin l'image copiée (`.image`). Le
+superviseur la compare au catalogue ; une version différente affiche « Mettre à jour (a → b) ».
+Exemple de plugin à copier : `plugins/example`.
 
 ## Comptes
-Comptes locaux gérés par l'opérateur (écran **Utilisateurs**), connexion opérateur sur
-`/connexion?local=1`. Un fournisseur d'identité externe (SSO) se branche par le point d'extension
-`AuthProvider` (`server/src/auth-provider.ts`), chargé depuis `HARNESS_MODULE`.
+La connexion par e-mail et mot de passe est **native** : le compte créé à l'installation peut toujours
+entrer (`/connexion?local=1` quand une connexion externe est active), quels que soient les plugins.
+
+**Connexion par un site externe** (plugin `external-auth`) : un site externe (une boutique, par
+exemple) pose sur un domaine commun un cookie de session **signé** ; le portail le vérifie et ouvre la
+session, en créant le compte à la première visite. Format du cookie (`server/src/signed-cookie.ts`) :
+
+    base64url(e-mail) "." échéance en ms "." base64url(HMAC-SHA256(secret, "<b64>.<échéance>"))
+
+Dans l'écrou du plugin : adresse de connexion, adresse de déconnexion (facultative), nom et domaine du
+cookie. Le **secret partagé** est créé par le plugin à sa première activation (fichier
+`plugin-secrets.json` à côté de la configuration, droits 600), gardé même si le plugin est désactivé,
+et montré masqué dans l'écrou pour le donner au site externe. `SSO_SECRET` dans l'environnement, s'il
+est posé, a priorité.
 
 ## Enrôler un appareil
 Le boîtier lance l'appairage (onglet Cloud) et affiche un **code et un QR code**. L'utilisateur le scanne
