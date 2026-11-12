@@ -2,7 +2,7 @@
 // Ecran de reglages d'un plugin. Le cadre (retour, titre, panneau, bouton unique) est le meme pour tous
 // les plugins : seul le contenu varie, et il vient de ce que le plugin DECLARE (champs, bornes, libelles).
 import type { PluginInfo, SettingField, SettingValue } from '@core/plugin-types.js';
-import { SETTING_KIND } from '@core/plugin-types.js';
+import { SETTING_KIND, TEXT_FORMAT } from '@core/plugin-types.js';
 import { t, ROUTES, type Lang } from '../../lib/i18n.ts';
 interface Props { lang: Lang; plugin: PluginInfo; fields: readonly SettingField[]; values: Record<string, SettingValue>; }
 const { lang, plugin, fields, values } = Astro.props;
@@ -20,6 +20,8 @@ const id = (f: SettingField) => `pf-${f.key}`;
         <label class="check"><input type="checkbox" id={id(f)} data-key={f.key} data-kind={f.kind} checked={values[f.key] === true} /> {f.label[lang]}</label>
       ) : f.kind === SETTING_KIND.number ? (
         <div class="field"><label for={id(f)}>{f.label[lang]}</label><input id={id(f)} data-key={f.key} data-kind={f.kind} type="number" min={f.min} max={f.max} value={String(values[f.key] ?? '')} /></div>
+      ) : f.kind === SETTING_KIND.text ? (
+        <div class="field"><label for={id(f)}>{f.label[lang]}</label><input id={id(f)} data-key={f.key} data-kind={f.kind} type={f.format === TEXT_FORMAT.url ? 'url' : 'text'} maxlength={f.maxLength} placeholder={f.placeholder} spellcheck="false" value={String(values[f.key] ?? '')} /></div>
       ) : (
         <div class="field"><label for={id(f)}>{f.label[lang]}</label>
           <select id={id(f)} data-key={f.key} data-kind={f.kind}>{f.options.map((o) => <option value={o.value} selected={o.value === values[f.key]}>{o.label[lang]}</option>)}</select>

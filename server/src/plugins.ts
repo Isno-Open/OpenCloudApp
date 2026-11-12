@@ -5,6 +5,7 @@
 // - Integres (livres avec le portail) : actives par la config (`plugins`), « comptes locaux » par defaut.
 // - Ajoutes depuis le catalogue ISNO : le superviseur copie leur code dans PLUGINS_DIR/<id>/index.js.
 // - Developpement : modules charges depuis HARNESS_MODULE (chemins separes par « , »).
+import { externalAuthPlugin } from "./plugins/external-auth.js";
 import { registerAuthProvider, localProvider } from "./auth-provider.js";
 import { ensureAccount } from "./store.js";
 import { DEFAULT_CAP } from "./entitlement.js";
@@ -16,7 +17,7 @@ import { CAPABILITY, type Capability, type Plugin, type PluginApi, type PluginIn
 export { CAPABILITY, type Capability, type Plugin, type PluginApi, type PluginInfo };
 
 /** Greffons livres avec le portail. */
-export const BUILTIN_PLUGINS: Record<string, Plugin> = { [localAccountsPlugin.id]: localAccountsPlugin };
+export const BUILTIN_PLUGINS: Record<string, Plugin> = { [localAccountsPlugin.id]: localAccountsPlugin, [externalAuthPlugin.id]: externalAuthPlugin };
 /** Actives quand la config n'en dit rien. */
 export const DEFAULT_PLUGINS: readonly string[] = [localAccountsPlugin.id];
 

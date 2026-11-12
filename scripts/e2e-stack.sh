@@ -51,7 +51,7 @@ teardown() {
 }
 trap teardown EXIT
 [ -n "${E2E_KEEP:-}" ] && trap - EXIT
-if [ ! -f .env ]; then printf 'SESSION_SECRET=e2e-%s\nADMIN_TOKEN=e2e-%s\nBROKER_PUBLIC_PORT=18883\n' "$RANDOM$RANDOM" "$RANDOM$RANDOM" > .env; ENV_CREATED=1
+if [ ! -f .env ]; then printf 'SESSION_SECRET=e2e-%s\nADMIN_TOKEN=e2e-%s\nBROKER_PUBLIC_PORT=18883\nSSO_SECRET=e2e-sso-%s\n' "$RANDOM$RANDOM" "$RANDOM$RANDOM" "$RANDOM$RANDOM" > .env; ENV_CREATED=1
 else echo "un .env existe deja : test refuse (il porterait vos reglages)"; exit 2; fi
 
 ok=0; ko=0
@@ -257,6 +257,27 @@ wait_restart
 chk "apres desinstallation : de nouveau propose" "$(curl -s -b "$J" "$B/plugins" | grep -c 'data-install="example"')" 1
 for _ in $(seq 1 20); do docker run --rm -v isno-plugins:/p:ro busybox:1.38.0-musl test -e /p/example || break; sleep 1; done
 chk "apres desinstallation : code retire du volume" "$(docker run --rm -v isno-plugins:/p:ro busybox:1.38.0-musl sh -c 'test -e /p/example && echo present || echo absent')" absent
+
+echo "== connexion par un site externe (plugin integre, cookie signe partage)"
+chk "activation (le portail redemarre)" "$(apiJ /api/plugins/enable '{"id":"external-auth"}')" 200
+wait_restart
+chk "reglages : adresse en http refusee (vide)" "$(apiJ /api/settings/plugin '{"id":"external-auth","values":{"loginUrl":"http://boutique.exemple.fr/compte"}}')" 200
+chk "reglages : l'adresse http n'est pas gardee" "$(curl -s -b "$J" "$B/plugins/external-auth" | grep -c 'value="http://boutique')" 0
+chk "reglages enregistres" "$(apiJ /api/settings/plugin '{"id":"external-auth","values":{"loginUrl":"https://boutique.exemple.fr/compte","logoutUrl":"https://boutique.exemple.fr/sortie","cookieName":"isno_account","cookieDomain":".exemple.fr"}}')" 200
+SSOC="isno_account=$(docker exec isno-cloud-server node -e '
+const c=require("crypto");const p=Buffer.from("client-sso@exemple.fr").toString("base64url")+"."+(Date.now()+600000);
+process.stdout.write(p+"."+c.createHmac("sha256",process.env.SSO_SECRET).update(p).digest("base64url"))')"
+FORGED="isno_account=$(echo "$SSOC" | cut -d= -f2 | sed 's/.$/x/')"
+chk "visiteur sans session : renvoye vers l'adresse de connexion" "$(curl -s -o /dev/null -w '%{redirect_url}' "$B/connexion")" "https://boutique.exemple.fr/compte"
+chk "cookie signe valide : connecte" "$(curl -s -o /dev/null -w '%{http_code}' -H "cookie: $SSOC" "$B/compte")" 200
+chk "cookie signe valide : compte cree a la premiere visite" "$(curl -s -b "$J" "$B/utilisateurs" | grep -c 'client-sso@exemple.fr')" 1
+chk "cookie altere : pas connecte" "$(curl -s -o /dev/null -w '%{http_code}' -H "cookie: $FORGED" "$B/compte")" 302
+LOGOUT=$(curl -s -D - -X POST -H "cookie: $SSOC" "$B/api/logout")
+chk "deconnexion : renvoie vers l'adresse de deconnexion" "$(echo "$LOGOUT" | grep -c '"redirect":"https://boutique.exemple.fr/sortie"')" 1
+chk "deconnexion : cookie partage efface sur le domaine commun" "$(echo "$LOGOUT" | grep -ic '^set-cookie: isno_account=; Domain=.exemple.fr')" 1
+chk "desactivation (le portail redemarre)" "$(apiJ /api/plugins/disable '{"id":"external-auth"}')" 200
+wait_restart
+chk "desactive : formulaire local de nouveau" "$(curl -s -o /dev/null -w '%{http_code}' "$B/connexion")" 200
 
 echo "== Instance : adresse du portail modifiable apres verification"
 chk "adresse qui mene a ce portail : enregistree" "$(apiJ /api/settings/portal-host "{\"host\":\"$APP\"}")" 200

@@ -14,6 +14,8 @@ export interface AuthProvider {
   loginUrl?(): string | null;
   // Cookies à effacer à la déconnexion (en-têtes Set-Cookie complets) : chaque provider connaît les siens.
   logoutCookies?(): string[];
+  // Adresse où envoyer le navigateur après la déconnexion (fermer aussi la session du site externe).
+  logoutUrl?(): string | null;
 }
 
 const providers: AuthProvider[] = [];
@@ -31,6 +33,10 @@ export async function resolveAccount(cookie: string | undefined): Promise<string
  *  provider encore valide reconnecterait aussitôt l'utilisateur, sous un autre compte). */
 export function logoutCookies(): string[] {
   return providers.flatMap((p) => p.logoutCookies?.() ?? []);
+}
+export function externalLogoutUrl(): string | null {
+  for (const p of providers) { const u = p.logoutUrl?.(); if (u) return u; }
+  return null;
 }
 export function externalLoginUrl(): string | null {
   for (const p of providers) { const u = p.loginUrl?.(); if (u) return u; }

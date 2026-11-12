@@ -6,13 +6,17 @@
 export type LocalizedText = { fr: string; en: string };
 
 /** Nature d'un reglage, donc du controle dessine par le coeur. */
-export const SETTING_KIND = { toggle: "toggle", number: "number", choice: "choice" } as const;
+export const SETTING_KIND = { toggle: "toggle", number: "number", choice: "choice", text: "text" } as const;
 export type SettingKind = (typeof SETTING_KIND)[keyof typeof SETTING_KIND];
+/** Forme d'un reglage texte : libre, ou adresse web (le navigateur aide a la saisie ; le plugin valide). */
+export const TEXT_FORMAT = { plain: "plain", url: "url" } as const;
+export type TextFormat = (typeof TEXT_FORMAT)[keyof typeof TEXT_FORMAT];
 type FieldBase = { key: string; label: LocalizedText; hint?: LocalizedText; under?: string };   // under : case dont il depend
 export type SettingField =
   | (FieldBase & { kind: typeof SETTING_KIND.toggle })
   | (FieldBase & { kind: typeof SETTING_KIND.number; min: number; max: number })
-  | (FieldBase & { kind: typeof SETTING_KIND.choice; options: readonly { value: string; label: LocalizedText }[] });
+  | (FieldBase & { kind: typeof SETTING_KIND.choice; options: readonly { value: string; label: LocalizedText }[] })
+  | (FieldBase & { kind: typeof SETTING_KIND.text; format: TextFormat; maxLength: number; placeholder?: string });
 export type SettingValue = boolean | number | string;
 
 /** Reglages d'un plugin : il les DECLARE, le coeur dessine l'ecran (meme cadre pour tous) et le plugin

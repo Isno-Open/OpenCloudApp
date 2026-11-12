@@ -65,7 +65,9 @@ const totpOn = totpAllowed(sec), totpRequired = totpRequiredFor(sec, account.adm
   (function () {
     var b = document.getElementById('logoutBtn');
     if (b) b.addEventListener('click', function () {
-      fetch('/api/logout', { method: 'POST' }).then(function () { location.href = home; }).catch(function () { location.href = home; });
+      fetch('/api/logout', { method: 'POST' }).then(function (r) { return r.json(); })
+        .then(function (d) { location.href = (d && typeof d.redirect === 'string' && d.redirect) || home; })
+        .catch(function () { location.href = home; });
     });
   })();
   (function () {
