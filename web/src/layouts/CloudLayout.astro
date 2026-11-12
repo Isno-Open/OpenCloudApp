@@ -5,6 +5,12 @@ import '../styles/tokens.css';
 import '../styles/cloud.css';
 import { otherLang, navItems, t, type Lang } from '../lib/i18n.ts';
 
+// Drapeaux du selecteur de langue, identiques au site isno.fr (BaseLayout).
+const FLAG: Record<Lang, string> = {
+  fr: '<svg viewBox="0 0 3 2" aria-hidden="true"><rect width="3" height="2" fill="#fff"/><rect width="1" height="2" fill="#0055A4"/><rect x="2" width="1" height="2" fill="#EF4135"/></svg>',
+  en: '<svg viewBox="0 0 60 30" aria-hidden="true"><clipPath id="lsuk"><path d="M0 0v30h60V0z"/></clipPath><g clip-path="url(#lsuk)"><path d="M0 0v30h60V0z" fill="#012169"/><path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0l60 30m0-30L0 30" stroke="#C8102E" stroke-width="4"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/></g></svg>',
+};
+
 interface Props { title?: string; lang: Lang; altUrl: string; }
 const { title = 'ISNO Cloud', lang, altUrl } = Astro.props;
 const s = t(lang);
@@ -51,7 +57,7 @@ const nav = navItems(lang);
         ))}
         <a class="nav" href="https://www.isno.fr" target="_blank" rel="noopener">isno.fr</a>
         <div class="topbar-controls">
-          <a class="lang-switch" href={altUrl} hreflang={other} aria-label={s.langSwitch}>{s.langName}</a>
+          <a class="lang-switch" href={altUrl} hreflang={other} aria-label={s.langSwitch}><span class="flag" set:html={FLAG[other]}></span>{s.langName}</a>
           <button class="theme-toggle" id="themeToggle" type="button" aria-label={s.themeToggle}>
             <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
             <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg>

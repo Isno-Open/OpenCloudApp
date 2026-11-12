@@ -9,18 +9,11 @@ const account = await getAccountInfo(accountId);
 <div class="page-head"><h1>{s.accountTitle}</h1></div>
 <p class="lead">{s.accountLead}</p>
 
-<div class="cfg-grid">
-  <div class="panel">
-    <h3>{s.identity} <span class="ro">{s.readonly}</span></h3>
-    <div class="kv"><span class="k">{s.address}</span><span class="v">{account.email}</span></div>
-    <div class="kv"><span class="k">{s.connection}</span><span class="v">{account.via}</span></div>
-  </div>
-  <div class="panel">
-    <h3>{s.subscription}</h3>
-    <div class="kv"><span class="k">{s.boxesWord}</span><span class="v">{account.boitiers} / {account.cap}</span></div>
-    <div class="kv"><span class="k">{s.formula}</span><span class="v">{s.included}</span></div>
-    <p class="note" style="margin:.5rem 0 0">{s.capNote(account.cap)}</p>
-  </div>
+<div class="panel">
+  <h3>{s.identity} <span class="ro">{s.readonly}</span></h3>
+  <div class="kv"><span class="k">{s.address}</span><span class="v">{account.email}</span></div>
+  <div class="kv"><span class="k">{s.connection}</span><span class="v">{account.via}</span></div>
+  <div class="kv"><span class="k">{s.boxesWord}</span><span class="v">{account.boitiers} / {account.cap}</span></div>
 </div>
 
 <div class="card" style="margin-top:.9rem">
@@ -33,7 +26,7 @@ const account = await getAccountInfo(accountId);
   </div>
 </div>
 
-<script is:inline define:vars={{ home: ROUTES.volets[lang] }}>
+<script is:inline define:vars={{ home: ROUTES.appareils[lang] }}>
   (function () {
     var b = document.getElementById('logoutBtn');
     if (b) b.addEventListener('click', function () {

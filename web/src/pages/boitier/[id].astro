@@ -3,14 +3,14 @@ import CloudLayout from '../../layouts/CloudLayout.astro';
 import BoitierView from '../../components/views/BoitierView.astro';
 import { getBoitier } from '../../lib/cloud-data.ts';
 import { resolveAccountId } from '../../server/auth.ts';
-import { LANG, ROUTES, boitierHref } from '../../lib/i18n.ts';
+import { LANG, ROUTES, appareilHref } from '../../lib/i18n.ts';
 const lang = LANG.fr;
 const acc = await resolveAccountId(Astro.request);
 if (!acc) return Astro.redirect(ROUTES.connexion[lang]);
 const { id } = Astro.params;
 const b = id ? await getBoitier(id, acc) : undefined;
-if (!b) return Astro.redirect(ROUTES.boitiers[lang]);
+if (!b) return Astro.redirect(ROUTES.appareils[lang]);
 ---
-<CloudLayout title={`${b.name} · ISNO Cloud`} lang={lang} altUrl={boitierHref(b.id, LANG.en)}>
+<CloudLayout title={`${b.name} · ISNO Cloud`} lang={lang} altUrl={appareilHref(b.id, LANG.en)}>
   <BoitierView boitier={b} lang={lang} />
 </CloudLayout>

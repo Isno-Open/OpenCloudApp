@@ -1,12 +1,5 @@
 ---
-import CloudLayout from '../../layouts/CloudLayout.astro';
-import BoitiersView from '../../components/views/BoitiersView.astro';
-import { resolveAccountId } from '../../server/auth.ts';
-import { LANG, ROUTES, t } from '../../lib/i18n.ts';
-const lang = LANG.en;
-const acc = await resolveAccountId(Astro.request);
-if (!acc) return Astro.redirect(ROUTES.connexion[lang]);
+// Merged into the "My devices" home: redirect old links.
+import { LANG, ROUTES } from '../../lib/i18n.ts';
+return Astro.redirect(ROUTES.appareils[LANG.en]);
 ---
-<CloudLayout title={`${t(lang).boitiersTitle} · ISNO Cloud`} lang={lang} altUrl={ROUTES.boitiers[LANG.fr]}>
-  <BoitiersView lang={lang} accountId={acc} />
-</CloudLayout>

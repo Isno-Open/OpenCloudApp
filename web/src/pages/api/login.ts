@@ -17,7 +17,7 @@ export const POST: APIRoute = async ({ request }) => {
   return new Response(null, {
     status: 303,
     headers: {
-      Location: ROUTES.volets[lang],
+      Location: ROUTES.appareils[lang],
       'Set-Cookie': `sid=${encodeURIComponent(makeSession(a.id))}; HttpOnly; Path=/; SameSite=Lax`,
     },
   });

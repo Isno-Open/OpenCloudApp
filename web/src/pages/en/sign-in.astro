@@ -4,7 +4,7 @@ import LoginView from '../../components/views/LoginView.astro';
 import { resolveAccountId } from '../../server/auth.ts';
 import { LANG, ROUTES, t } from '../../lib/i18n.ts';
 const lang = LANG.en;
-if (await resolveAccountId(Astro.request)) return Astro.redirect(ROUTES.volets[lang]);
+if (await resolveAccountId(Astro.request)) return Astro.redirect(ROUTES.appareils[lang]);
 const ext = import.meta.env.CLOUD_LOGIN_URL ?? process.env.CLOUD_LOGIN_URL;
 if (ext) return Astro.redirect(ext);
 const error = Astro.url.searchParams.get('e') === '1';

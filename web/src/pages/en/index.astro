@@ -1,12 +1,12 @@
 ---
 import CloudLayout from '../../layouts/CloudLayout.astro';
-import VoletsView from '../../components/views/VoletsView.astro';
+import AppareilsView from '../../components/views/AppareilsView.astro';
 import { resolveAccountId } from '../../server/auth.ts';
 import { LANG, ROUTES, t } from '../../lib/i18n.ts';
 const lang = LANG.en;
 const acc = await resolveAccountId(Astro.request);
 if (!acc) return Astro.redirect(ROUTES.connexion[lang]);
 ---
-<CloudLayout title={`${t(lang).voletsTitle} · ISNO Cloud`} lang={lang} altUrl={ROUTES.volets[LANG.fr]}>
-  <VoletsView lang={lang} accountId={acc} />
+<CloudLayout title={`${t(lang).appareilsTitle} · ISNO Cloud`} lang={lang} altUrl={ROUTES.appareils[LANG.fr]}>
+  <AppareilsView lang={lang} accountId={acc} />
 </CloudLayout>

@@ -1,0 +1,71 @@
+---
+// Accueil : « Mes appareils ». Un appareil = un boitier OpenProfalux. On liste les appareils, chacun en
+// section avec ses volets/portails (cartes au visuel firmware) dessous. La roue crantee ouvre la config.
+import VoletCard from '../VoletCard.astro';
+import { getAccountInfo, listBoitiers, listAppareils } from '../../lib/cloud-data.ts';
+import { t, ROUTES, appareilHref, type Lang } from '../../lib/i18n.ts';
+import type { Appareil } from '../../lib/types.ts';
+interface Props { lang: Lang; accountId: string; }
+const { lang, accountId } = Astro.props;
+const s = t(lang);
+const [account, boitiers, appareils] = await Promise.all([
+  getAccountInfo(accountId), listBoitiers(accountId), listAppareils(accountId),
+]);
+const coversOf = (boitierId: string): Appareil[] => appareils.filter((a) => a.boitierId === boitierId);
+---
+<div class="page-head"><h1>{s.appareilsTitle}</h1></div>
+<p class="lead">{account.email} · {s.leadAppareils(boitiers.length)}</p>
+
+{boitiers.length ? boitiers.map((b) => {
+  const covers = coversOf(b.id);
+  return (
+    <section class="appareil-group">
+      <div class="grp-head" style={b.online ? undefined : 'opacity:.75'}>
+        <span class:list={['dot', { off: !b.online }]}></span>
+        <span class="grp-name">{b.name}</span>
+        {b.updateAvailable && <span class="pill upd">{s.updAvail}</span>}
+        <span class="grp-sub">{covers.length} {s.devicesWord}</span>
+        <span style="flex:1"></span>
+        <a class="gear" href={appareilHref(b.id, lang)} title={s.configure} aria-label={`${s.configure} ${b.name}`}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        </a>
+      </div>
+      {covers.length ? (
+        <div class="hw-grid">
+          {covers.map((a) => <VoletCard appareil={a} boitierName={b.name} lang={lang} grouped={true} />)}
+        </div>
+      ) : (
+        <p class="empty">{s.noCovers}</p>
+      )}
+    </section>
+  );
+}) : (
+  <a class="empty-cta" href={ROUTES.ajouter[lang]}>{s.voletsEmpty}</a>
+)}
+
+<script is:inline>
+  (function () {
+    // roue crantee de chaque carte : montre/cache les details materiel.
+    document.querySelectorAll('.gear[data-det]').forEach(function (g) {
+      g.addEventListener('click', function () {
+        var card = g.closest('.volet'); if (!card) return;
+        var d = card.querySelector('.hw-det');
+        if (d) d.hidden = !d.hidden;
+      });
+    });
+    // commandes : chaque bouton du dpad envoie device_id + slug + action au relais.
+    document.querySelectorAll('.dpad').forEach(function (pad) {
+      var device = pad.getAttribute('data-device'), slug = pad.getAttribute('data-slug');
+      pad.querySelectorAll('button[data-action]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          if (b.disabled) return;
+          b.classList.add('sending');
+          fetch('/api/cmd', { method: 'POST', headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ device_id: device, slug: slug, action: b.getAttribute('data-action') }) })
+            .catch(function () {})
+            .finally(function () { setTimeout(function () { b.classList.remove('sending'); }, 400); });
+        });
+      });
+    });
+  })();
+</script>

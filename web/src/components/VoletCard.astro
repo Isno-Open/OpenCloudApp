@@ -4,8 +4,8 @@
 // Libelles de commande localises PAR TYPE (i18n.actionLabels) : le device declare le type, l'app traduit.
 import { DEVICE_TYPE, type Appareil } from '../lib/types.ts';
 import { actionLabels, t, type Lang } from '../lib/i18n.ts';
-interface Props { appareil: Appareil; boitierName: string; lang: Lang; }
-const { appareil: a, boitierName, lang } = Astro.props;
+interface Props { appareil: Appareil; boitierName: string; lang: Lang; grouped?: boolean; }
+const { appareil: a, boitierName, lang, grouped = false } = Astro.props;
 const s = t(lang);
 const act = actionLabels(a.type, lang);
 const isPortail = a.type === DEVICE_TYPE.portail;
@@ -33,7 +33,9 @@ const showPos = a.positional && a.position !== null;
   )}
 
   <div class="foot">
-    <span class="box-tag"><span class:list={['dot', { off: !a.online }]}></span>{boitierName}{!a.online && s.offlineSuffix}</span>
+    {grouped
+      ? <span class="box-tag">{!a.online && (<><span class="dot off"></span>{s.offlineShort}</>)}</span>
+      : <span class="box-tag"><span class:list={['dot', { off: !a.online }]}></span>{boitierName}{!a.online && s.offlineSuffix}</span>}
     <button class="gear" type="button" data-det title={s.details} aria-label={s.details}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
     </button>
