@@ -1,62 +1,70 @@
 ---
 // Onboarding du portail (auto-hebergement). Affiche tant que l'instance n'est pas configuree ; la garde
-// (middleware) y renvoie toute page. 3 etapes : jeton -> base de donnees -> socle (URLs + admin), puis
-// ecriture de la config et redemarrage. Les valeurs de base viennent de l'enum DB_KIND (pas de litteral).
+// (middleware) y renvoie toute page. Ouvert seulement pendant une fenetre apres le demarrage du serveur
+// (pas de jeton) : passe ce delai, il faut redemarrer le serveur. Deux etapes : base de donnees, puis
+// socle (URLs + admin) ; ecriture de la config et redemarrage. Valeurs de base issues de l'enum DB_KIND.
 import BareLayout from '../layouts/BareLayout.astro';
 import { LANG } from '../lib/i18n.ts';
-import { DB_KIND, isConfigured } from '@core/config.js';
+import { DB_KIND, isConfigured, setupWindowRemaining, SETUP_WINDOW_S } from '@core/config.js';
 if (isConfigured()) return Astro.redirect('/');
+const remaining = setupWindowRemaining();
+const windowMin = Math.round(SETUP_WINDOW_S / 60);
 ---
 <BareLayout title="Configuration · ISNO Cloud" lang={LANG.fr}>
   <div class="setup">
     <div class="setup-head">
       <span class="eyebrow">// onboarding</span>
       <h1>Configuration du portail</h1>
-      <p class="sub">Première installation. Trois étapes, puis le portail redémarre configuré.</p>
-      <div class="steps">
-        <span class="st active" data-dot="1">1 · Jeton</span>
-        <span class="st" data-dot="2">2 · Base de données</span>
-        <span class="st" data-dot="3">3 · Socle</span>
-      </div>
+      <p class="sub">Première installation : deux étapes, puis le portail redémarre configuré.</p>
+      {remaining > 0 && (
+        <>
+          <p class="window" id="windowBar">Installation ouverte encore <b id="countdown">{Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}</b>. Par sécurité, elle se ferme {windowMin} minutes après le démarrage du serveur.</p>
+          <div class="steps">
+            <span class="st active" data-dot="1">1 · Base de données</span>
+            <span class="st" data-dot="2">2 · Socle</span>
+          </div>
+        </>
+      )}
     </div>
 
-    <form id="setupForm" class="setup-card">
-      <!-- Etape 1 : jeton -->
-      <section class="step" data-step="1">
-        <h3>Jeton d'installation</h3>
-        <p class="note">Il est imprimé dans les journaux du conteneur au démarrage : <code>docker compose logs server</code>, ligne <code>[setup] … Jeton …</code>.</p>
-        <div class="field"><label for="token">Jeton</label><input id="token" name="token" type="text" autocomplete="off" spellcheck="false" required /></div>
-        <div class="row end"><button type="button" class="btn primary" data-next="1">Continuer</button></div>
-      </section>
+    <div class="setup-card expired" id="expired" hidden={remaining > 0}>
+      <h3>Délai d'installation dépassé</h3>
+      <p class="note">Par sécurité, l'installation n'est ouverte que pendant les {windowMin} minutes qui suivent le démarrage du serveur : sinon, n'importe qui trouvant ce portail en ligne pourrait le configurer à votre place.</p>
+      <p class="note">Redémarrez le serveur, puis rechargez cette page :</p>
+      <pre class="cmd">docker compose restart server</pre>
+    </div>
 
-      <!-- Etape 2 : base de donnees -->
-      <section class="step" data-step="2" hidden>
-        <h3>Base de données</h3>
-        <label class="opt"><input type="radio" name="kind" value="" data-k="sqlite" checked /><span><b>SQLite</b> (embarqué, recommandé). Rien à installer, un fichier sur le volume. Idéal pour un parc modeste.</span></label>
-        <label class="opt"><input type="radio" name="kind" value="" data-k="mongoBundled" /><span><b>MongoDB fourni</b>. Un conteneur Mongo dans la pile (profil <code>mongo</code>). Pour grandir.</span></label>
-        <label class="opt"><input type="radio" name="kind" value="" data-k="mongoExternal" /><span><b>MongoDB externe</b>. Votre propre serveur Mongo.</span></label>
-        <div class="field" id="mongoUrlField" hidden><label for="mongoUrl">URL Mongo</label><input id="mongoUrl" name="mongoUrl" type="text" placeholder="mongodb://utilisateur:motdepasse@hote:27017/isno_cloud" spellcheck="false" /></div>
-        <div class="testline"><button type="button" class="btn ghost" id="testBtn">Tester la connexion</button><span class="testmsg" id="testMsg"></span></div>
-        <div class="row"><button type="button" class="btn ghost" data-prev="2">Retour</button><button type="button" class="btn primary" data-next="2">Continuer</button></div>
-      </section>
+    {remaining > 0 && (
+      <form id="setupForm" class="setup-card">
+        <!-- Etape 1 : base de donnees -->
+        <section class="step" data-step="1">
+          <h3>Base de données</h3>
+          <label class="opt"><input type="radio" name="kind" value="" data-k="sqlite" checked /><span><b>SQLite</b> (embarqué, recommandé). Rien à installer, un fichier sur le volume. Idéal pour un parc modeste.</span></label>
+          <label class="opt"><input type="radio" name="kind" value="" data-k="mongoBundled" /><span><b>MongoDB fourni</b>. Un conteneur Mongo dans la pile (greffon <code>docker-compose.mongo.yml</code>). Pour grandir.</span></label>
+          <label class="opt"><input type="radio" name="kind" value="" data-k="mongoExternal" /><span><b>MongoDB externe</b>. Votre propre serveur Mongo.</span></label>
+          <div class="field" id="mongoUrlField" hidden><label for="mongoUrl">URL Mongo</label><input id="mongoUrl" name="mongoUrl" type="text" placeholder="mongodb://utilisateur:motdepasse@hote:27017/isno_cloud" spellcheck="false" /></div>
+          <div class="testline"><button type="button" class="btn ghost" id="testBtn">Tester la connexion</button><span class="testmsg" id="testMsg"></span></div>
+          <div class="row end"><button type="button" class="btn primary" data-next="1">Continuer</button></div>
+        </section>
 
-      <!-- Etape 3 : socle -->
-      <section class="step" data-step="3" hidden>
-        <h3>Socle</h3>
-        <div class="field"><label for="publicAppUrl">URL publique du portail</label><input id="publicAppUrl" name="publicAppUrl" type="url" placeholder="https://cloud.exemple.fr" required /></div>
-        <div class="field"><label for="brokerPublicUrl">URL publique du broker MQTT</label><input id="brokerPublicUrl" name="brokerPublicUrl" type="text" placeholder="mqtts://mqtt.exemple.fr:8883" required /></div>
-        <div class="field"><label for="adminPassword">Mot de passe administrateur</label><input id="adminPassword" name="adminPassword" type="password" autocomplete="new-password" minlength="8" required /><span class="hint">8 caractères minimum. Compte <code>admin</code>, pour la connexion locale.</span></div>
-        <div class="row"><button type="button" class="btn ghost" data-prev="3">Retour</button><button type="submit" class="btn primary" id="finishBtn">Terminer et démarrer</button></div>
-        <p class="formerr" id="formErr" hidden></p>
-      </section>
+        <!-- Etape 2 : socle -->
+        <section class="step" data-step="2" hidden>
+          <h3>Socle</h3>
+          <div class="field"><label for="publicAppUrl">URL publique du portail</label><input id="publicAppUrl" name="publicAppUrl" type="url" placeholder="https://cloud.exemple.fr" required /></div>
+          <div class="field"><label for="brokerPublicUrl">URL publique du broker MQTT</label><input id="brokerPublicUrl" name="brokerPublicUrl" type="text" placeholder="mqtts://mqtt.exemple.fr:8883" required /></div>
+          <div class="field"><label for="adminPassword">Mot de passe administrateur</label><input id="adminPassword" name="adminPassword" type="password" autocomplete="new-password" minlength="8" required /><span class="hint">8 caractères minimum. Compte <code>admin</code>, pour la connexion opérateur.</span></div>
+          <div class="row"><button type="button" class="btn ghost" data-prev="2">Retour</button><button type="submit" class="btn primary" id="finishBtn">Terminer et démarrer</button></div>
+          <p class="formerr" id="formErr" hidden></p>
+        </section>
 
-      <!-- Etape 4 : redemarrage -->
-      <section class="step done" data-step="4" hidden>
-        <h3>Démarrage…</h3>
-        <p class="note">Configuration enregistrée. Le portail redémarre avec la base choisie. Cette page s'ouvrira automatiquement.</p>
-        <div class="spinner" aria-hidden="true"></div>
-      </section>
-    </form>
+        <!-- Etape 3 : redemarrage -->
+        <section class="step done" data-step="3" hidden>
+          <h3>Démarrage…</h3>
+          <p class="note">Configuration enregistrée. Le portail redémarre avec la base choisie. Cette page s'ouvrira automatiquement sur la connexion opérateur.</p>
+          <div class="spinner" aria-hidden="true"></div>
+        </section>
+      </form>
+    )}
   </div>
 
   <style>
@@ -65,11 +73,15 @@ if (isConfigured()) return Astro.redirect('/');
     .setup-head .eyebrow { font-family: var(--font-mono); font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; color: var(--accent2); }
     .setup-head h1 { font-family: var(--font-sans); font-weight: 800; font-size: 1.7rem; letter-spacing: -.02em; margin: .3rem 0 .2rem; }
     .setup-head .sub { color: var(--text-muted); font-size: .92rem; }
+    .window { font-size: .84rem; color: var(--text-muted); margin: .7rem 0 0; }
+    .window b { font-family: var(--font-mono); color: var(--accent); }
     .steps { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .9rem; }
     .steps .st { font-family: var(--font-mono); font-size: .72rem; color: var(--text-faint); border: 1px solid var(--border); border-radius: 999px; padding: .2rem .6rem; }
     .steps .st.active { color: var(--accent); border-color: var(--accent-line); background: var(--accent-weak); }
     .setup-card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.3rem; box-shadow: var(--shadow); }
-    .step h3 { font-size: 1.05rem; margin: 0 0 .5rem; }
+    .setup-card.expired { border-color: color-mix(in srgb, var(--warn) 45%, var(--border)); }
+    .step h3, .expired h3 { font-size: 1.05rem; margin: 0 0 .5rem; }
+    .cmd { font-family: var(--font-mono); font-size: .85rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .6rem .8rem; margin: .4rem 0 0; overflow-x: auto; }
     .field { display: flex; flex-direction: column; gap: .3rem; margin: .7rem 0; }
     .field label { font-size: .82rem; color: var(--text-muted); }
     .field input { font: inherit; font-size: .95rem; padding: .55rem .7rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-2); color: var(--text); }
@@ -81,45 +93,47 @@ if (isConfigured()) return Astro.redirect('/');
     .testline { display: flex; align-items: center; gap: .7rem; margin: .4rem 0 .2rem; flex-wrap: wrap; }
     .testmsg { font-size: .82rem; }
     .testmsg.ok { color: var(--ok); } .testmsg.err { color: var(--danger); }
-    .row { display: flex; justify-content: space-between; gap: .6rem; margin-top: 1rem; }
-    .row.end { justify-content: flex-end; }
-    .formerr { color: var(--danger); font-size: .84rem; margin: .7rem 0 0; }
     code { font-family: var(--font-mono); font-size: .85em; color: var(--accent2); }
     .spinner { width: 26px; height: 26px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; margin: 1rem auto 0; animation: sp 1s linear infinite; }
     @keyframes sp { to { transform: rotate(360deg); } }
   </style>
 
-  <script is:inline define:vars={{ KIND: DB_KIND }}>
+  <script is:inline define:vars={{ KIND: DB_KIND, remaining }}>
     (function () {
       var form = document.getElementById('setupForm');
+      if (!form) return;
+      var expired = document.getElementById('expired');
+      var done = false;
+      // Compte a rebours de la fenetre : a zero, on bascule sur l'ecran « delai depasse ».
+      var deadline = Date.now() + remaining * 1000;
+      var cd = document.getElementById('countdown');
+      var tick = setInterval(function () {
+        var left = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+        cd.textContent = Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+        if (left === 0 && !done) {
+          clearInterval(tick);
+          form.hidden = true; document.getElementById('windowBar').hidden = true;
+          document.querySelector('.steps').hidden = true; expired.hidden = false;
+        }
+      }, 1000);
       function show(n) {
         form.querySelectorAll('.step').forEach(function (s) { s.hidden = s.getAttribute('data-step') !== String(n); });
-        document.querySelectorAll('.steps .st').forEach(function (d) { d.classList.toggle('active', d.getAttribute('data-dot') === String(Math.min(n, 3))); });
+        document.querySelectorAll('.steps .st').forEach(function (d) { d.classList.toggle('active', d.getAttribute('data-dot') === String(Math.min(n, 2))); });
       }
       function kind() { var r = form.querySelector('input[name=kind]:checked'); return r ? r.getAttribute('data-k') : 'sqlite'; }
-      function dbPayload() {
-        var k = kind();
-        return { kind: KIND[k], mongoUrl: (document.getElementById('mongoUrl') || {}).value || '' };
-      }
-      // Etape 2 : afficher le champ URL seulement pour Mongo externe.
+      function dbPayload() { return { kind: KIND[kind()], mongoUrl: (document.getElementById('mongoUrl') || {}).value || '' }; }
       form.querySelectorAll('input[name=kind]').forEach(function (r) {
         r.addEventListener('change', function () {
           document.getElementById('mongoUrlField').hidden = (kind() !== 'mongoExternal');
           document.getElementById('testMsg').textContent = '';
         });
       });
-      form.querySelector('[data-next="1"]').addEventListener('click', function () {
-        if (!document.getElementById('token').value.trim()) return;
-        show(2);
-      });
+      form.querySelector('[data-next="1"]').addEventListener('click', function () { show(2); });
       form.querySelector('[data-prev="2"]').addEventListener('click', function () { show(1); });
-      form.querySelector('[data-next="2"]').addEventListener('click', function () { show(3); });
-      form.querySelector('[data-prev="3"]').addEventListener('click', function () { show(2); });
 
       document.getElementById('testBtn').addEventListener('click', function () {
         var msg = document.getElementById('testMsg'); msg.className = 'testmsg'; msg.textContent = 'Test…';
-        var p = dbPayload(); p.token = document.getElementById('token').value.trim();
-        fetch('/api/setup/test-db', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(p) })
+        fetch('/api/setup/test-db', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(dbPayload()) })
           .then(function (r) { return r.json(); })
           .then(function (d) { msg.className = 'testmsg ' + (d.ok ? 'ok' : 'err'); msg.textContent = d.ok ? '✓ connexion OK' : ('✗ ' + (d.error || 'échec')); })
           .catch(function () { msg.className = 'testmsg err'; msg.textContent = '✗ erreur réseau'; });
@@ -130,7 +144,6 @@ if (isConfigured()) return Astro.redirect('/');
         var err = document.getElementById('formErr'); err.hidden = true;
         var db = dbPayload();
         var payload = {
-          token: document.getElementById('token').value.trim(),
           kind: db.kind, mongoUrl: db.mongoUrl,
           publicAppUrl: document.getElementById('publicAppUrl').value.trim(),
           brokerPublicUrl: document.getElementById('brokerPublicUrl').value.trim(),
@@ -141,7 +154,8 @@ if (isConfigured()) return Astro.redirect('/');
           .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
           .then(function (res) {
             if (!res.ok) { err.hidden = false; err.textContent = res.d.error || 'Échec'; document.getElementById('finishBtn').disabled = false; return; }
-            show(4);
+            done = true; clearInterval(tick); document.getElementById('windowBar').hidden = true;
+            show(3);
             var tries = 0;
             var iv = setInterval(function () {
               tries++;

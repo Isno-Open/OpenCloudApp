@@ -1,10 +1,9 @@
 // Configuration du portail, UN seul fichier (regle « une config, un seul fichier »). Ecrit par l'onboarding
 // web (/setup) ou seme depuis l'environnement pour le deploiement automatise ISNO. Lu par requete : aucune
 // valeur de deploiement n'est figee a l'import d'un module. Ce module ne charge AUCUN store (il sert aussi
-// a decider le mode setup sans base), donc il ne depend que de fs + crypto.
-import { readFileSync, writeFileSync, existsSync, mkdirSync, chmodSync, rmSync } from "node:fs";
+// a decider le mode setup sans base), donc il ne depend que de fs.
+import { readFileSync, writeFileSync, existsSync, mkdirSync, chmodSync } from "node:fs";
 import { dirname } from "node:path";
-import { randomBytes, timingSafeEqual } from "node:crypto";
 
 // Choix de base : enumere, le code s'y refere par son nom.
 export const DB_KIND = { sqlite: "sqlite", mongoBundled: "mongo-bundled", mongoExternal: "mongo-external" } as const;
@@ -20,7 +19,6 @@ export type PortalConfig = {
 };
 
 const CONFIG_PATH = process.env.PORTAL_CONFIG ?? "/data/portal.config.json";
-const TOKEN_PATH = process.env.PORTAL_SETUP_TOKEN_PATH ?? "/data/setup-token.txt";
 
 let cache: PortalConfig | null | undefined;   // undefined = pas encore lu ; null = non configure
 
@@ -71,18 +69,15 @@ function seedFromEnv(): PortalConfig | null {
   return c;
 }
 
-// Jeton de setup : secret imprime dans les logs au demarrage quand l'instance n'est pas configuree.
-// Persiste (fichier) pour survivre a un redemarrage du conteneur pendant l'onboarding.
-export function ensureSetupToken(): string {
-  try { if (existsSync(TOKEN_PATH)) return readFileSync(TOKEN_PATH, "utf8").trim(); } catch { /* regenere */ }
-  const tok = randomBytes(18).toString("base64url");
-  try { mkdirSync(dirname(TOKEN_PATH), { recursive: true }); writeFileSync(TOKEN_PATH, tok, { mode: 0o600 }); } catch { /* ephemere */ }
-  return tok;
+// Fenetre d'installation : sans configuration, /setup n'est ouvert que pendant les premieres minutes
+// apres le DEMARRAGE DU PROCESS (une instance exposee ne doit pas rester configurable par le premier venu).
+// Passe ce delai, il faut redemarrer le serveur pour rouvrir l'installation.
+export const SETUP_WINDOW_S = Number(process.env.PORTAL_SETUP_WINDOW_S ?? 300);
+const processStartedAt = (): number => Date.now() - process.uptime() * 1000;
+/** Secondes restantes dans la fenetre d'installation (0 si fermee ou instance deja configuree). */
+export function setupWindowRemaining(): number {
+  if (isConfigured()) return 0;
+  const left = SETUP_WINDOW_S - (Date.now() - processStartedAt()) / 1000;
+  return left > 0 ? Math.floor(left) : 0;
 }
-// Une fois l'instance configuree, le jeton n'a plus d'usage : on le detruit (il a pu fuiter par le journal).
-export function clearSetupToken(): void { try { rmSync(TOKEN_PATH, { force: true }); } catch { /* deja absent */ } }
-export function verifySetupToken(given: string): boolean {
-  const want = ensureSetupToken();
-  const a = Buffer.from(given); const b = Buffer.from(want);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
+export const setupWindowOpen = (): boolean => setupWindowRemaining() > 0;
