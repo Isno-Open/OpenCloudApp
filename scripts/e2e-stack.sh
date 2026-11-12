@@ -51,7 +51,7 @@ teardown() {
 }
 trap teardown EXIT
 [ -n "${E2E_KEEP:-}" ] && trap - EXIT
-if [ ! -f .env ]; then printf 'SESSION_SECRET=e2e-%s\nADMIN_TOKEN=e2e-%s\nBROKER_PUBLIC_PORT=18883\nSSO_SECRET=e2e-sso-%s\n' "$RANDOM$RANDOM" "$RANDOM$RANDOM" "$RANDOM$RANDOM" > .env; ENV_CREATED=1
+if [ ! -f .env ]; then printf 'SESSION_SECRET=e2e-%s\nADMIN_TOKEN=e2e-%s\nBROKER_PUBLIC_PORT=18883\n' "$RANDOM$RANDOM" "$RANDOM$RANDOM" > .env; ENV_CREATED=1
 else echo "un .env existe deja : test refuse (il porterait vos reglages)"; exit 2; fi
 
 ok=0; ko=0
@@ -264,9 +264,14 @@ wait_restart
 chk "reglages : adresse en http refusee (vide)" "$(apiJ /api/settings/plugin '{"id":"external-auth","values":{"loginUrl":"http://boutique.exemple.fr/compte"}}')" 200
 chk "reglages : l'adresse http n'est pas gardee" "$(curl -s -b "$J" "$B/plugins/external-auth" | grep -c 'value="http://boutique')" 0
 chk "reglages enregistres" "$(apiJ /api/settings/plugin '{"id":"external-auth","values":{"loginUrl":"https://boutique.exemple.fr/compte","logoutUrl":"https://boutique.exemple.fr/sortie","cookieName":"isno_account","cookieDomain":".exemple.fr"}}')" 200
-SSOC="isno_account=$(docker exec isno-cloud-server node -e '
+# secret partage : cree par le plugin a sa premiere activation (pas de SSO_SECRET dans cet environnement)
+SEC=$(docker exec isno-cloud-server node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync("/data/plugin-secrets.json","utf8"))["external-auth"]||"")')
+chk "secret partage cree a la premiere activation" "$(echo -n "$SEC" | wc -c | awk '{print ($1>=40)}')" 1
+chk "secret montre dans l'ecrou, masque" "$(curl -s -b "$J" "$B/plugins/external-auth" | grep -c "type=\"password\"[^>]*value=\"$SEC\"")" 1
+chk "secret jamais ecrit dans la config" "$(docker exec isno-cloud-server grep -c "$SEC" /data/portal.config.json)" 0
+SSOC="isno_account=$(docker exec -e S="$SEC" isno-cloud-server node -e '
 const c=require("crypto");const p=Buffer.from("client-sso@exemple.fr").toString("base64url")+"."+(Date.now()+600000);
-process.stdout.write(p+"."+c.createHmac("sha256",process.env.SSO_SECRET).update(p).digest("base64url"))')"
+process.stdout.write(p+"."+c.createHmac("sha256",process.env.S).update(p).digest("base64url"))')"
 FORGED="isno_account=$(echo "$SSOC" | cut -d= -f2 | sed 's/.$/x/')"
 chk "visiteur sans session : renvoye vers l'adresse de connexion" "$(curl -s -o /dev/null -w '%{redirect_url}' "$B/connexion")" "https://boutique.exemple.fr/compte"
 chk "cookie signe valide : connecte" "$(curl -s -o /dev/null -w '%{http_code}' -H "cookie: $SSOC" "$B/compte")" 200
@@ -278,6 +283,7 @@ chk "deconnexion : cookie partage efface sur le domaine commun" "$(echo "$LOGOUT
 chk "desactivation (le portail redemarre)" "$(apiJ /api/plugins/disable '{"id":"external-auth"}')" 200
 wait_restart
 chk "desactive : formulaire local de nouveau" "$(curl -s -o /dev/null -w '%{http_code}' "$B/connexion")" 200
+chk "desactive : le secret partage est garde" "$(docker exec isno-cloud-server node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync("/data/plugin-secrets.json","utf8"))["external-auth"]||"")')" "$SEC"
 
 echo "== Instance : adresse du portail modifiable apres verification"
 chk "adresse qui mene a ce portail : enregistree" "$(apiJ /api/settings/portal-host "{\"host\":\"$APP\"}")" 200

@@ -33,6 +33,8 @@ export type PortalConfig = {
 };
 
 const CONFIG_PATH = process.env.PORTAL_CONFIG ?? "/data/portal.config.json";
+/** Dossier des donnees de l'instance (celui de la config) : y vivent aussi les secrets des plugins. */
+export const dataDir = (): string => dirname(CONFIG_PATH);
 
 let cache: PortalConfig | null | undefined;   // undefined = pas encore lu ; null = non configure
 

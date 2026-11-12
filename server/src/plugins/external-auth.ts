@@ -4,13 +4,18 @@
 // creant le compte a la premiere visite.
 //
 // Reglages (ecrou) : adresse de connexion, adresse de deconnexion, nom et domaine du cookie. Le SECRET
-// n'est jamais un reglage : il vit dans l'environnement du serveur (SSO_SECRET), ni affiche ni en base.
+// partage n'est jamais saisi : le plugin le CREE a sa premiere activation et le garde (plugin-secrets.ts),
+// meme desactive ; l'ecrou le montre pour qu'on le donne au site externe. SSO_SECRET dans
+// l'environnement, s'il est pose (installation existante), a priorite.
 import { loadConfig } from "../config.js";
 import { SETTING_KIND, TEXT_FORMAT, type Plugin, type PluginSettings } from "../plugin-types.js";
 import { cookieValue, readSignedSession } from "../signed-cookie.js";
+import { ensurePluginSecret, storedPluginSecret } from "../plugin-secrets.js";
 
 export const EXTERNAL_AUTH_ID = "external-auth";
-const SECRET = process.env.SSO_SECRET ?? "";
+const ENV_SECRET = process.env.SSO_SECRET ?? "";
+/** Secret en vigueur : celui de l'environnement, sinon celui du plugin (cree a la premiere activation). */
+const secret = (): string => ENV_SECRET || storedPluginSecret(EXTERNAL_AUTH_ID) || "";
 
 export type ExternalAuthSettings = { loginUrl: string; logoutUrl: string; cookieName: string; cookieDomain: string };
 export const EXTERNAL_AUTH_DEFAULTS: ExternalAuthSettings = { loginUrl: "", logoutUrl: "", cookieName: "isno_account", cookieDomain: "" };
@@ -42,9 +47,11 @@ const current = (): ExternalAuthSettings => normalizeExternalAuth(loadConfig()?.
 
 const settings: PluginSettings = {
   fields: [
+    { key: "secret", kind: SETTING_KIND.secret, label: { fr: "Secret partagé", en: "Shared secret" },
+      hint: { fr: "À donner au site externe : il signe son cookie de session avec. Créé à la première activation, gardé même si le plugin est désactivé. S'il est défini, SSO_SECRET dans l'environnement du serveur a priorité.", en: "Give it to the external site: it signs its session cookie with it. Created on first activation, kept even if the plugin is disabled. If set, SSO_SECRET in the server environment takes precedence." } },
     { key: "loginUrl", kind: SETTING_KIND.text, format: TEXT_FORMAT.url, maxLength: URL_MAX, placeholder: "https://exemple.fr/compte?next=https://portail.exemple.fr/",
       label: { fr: "Adresse de connexion", en: "Sign-in address" },
-      hint: { fr: "Où envoyer un visiteur non connecté. Le secret partagé avec ce site se règle dans l'environnement du serveur (SSO_SECRET), jamais ici.", en: "Where to send a visitor who is not signed in. The secret shared with that site is set in the server environment (SSO_SECRET), never here." } },
+      hint: { fr: "Où envoyer un visiteur non connecté.", en: "Where to send a visitor who is not signed in." } },
     { key: "logoutUrl", kind: SETTING_KIND.text, format: TEXT_FORMAT.url, maxLength: URL_MAX,
       label: { fr: "Adresse de déconnexion (facultative)", en: "Sign-out address (optional)" },
       hint: { fr: "Où envoyer le navigateur après la déconnexion, pour fermer aussi la session du site externe.", en: "Where to send the browser after signing out, to close the external site's session too." } },
@@ -53,7 +60,7 @@ const settings: PluginSettings = {
       label: { fr: "Domaine du cookie (facultatif)", en: "Cookie domain (optional)" },
       hint: { fr: "Domaine commun au site externe et au portail, pour effacer le cookie à la déconnexion.", en: "Domain shared by the external site and the portal, to clear the cookie on sign-out." } },
   ],
-  toForm: (stored) => ({ ...normalizeExternalAuth(stored) }),
+  toForm: (stored) => ({ ...normalizeExternalAuth(stored), secret: secret() }),
   fromForm: (input) => normalizeExternalAuth(input),
 };
 
@@ -66,11 +73,12 @@ export const externalAuthPlugin: Plugin = {
   },
   settings,
   register(api) {
-    if (!SECRET) { console.error(`[plugin ${EXTERNAL_AUTH_ID}] SSO_SECRET absent : connexion externe inactive`); return; }
+    // Premiere activation : le secret partage est cree ici, une fois pour toutes.
+    if (!ENV_SECRET) ensurePluginSecret(EXTERNAL_AUTH_ID);
     api.registerAuthProvider({
       id: EXTERNAL_AUTH_ID,
       resolveAccount: async (cookie) => {
-        const email = readSignedSession(cookieValue(cookie, current().cookieName), SECRET);
+        const email = readSignedSession(cookieValue(cookie, current().cookieName), secret());
         if (!email) return null;
         await api.ensureAccount(email, api.defaultCap);   // compte cree a la premiere visite
         return email;

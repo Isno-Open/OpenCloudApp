@@ -20,6 +20,12 @@ const id = (f: SettingField) => `pf-${f.key}`;
         <label class="check"><input type="checkbox" id={id(f)} data-key={f.key} data-kind={f.kind} checked={values[f.key] === true} /> {f.label[lang]}</label>
       ) : f.kind === SETTING_KIND.number ? (
         <div class="field"><label for={id(f)}>{f.label[lang]}</label><input id={id(f)} data-key={f.key} data-kind={f.kind} type="number" min={f.min} max={f.max} value={String(values[f.key] ?? '')} /></div>
+      ) : f.kind === SETTING_KIND.secret ? (
+        <div class="field"><label for={id(f)}>{f.label[lang]}</label>
+          <div class="row"><input id={id(f)} data-secret type="password" readonly spellcheck="false" style="flex:1" value={String(values[f.key] ?? '')} />
+            <button class="btn ghost sm" type="button" data-reveal={id(f)}>{s.secretShow}</button>
+            <button class="btn ghost sm" type="button" data-copy={id(f)}>{s.secretCopy}</button></div>
+        </div>
       ) : f.kind === SETTING_KIND.text ? (
         <div class="field"><label for={id(f)}>{f.label[lang]}</label><input id={id(f)} data-key={f.key} data-kind={f.kind} type={f.format === TEXT_FORMAT.url ? 'url' : 'text'} maxlength={f.maxLength} placeholder={f.placeholder} spellcheck="false" value={String(values[f.key] ?? '')} /></div>
       ) : (
@@ -33,8 +39,21 @@ const id = (f: SettingField) => `pf-${f.key}`;
   <div class="row end" style="margin-top:.6rem"><span class="savemsg" id="pluginMsg"></span><button class="btn primary" type="submit">{s.saveBtn}</button></div>
 </form>
 
-<script is:inline define:vars={{ okMsg: s.savedMsg, errMsg: s.saveError, kinds: SETTING_KIND }}>
+<script is:inline define:vars={{ okMsg: s.savedMsg, errMsg: s.saveError, kinds: SETTING_KIND, showMsg: s.secretShow, hideMsg: s.secretHide, copiedMsg: s.secretCopied }}>
   (function () {
+    // secret cree par le plugin : masque, a afficher ou copier ; jamais renvoye a l'enregistrement
+    document.querySelectorAll('[data-reveal]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var el = document.getElementById(b.getAttribute('data-reveal')); var hidden = el.type === 'password';
+        el.type = hidden ? 'text' : 'password'; b.textContent = hidden ? hideMsg : showMsg;
+      });
+    });
+    document.querySelectorAll('[data-copy]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var el = document.getElementById(b.getAttribute('data-copy'));
+        navigator.clipboard.writeText(el.value).then(function () { b.textContent = copiedMsg; }).catch(function () { el.type = 'text'; el.select(); });
+      });
+    });
     var form = document.getElementById('pluginForm'), msg = document.getElementById('pluginMsg');
     var inputs = form.querySelectorAll('[data-key]');
     // un champ « sous » une case n'est actif que si la case est cochee
