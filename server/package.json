@@ -9,13 +9,13 @@
     "test:e2e": "bash scripts/integration-test.sh"
   },
   "dependencies": {
-    "mqtt": "5.10.1",
+    "mqtt": "5.16.1",
     "mongodb": "7.8.0",
-    "better-sqlite3": "11.5.0"
+    "better-sqlite3": "13.1.1"
   },
   "devDependencies": {
-    "typescript": "5.6.3",
-    "@types/node": "22.9.0",
-    "@types/better-sqlite3": "7.6.11"
+    "typescript": "7.0.2",
+    "@types/node": "26.6.6",
+    "@types/better-sqlite3": "9.6.0"
   }
 }

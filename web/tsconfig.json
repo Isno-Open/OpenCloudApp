@@ -3,7 +3,6 @@
   "compilerOptions": {
     "noUncheckedIndexedAccess": true,
     "verbatimModuleSyntax": true,
-    "baseUrl": ".",
     "paths": { "@core/*": ["../server/dist/*"] }
   },
   "include": [".astro/types.d.ts", "**/*"],

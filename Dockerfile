@@ -1,6 +1,6 @@
 # Image unique de l'app cloud : le coeur backend (TS -> server/dist) + l'app Astro SSR (web/) qui
 # l'importe via @core. Un seul process : pages + API + relais MQTT. Sert sur :8080 (derriere Caddy).
-FROM node:22-bookworm-slim
+FROM node:26.13.1-trixie-slim
 RUN apt-get update && apt-get install -y --no-install-recommends openssl python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
