@@ -3,11 +3,13 @@ import { getAccount } from '@core/store.js';
 import { verifyPass } from '@core/auth.js';
 import { makeSession } from '@core/session.js';
 import { boot } from '../../server/boot.ts';
+import { localLoginEnabled } from '../../server/auth.ts';
 import { readBody } from '../../server/http.ts';
 import { LANG, ROUTES, type Lang } from '../../lib/i18n.ts';
 
 export const POST: APIRoute = async ({ request }) => {
   await boot();
+  if (!(await localLoginEnabled())) return new Response(null, { status: 404 });
   const b = await readBody(request);
   const lang: Lang = b.lang === LANG.en ? LANG.en : LANG.fr;
   const a = await getAccount(String(b.user ?? '').trim().toLowerCase());   // identifiant = e-mail

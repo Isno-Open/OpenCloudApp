@@ -20,6 +20,8 @@ export type PortalConfig = {
   brokerPublicUrl: string; // URL publique du broker MQTT (donnee a la box enrolee)
   // Premier operateur, cree au demarrage s'il n'existe pas encore (e-mail = identifiant de connexion).
   operator: { email: string; name: string; passHash: string } | null;
+  // Greffons integres actifs (absent : ceux par defaut, soit « comptes locaux »).
+  plugins?: string[];
 };
 
 const CONFIG_PATH = process.env.PORTAL_CONFIG ?? "/data/portal.config.json";

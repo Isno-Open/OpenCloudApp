@@ -1,7 +1,7 @@
 ---
-import { t, ROUTES, type Lang } from '../../lib/i18n.ts';
-interface Props { lang: Lang; error?: boolean; }
-const { lang, error = false } = Astro.props;
+import { t, type Lang } from '../../lib/i18n.ts';
+interface Props { lang: Lang; error?: boolean; none?: boolean; }
+const { lang, error = false, none = false } = Astro.props;
 const s = t(lang);
 ---
 <div class="login-card">
@@ -16,6 +16,7 @@ const s = t(lang);
     </svg>
     <span>isno<span class="tld">.fr</span></span>
   </span>
+  {none ? <p class="note">{s.noLoginMethod}</p> : (
   <form method="post" action="/api/login">
     <input type="hidden" name="lang" value={lang} />
     {error && <p class="err">{s.signInError}</p>}
@@ -23,5 +24,5 @@ const s = t(lang);
     <div class="field"><label for="p">{s.signInPass}</label><input id="p" name="pass" type="password" autocomplete="current-password" required /></div>
     <button class="btn primary" type="submit" style="margin-top:.3rem">{s.signInBtn}</button>
   </form>
-  <a class="linkish" href={ROUTES.appareils[lang]}>isno.fr →</a>
+  )}
 </div>

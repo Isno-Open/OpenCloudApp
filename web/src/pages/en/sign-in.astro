@@ -1,14 +1,16 @@
 ---
 import BareLayout from '../../layouts/BareLayout.astro';
 import LoginView from '../../components/views/LoginView.astro';
-import { resolveAccountId, loginRedirect } from '../../server/auth.ts';
+import { resolveAccountId, loginRedirect, localLoginEnabled } from '../../server/auth.ts';
 import { LANG, ROUTES, t } from '../../lib/i18n.ts';
 const lang = LANG.en;
 if (await resolveAccountId(Astro.request)) return Astro.redirect(ROUTES.appareils[lang]);
 // ?local=1 : entree operateur, formulaire local meme quand un SSO est branche (sinon l'admin
 // de l'instance n'aurait aucun moyen de se connecter).
-const ext = Astro.url.searchParams.get('local') === '1' ? null : await loginRedirect();
+const local = await localLoginEnabled();
+const ext = local && Astro.url.searchParams.get('local') === '1' ? null : await loginRedirect();
 if (ext) return Astro.redirect(ext);
 const error = Astro.url.searchParams.get('e') === '1';
+const none = !local;   // aucun greffon ne fournit de connexion
 ---
-<BareLayout title={`${t(lang).signInTitle} · ISNO Cloud`} lang={lang}><LoginView lang={lang} error={error} /></BareLayout>
+<BareLayout title={`${t(lang).signInTitle} · ISNO Cloud`} lang={lang}><LoginView lang={lang} error={error} none={none} /></BareLayout>

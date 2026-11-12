@@ -5,6 +5,7 @@ import '../styles/tokens.css';
 import '../styles/cloud.css';
 import { otherLang, navItems, adminNavItems, t, type Lang } from '../lib/i18n.ts';
 import { currentAccount } from '../server/auth.ts';
+import { hasCapability, CAPABILITY } from '@core/plugins.js';
 import { SPONSOR } from '../lib/sponsor.ts';
 
 // Drapeaux du selecteur de langue, identiques au site isno.fr (BaseLayout).
@@ -20,7 +21,7 @@ const other = otherLang(lang);
 const path = Astro.url.pathname;
 // Nav : items standards + items operateur quand le compte courant est admin.
 const account = await currentAccount(Astro.request);
-const nav = [...navItems(lang), ...(account?.admin ? adminNavItems(lang) : [])];
+const nav = [...navItems(lang), ...(account?.admin ? adminNavItems(lang, { userAdmin: hasCapability(CAPABILITY.userAdmin) }) : [])];
 ---
 <!doctype html>
 <html lang={lang}>

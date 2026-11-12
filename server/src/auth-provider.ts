@@ -1,13 +1,10 @@
-// Point d'extension d'authentification (façon « hooks » WordPress). Le cœur public ne connaît QUE cette
-// interface et un registre ; il embarque le provider LOCAL (comptes dans la base). Un harnais privé (dépôt
-// séparé) s'enregistre au démarrage pour ajouter un provider (ex. un SSO), sans forker le cœur. Sans
-// greffon, le portail gère ses utilisateurs NATIVEMENT : comptes locaux, créés par l'opérateur.
+// Point d'extension d'authentification. Le cœur ne connaît QUE cette interface et un registre ; les
+// modes de connexion sont apportés par des GREFFONS (plugins.ts) : « comptes locaux » (intégré, actif
+// par défaut) fournit le provider local défini ici ; un greffon externe (ex. SSO ISNO) en ajoute d'autres.
 //
 // resolveAccount parcourt les providers dans l'ordre d'enregistrement : le premier qui rend un compte gagne
 // (session locale d'abord, SSO ensuite). externalLoginUrl donne l'URL de connexion externe d'un provider SSO.
 import { readSession } from "./session.js";
-import { ensureAccount } from "./store.js";
-import { DEFAULT_CAP } from "./entitlement.js";
 
 export interface AuthProvider {
   id: string;
@@ -46,28 +43,3 @@ export const localProvider: AuthProvider = {
   resolveAccount: (cookie) => Promise.resolve(readSession(cookie) ?? null),
   logoutCookies: () => ["sid=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax"],
 };
-
-/** Ce que le cœur met à disposition d'un greffon d'authentification (un greffon n'importe pas le cœur). */
-export type HarnessApi = {
-  registerAuthProvider: typeof registerAuthProvider;
-  ensureAccount: (id: string, cap: number) => Promise<void>;   // provisionne un compte à sa 1re visite
-  defaultCap: number;
-};
-
-// Branche les providers une fois : le local, puis un greffon optionnel (chargé façon plugin depuis
-// HARNESS_MODULE ; il appelle registerAuthProvider lui-même).
-let wired = false;
-export async function wireAuth(): Promise<void> {
-  if (wired) return;
-  wired = true;
-  registerAuthProvider(localProvider);
-  const mod = process.env.HARNESS_MODULE;
-  if (mod) {
-    try {
-      const h = (await import(/* @vite-ignore */ mod)) as { register?: (api: HarnessApi) => void | Promise<void> };
-      if (typeof h.register === "function") await h.register({ registerAuthProvider, ensureAccount, defaultCap: DEFAULT_CAP });
-    } catch (e) {
-      console.error("[auth] harnais non chargé:", e instanceof Error ? e.message : e);
-    }
-  }
-}

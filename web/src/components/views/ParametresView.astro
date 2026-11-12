@@ -3,6 +3,7 @@
 // seule (changer de store se fait par une reinstallation). Les noms publics aussi pour l'instant : les
 // changer demande de reemettre le certificat du broker et de reverifier (meme parcours que /setup).
 import { loadConfig, DB_KIND } from '@core/config.js';
+import { installedPlugins } from '@core/plugins.js';
 import { t, type Lang } from '../../lib/i18n.ts';
 interface Props { lang: Lang; }
 const { lang } = Astro.props;
@@ -21,4 +22,11 @@ const dbLabel = cfg?.db.kind === DB_KIND.mongoExternal ? s.dbMongoExternal
 <div class="panel" style="margin-top:.9rem">
   <div class="kv"><span class="k">{s.publicUrlLabel}</span><span class="v">{cfg?.publicAppUrl ?? ''} <span class="ro">{s.readonly}</span></span></div>
   <div class="kv"><span class="k">{s.brokerUrlLabel}</span><span class="v">{cfg?.brokerPublicUrl ?? ''} <span class="ro">{s.readonly}</span></span></div>
+</div>
+
+<div class="panel" style="margin-top:.9rem">
+  <h3>{s.pluginsTitle}</h3>
+  {installedPlugins().map((p) => (
+    <div class="kv"><span class="k">{p.title}</span><span class="v"><span class="ro">{p.builtin ? s.pluginBuiltin : s.pluginExternal}</span></span></div>
+  ))}
 </div>

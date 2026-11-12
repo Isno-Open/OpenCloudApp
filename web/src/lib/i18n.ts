@@ -57,6 +57,7 @@ interface S {
   // vue parametres (admin)
   settingsTitle: string; settingsLead: string; dbKindLabel: string; dbSqlite: string; dbMongoBundled: string; dbMongoExternal: string;
   publicUrlLabel: string; brokerUrlLabel: string;
+  pluginsTitle: string; pluginBuiltin: string; pluginExternal: string; noLoginMethod: string;
 }
 
 export const STRINGS = {
@@ -116,6 +117,8 @@ export const STRINGS = {
     settingsTitle: 'Paramètres', settingsLead: "Configuration de l'instance, définie à l'installation.",
     dbKindLabel: 'Base de données', dbSqlite: 'SQLite (embarqué)', dbMongoBundled: 'MongoDB (fourni)', dbMongoExternal: 'MongoDB (externe)',
     publicUrlLabel: 'URL publique du portail', brokerUrlLabel: 'URL publique du broker MQTT',
+    pluginsTitle: 'Greffons installés', pluginBuiltin: 'intégré', pluginExternal: 'externe',
+    noLoginMethod: "Aucun mode de connexion n'est installé sur ce portail (greffon manquant).",
   },
   [LANG.en]: {
     brandAria: 'ISNO Cloud, home', themeToggle: 'Toggle light / dark theme', menu: 'Menu',
@@ -173,6 +176,8 @@ export const STRINGS = {
     settingsTitle: 'Settings', settingsLead: 'Instance configuration, set at install time.',
     dbKindLabel: 'Database', dbSqlite: 'SQLite (embedded)', dbMongoBundled: 'MongoDB (bundled)', dbMongoExternal: 'MongoDB (external)',
     publicUrlLabel: 'Public portal URL', brokerUrlLabel: 'Public MQTT broker URL',
+    pluginsTitle: 'Installed plugins', pluginBuiltin: 'built-in', pluginExternal: 'external',
+    noLoginMethod: 'No sign-in method is installed on this portal (missing plugin).',
   },
 } satisfies Record<Lang, S>;
 
@@ -214,11 +219,11 @@ export function navItems(lang: Lang) {
   ];
 }
 
-/** Items de nav reserves a l'operateur (admin) : ajoutes au menu quand le compte courant est admin. */
-export function adminNavItems(lang: Lang) {
+/** Items de nav reserves a l'operateur. Utilisateurs n'apparait que si un greffon gere les comptes. */
+export function adminNavItems(lang: Lang, opts: { userAdmin: boolean }) {
   const s = t(lang);
   return [
-    { href: ROUTES.utilisateurs[lang], label: s.adminNav.utilisateurs, active: (p: string) => p === ROUTES.utilisateurs[lang] },
+    ...(opts.userAdmin ? [{ href: ROUTES.utilisateurs[lang], label: s.adminNav.utilisateurs, active: (p: string) => p === ROUTES.utilisateurs[lang] }] : []),
     { href: ROUTES.parametres[lang], label: s.adminNav.parametres, active: (p: string) => p === ROUTES.parametres[lang] },
   ];
 }

@@ -90,4 +90,11 @@ FP2=$(docker exec isno-cloud-server openssl x509 -in /broker-certs/server.crt -n
 chk "certificat reemis au nouveau nom" "$([ "$FP1" != "$FP2" ] && docker exec isno-cloud-server openssl x509 -in /broker-certs/server.crt -noout -ext subjectAltName | tail -1 | grep -c localtest.me)" 1
 chk "le broker presente le nouveau certificat" "$(echo | openssl s_client -connect "$LAN:18883" 2>/dev/null | openssl x509 -noout -fingerprint -sha256)" "$FP2"
 
+echo "== greffons : la gestion des comptes est un greffon (desactive => ecrans et connexion locale absents)"
+chk "Parametres liste le greffon « Comptes locaux »" "$(curl -s -b "$J" "$B/parametres" | grep -c 'Comptes locaux')" 1
+docker exec isno-cloud-server sh -c "python3 -c 1 2>/dev/null; node -e \"const f='/data/portal.config.json';const c=JSON.parse(require('fs').readFileSync(f));c.plugins=[];require('fs').writeFileSync(f,JSON.stringify(c))\""
+docker restart isno-cloud-server >/dev/null; for _ in $(seq 1 30); do curl -s -o /dev/null "$B/api/setup/status" && break; sleep 1; done
+chk "sans greffon : connexion locale refusee" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -d 'user=operateur@exemple.fr&pass=operateur-e2e' "$B/api/login")" 404
+chk "sans greffon : la page de connexion le dit" "$(curl -s "$B/connexion" | grep -c 'Aucun mode de connexion')" 1
+
 echo; echo "RESULTAT : $ok OK, $ko KO"; [ "$ko" = 0 ]

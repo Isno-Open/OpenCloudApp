@@ -2,13 +2,13 @@
 import type { APIRoute } from 'astro';
 import { createAccount, getAccount } from '@core/store.js';
 import { hashPass } from '@core/auth.js';
-import { requireAdmin } from '../../../server/auth.ts';
+import { requireUserAdmin } from '../../../server/auth.ts';
 import { readBody, json } from '../../../server/http.ts';
 import { normalizeEmail, normalizeName } from '../../../lib/validate.ts';
 
 
 export const POST: APIRoute = async ({ request }) => {
-  if (!(await requireAdmin(request))) return json(403, { error: 'forbidden' });
+  if (!(await requireUserAdmin(request))) return json(403, { error: 'forbidden' });
   const b = await readBody(request);
   const login = normalizeEmail(b.email), name = normalizeName(b.name);
   const password = String(b.password ?? '');

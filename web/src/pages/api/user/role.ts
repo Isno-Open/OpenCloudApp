@@ -2,11 +2,11 @@
 // pas son propre acces), ni le dernier operateur (le portail resterait sans administration).
 import type { APIRoute } from 'astro';
 import { getAccount, setAccountAdmin, listAccounts } from '@core/store.js';
-import { requireAdmin } from '../../../server/auth.ts';
+import { requireUserAdmin } from '../../../server/auth.ts';
 import { readBody, json } from '../../../server/http.ts';
 
 export const POST: APIRoute = async ({ request }) => {
-  const me = await requireAdmin(request);
+  const me = await requireUserAdmin(request);
   if (!me) return json(403, { error: 'forbidden' });
   const b = await readBody(request);
   const id = String(b.id ?? '');

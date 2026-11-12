@@ -1,11 +1,11 @@
 // Operateur : supprime un compte et ses appareils. Ni soi-meme, ni le dernier operateur.
 import type { APIRoute } from 'astro';
 import { removeAccount, getAccount, listAccounts } from '@core/store.js';
-import { requireAdmin } from '../../../server/auth.ts';
+import { requireUserAdmin } from '../../../server/auth.ts';
 import { readBody, json } from '../../../server/http.ts';
 
 export const POST: APIRoute = async ({ request }) => {
-  const me = await requireAdmin(request);
+  const me = await requireUserAdmin(request);
   if (!me) return json(403, { error: 'forbidden' });
   const id = String((await readBody(request)).id ?? '');
   if (!id || id === me) return json(400, { error: 'suppression refusée' });
