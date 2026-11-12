@@ -183,6 +183,9 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.015em; margin: 0; }
 .login-box button:hover { filter: brightness(1.12); }
 .login-box .err { background: color-mix(in srgb, var(--danger) 14%, transparent); border: 1px solid color-mix(in srgb, var(--danger) 50%, var(--border)); color: var(--danger); border-radius: 8px; padding: .6rem .8rem; margin: 0 0 .4rem; font-size: .9rem; }
 .login-box .note { margin: 0; }
+.login-box .ok { background: color-mix(in srgb, var(--ok) 14%, transparent); border: 1px solid color-mix(in srgb, var(--ok) 50%, var(--border)); color: var(--ok); border-radius: 8px; padding: .6rem .8rem; margin: 0 0 .4rem; font-size: .9rem; }
+.login-link { align-self: center; margin-top: 1rem; font-size: .85rem; color: var(--accent); text-decoration: none; }
+.login-link:hover { text-decoration: underline; }
 .login-captcha { display: flex; flex-direction: column; gap: .5rem; }
 .login-captcha svg { align-self: center; max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; }
 .linkish { color: var(--accent); text-decoration: none; font-size: .85rem; font-weight: 550; display: inline-flex; align-items: center; gap: .3rem; margin-top: .9rem; }
@@ -198,8 +201,10 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.015em; margin: 0; }
 .formerr { color: var(--danger); font-size: .84rem; margin: .6rem 0 0; }
 .savemsg { font-size: .84rem; }
 .savemsg.ok { color: var(--ok); } .savemsg.err { color: var(--danger); }
-.utable { display: flex; flex-direction: column; overflow-x: auto; }
-.ut-head, .ut-row { display: grid; grid-template-columns: minmax(8rem, 2fr) 1fr .7fr .8fr auto; gap: .7rem; align-items: center; padding: .55rem 0; min-width: 30rem; }
+/* les colonnes se declarent UNE fois, sur le tableau ; chaque ligne les reprend (subgrid), sinon la colonne
+   « auto » des actions prend une largeur differente a chaque ligne et decale les autres */
+.utable { display: grid; grid-template-columns: minmax(8rem, 2fr) minmax(6rem, 1fr) minmax(4rem, .6fr) minmax(4rem, .6fr) auto; column-gap: .7rem; overflow-x: auto; }
+.ut-head, .ut-row { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; padding: .55rem 0; min-width: 30rem; }
 .ut-head { font-family: var(--font-mono); font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; color: var(--text-faint); border-bottom: 1px solid var(--border); }
 .ut-row { border-bottom: 1px solid var(--border-soft); font-size: .9rem; }
 .ut-row:last-child { border-bottom: none; }
@@ -229,6 +234,16 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.015em; margin: 0; }
 .qr svg { display: block; width: 100%; height: auto; }
 .code-in { font-family: var(--font-mono); font-size: 1.05rem; letter-spacing: .15em; width: 9rem; padding: .45rem .6rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-2); color: var(--text); }
 .ut-row .tags { display: flex; gap: .3rem; flex-wrap: wrap; }
+/* telephone : chaque compte devient une fiche empilee (meme contenu, colonnes nommees), sans defilement lateral */
+@media (max-width: 640px) {
+  .utable { display: flex; flex-direction: column; overflow-x: visible; }
+  .ut-head { display: none; }
+  .ut-row { display: flex; flex-wrap: wrap; gap: .5rem .9rem; min-width: 0; padding: .8rem 0; }
+  .ut-row .who { flex: 1 1 100%; }
+  .ut-row .num::before { content: attr(data-label) " "; font-family: var(--font-mono); font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; color: var(--text-faint); }
+  .ut-act { flex: 1 1 100%; justify-content: flex-start; }
+}
+.role.pending { color: var(--warn, #d9a400); border-color: color-mix(in srgb, var(--warn, #d9a400) 45%, var(--border)); }
 .role.locked { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
 .sub-grid { margin-left: 1.6rem; }
 .field select { font: inherit; font-size: .95rem; padding: .5rem .6rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-2); color: var(--text); }

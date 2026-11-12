@@ -1,11 +1,11 @@
 ---
 // Connexion locale (greffon « Comptes locaux ») : e-mail + mot de passe, captcha s'il est active, puis
 // le code de double authentification si le compte l'a activee. Sans greffon de connexion : un message.
-import { t, type Lang } from '../../lib/i18n.ts';
+import { t, ROUTES, type Lang } from '../../lib/i18n.ts';
 import { portalName, portalNameIsCustom } from '../../lib/portal.ts';
 import { LOGIN_ERROR, LOGIN_STEP, type LoginError } from '../../lib/login.ts';
-interface Props { lang: Lang; error?: LoginError | null; none?: boolean; step?: string | null; captcha?: { svg: string; token: string } | null; }
-const { lang, error = null, none = false, step = null, captcha = null } = Astro.props;
+interface Props { lang: Lang; error?: LoginError | null; none?: boolean; step?: string | null; captcha?: { svg: string; token: string } | null; forgot?: boolean; info?: boolean; }
+const { lang, error = null, none = false, step = null, captcha = null, forgot = false, info = false } = Astro.props;
 const s = t(lang);
 const ERR: Record<LoginError, string> = {
   [LOGIN_ERROR.bad]: s.signInError, [LOGIN_ERROR.captcha]: s.loginCaptchaError, [LOGIN_ERROR.locked]: s.loginLocked,
@@ -28,6 +28,7 @@ const ERR: Record<LoginError, string> = {
     <form class="login-box" method="post" action="/api/login">
       <h1>{s.signInTitle}</h1>
       <input type="hidden" name="lang" value={lang} />
+      {info && !error && <p class="ok" role="status">{s.passwordSetOk}</p>}
       {error && <p class="err" role="alert">{ERR[error]}</p>}
       <label for="u">{s.signInUser}</label>
       <input id="u" name="user" type="email" autocomplete="username" autofocus required />
@@ -44,6 +45,7 @@ const ERR: Record<LoginError, string> = {
         </>
       )}
       <button type="submit">{s.signInBtn}</button>
+      {forgot && <a class="login-link" href={ROUTES.oubli[lang]}>{s.forgotLink}</a>}
     </form>
   )}
 </div>

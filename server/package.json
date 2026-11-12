@@ -7,13 +7,14 @@
     "test": "tsc -p tsconfig.test.json && node --test \"dist-test/**/*.test.js\""
   },
   "dependencies": {
-    "mqtt": "5.16.1",
+    "better-sqlite3": "13.1.1",
     "mongodb": "7.8.0",
-    "better-sqlite3": "13.1.1"
+    "mqtt": "5.16.1",
+    "nodemailer": "10.5.0"
   },
   "devDependencies": {
-    "typescript": "7.0.2",
+    "@types/better-sqlite3": "9.6.0",
     "@types/node": "26.6.6",
-    "@types/better-sqlite3": "9.6.0"
+    "typescript": "7.0.2"
   }
 }

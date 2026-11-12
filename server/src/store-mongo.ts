@@ -23,7 +23,7 @@ const withAdmin = (a: Account | null): Account | null => (a ? {
   ...a, admin: a.admin ?? false, name: a.name ?? null, failedCount: a.failedCount ?? 0, lockedUntil: a.lockedUntil ?? null,
   totpSecret: a.totpSecret ?? null, totpEnabled: a.totpEnabled ?? false, totpLastStep: a.totpLastStep ?? null } : null);
 export const getAccount = (id: string): Promise<Account | null> => accounts().findOne({ id }, { projection: { _id: 0 } }).then(withAdmin);
-export async function createAccount(id: string, name: string, passHash: string, cap: number, admin: boolean): Promise<void> {
+export async function createAccount(id: string, name: string, passHash: string | null, cap: number, admin: boolean): Promise<void> {
   await accounts().insertOne({ id, name, deviceCap: cap, passHash, admin, failedCount: 0, lockedUntil: null, totpSecret: null, totpEnabled: false, totpLastStep: null });
 }
 export async function recordLoginFailure(id: string, maxFailures: number, minutes: number, now: number): Promise<number | null> {

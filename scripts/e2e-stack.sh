@@ -21,13 +21,14 @@ services:
 EOF
 C=(docker compose -p isnoe2e -f docker-compose.yml -f "$WORK/override.yml")
 teardown() {
-  docker rm -f isno-mqtt isno-mongo isno-e2e-device >/dev/null 2>&1
+  docker rm -f isno-mqtt isno-mongo isno-e2e-device isno-e2e-mail >/dev/null 2>&1
   "${C[@]}" down -v >/dev/null 2>&1
   docker volume rm isno-broker-data isno-mongo-data >/dev/null 2>&1
   [ "$ENV_CREATED" = 1 ] && rm -f .env
   rm -rf "$WORK"
 }
 trap teardown EXIT
+[ -n "${E2E_KEEP:-}" ] && trap - EXIT
 if [ ! -f .env ]; then printf 'SESSION_SECRET=e2e-%s\nADMIN_TOKEN=e2e-%s\nBROKER_PUBLIC_PORT=18883\n' "$RANDOM$RANDOM" "$RANDOM$RANDOM" > .env; ENV_CREATED=1
 else echo "un .env existe deja : test refuse (il porterait vos reglages)"; exit 2; fi
 
@@ -126,6 +127,49 @@ chk "2FA : le meme code rejoue est refuse" "$(curl -s -o /dev/null -w '%{redirec
 chk "politique « exigee pour les operateurs »" "$(setsec '{"lockoutEnabled":false,"totp":"operators","passwordMinLength":12}')" 200
 chk "operateur sans 2FA renvoye vers Compte" "$(curl -s -o /dev/null -w '%{redirect_url}' -b "$J" "$B/")" "$B/compte?totp=required"
 setsec '{"totp":"off"}' >/dev/null
+
+echo "== messagerie : SMTP de test (Mailpit, rien ne sort), invitation, mot de passe oublie"
+docker run -d --name isno-e2e-mail --network isno-cloud-net -p 18025:8025 axllent/mailpit:v1.33.1 >/dev/null
+for _ in $(seq 1 30); do curl -s -o /dev/null http://127.0.0.1:18025/api/v1/messages && break; sleep 1; done
+# texte du dernier e-mail recu par une adresse (vide s'il n'y en a pas)
+mail_text() { sleep 1; local id; id=$(curl -s "http://127.0.0.1:18025/api/v1/search?query=to:$1" | python3 -c 'import sys,json;m=json.load(sys.stdin)["messages"];print(m[0]["ID"] if m else "")'); [ -n "$id" ] && curl -s "http://127.0.0.1:18025/api/v1/message/$id" | python3 -c 'import sys,json;d=json.load(sys.stdin);print(d["Subject"]);print(d["Text"])'; }
+mail_count() { curl -s "http://127.0.0.1:18025/api/v1/search?query=to:$1" | python3 -c 'import sys,json;print(json.load(sys.stdin)["messages_count"])'; }
+link_token() { grep -o 't=[^ ]*' | head -1 | cut -c3- | python3 -c 'import sys,urllib.parse;print(urllib.parse.unquote(sys.stdin.read().strip()))'; }
+apiJ() { curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' -d "$2" "$B$1"; }
+chk "sans messagerie : pas de lien « mot de passe oublie »" "$(curl -s "$B/connexion?local=1" | grep -c 'mot-de-passe-oublie')" 0
+chk "sans messagerie : creer un compte SANS mot de passe est refuse" "$(apiJ /api/user/new '{"email":"carole@exemple.fr","name":"Carole","cap":5}')" 400
+chk "SMTP incomplet refuse (pas d'expediteur)" "$(apiJ /api/settings/smtp '{"host":"isno-e2e-mail","port":1025,"security":"none"}')" 400
+chk "SMTP enregistre" "$(apiJ /api/settings/smtp '{"host":"isno-e2e-mail","port":1025,"security":"none","fromEmail":"portail@exemple.fr","fromName":"Maison Durand"}')" 200
+chk "e-mail de test envoye" "$(apiJ /api/settings/smtp-test '{"lang":"fr"}')" 200
+chk "e-mail de test recu par l'operateur" "$(mail_text operateur@exemple.fr | head -1)" "Test de messagerie : Maison Durand"
+chk "invitation : compte cree sans mot de passe" "$(apiJ /api/user/new '{"email":"carole@exemple.fr","name":"Carole","cap":5,"lang":"fr"}')" 200
+INV=$(mail_text carole@exemple.fr); TOKI=$(echo "$INV" | link_token)
+chk "invitation recue, au nom du portail" "$(echo "$INV" | head -1)" "Invitation : Maison Durand"
+chk "invitation : lien vers la page publique du portail" "$(echo "$INV" | grep -c "$B/mot-de-passe?t=")" 1
+chk "Utilisateurs : compte marque « invite », avec « renvoyer »" "$(curl -s -b "$J" "$B/utilisateurs" | grep -c 'data-invite="carole@exemple.fr"')" 1
+chk "invitation renvoyee" "$(apiJ /api/user/invite-resend '{"id":"carole@exemple.fr","lang":"fr"}')" 200
+INV=$(mail_text carole@exemple.fr); TOKI=$(echo "$INV" | link_token)
+chk "invitee : pas de connexion avant d'avoir choisi" "$(login carole@exemple.fr '' | grep -c 'e=1$')" 1
+chk "invitee : le lien ouvre le formulaire" "$(curl -s "$B/mot-de-passe?t=$TOKI" | grep -c 'id="pw2"')" 1
+chk "invitee : mot de passe trop court refuse" "$(post /api/password/set "{\"token\":\"$TOKI\",\"password\":\"court\"}" | grep -c 'trop court')" 1
+chk "invitee : mot de passe choisi" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' -d "{\"token\":\"$TOKI\",\"password\":\"carole-mot-de-passe\"}" "$B/api/password/set")" 200
+chk "invitee : connexion avec son mot de passe" "$(login carole@exemple.fr carole-mot-de-passe)" "$B/"
+chk "lien d'invitation rejoue : refuse (usage unique)" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' -d "{\"token\":\"$TOKI\",\"password\":\"autre-mot-de-passe\"}" "$B/api/password/set")" 400
+chk "lien rejoue : la page le dit" "$(curl -s "$B/mot-de-passe?t=$TOKI" | grep -c 'a déjà servi')" 1
+chk "connexion : lien « mot de passe oublie » present" "$(curl -s "$B/connexion?local=1" | grep -c 'href="/mot-de-passe-oublie"')" 1
+chk "oubli : reponse identique pour un compte inconnu" "$(post /api/password/forgot '{"email":"personne@exemple.fr"}')" '{"ok":true}'
+chk "oubli : reponse identique pour un compte connu" "$(post /api/password/forgot '{"email":"carole@exemple.fr","lang":"fr"}')" '{"ok":true}'
+RST=$(mail_text carole@exemple.fr); TOKR=$(echo "$RST" | link_token)
+chk "oubli : e-mail recu par le compte connu" "$(echo "$RST" | head -1)" "Mot de passe : Maison Durand"
+chk "oubli : rien envoye a une adresse inconnue" "$(mail_count personne@exemple.fr)" 0
+chk "oubli : un lien de reinitialisation ne vaut pas invitation (et inversement)" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' -d "{\"token\":\"$TOKI\",\"password\":\"x-nouveau-mot-de-passe\"}" "$B/api/password/set")" 400
+chk "oubli : nouveau mot de passe enregistre" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' -d "{\"token\":\"$TOKR\",\"password\":\"carole-nouveau-mdp\"}" "$B/api/password/set")" 200
+chk "oubli : l'ancien mot de passe ne marche plus" "$(login carole@exemple.fr carole-mot-de-passe | grep -c 'e=1$')" 1
+chk "oubli : le nouveau marche" "$(login carole@exemple.fr carole-nouveau-mdp)" "$B/"
+[ -n "${E2E_KEEP:-}" ] && { echo "pile laissee en place (E2E_KEEP)"; exit 0; }
+chk "messagerie desactivee" "$(apiJ /api/settings/smtp '{"disable":true}')" 200
+chk "sans messagerie : page « oubli » renvoie a la connexion" "$(curl -s -o /dev/null -w '%{http_code}' "$B/mot-de-passe-oublie")" 302
+chk "sans messagerie : API « oubli » fermee" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' -d '{"email":"carole@exemple.fr"}' "$B/api/password/forgot")" 404
 
 echo "== greffons : la gestion des comptes est un greffon (desactive => ecrans et connexion locale absents)"
 chk "Parametres liste le greffon « Comptes locaux »" "$(curl -s -b "$J" "$B/parametres" | grep -c 'Comptes locaux')" 1

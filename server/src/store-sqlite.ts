@@ -38,7 +38,7 @@ export function getAccount(id: string): Promise<Account | null> {
   const r = db.prepare(`SELECT ${ACCOUNT_COLS} FROM accounts WHERE id = ?`).get(id) as AccountRow | undefined;
   return Promise.resolve(rowToAccount(r));
 }
-export function createAccount(id: string, name: string, passHash: string, cap: number, admin: boolean): Promise<void> {
+export function createAccount(id: string, name: string, passHash: string | null, cap: number, admin: boolean): Promise<void> {
   db.prepare("INSERT INTO accounts (id, name, device_cap, pass_hash, admin) VALUES (?,?,?,?,?)").run(id, name, cap, passHash, admin ? 1 : 0);
   return Promise.resolve();
 }

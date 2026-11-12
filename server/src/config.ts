@@ -26,6 +26,8 @@ export type PortalConfig = {
   appName?: string;
   // Reglages propres a chaque greffon, par identifiant (chaque greffon valide les siens).
   pluginSettings?: Record<string, unknown>;
+  // Messagerie (SMTP), validee par mail.ts. Absente : invitation et mot de passe oublie masques.
+  smtp?: unknown;
 };
 
 const CONFIG_PATH = process.env.PORTAL_CONFIG ?? "/data/portal.config.json";

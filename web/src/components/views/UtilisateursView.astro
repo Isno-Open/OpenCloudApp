@@ -4,12 +4,14 @@
 import { listAccounts, countDevices } from '@core/store.js';
 import { t, type Lang } from '../../lib/i18n.ts';
 import { localAccountsSettings } from '@core/plugins/local-accounts-settings.js';
+import { mailEnabled } from '@core/mail.js';
 interface Props { lang: Lang; accountId: string; }
 const { lang, accountId } = Astro.props;
 const s = t(lang);
 const accounts = await listAccounts();
 const operators = accounts.filter((a) => a.admin).length;
 const minPass = localAccountsSettings().passwordMinLength;
+const canInvite = mailEnabled();   // messagerie configuree : le mot de passe devient facultatif (invitation)
 const now = Date.now();
 const counts = new Map<string, number>();
 for (const a of accounts) counts.set(a.id, await countDevices(a.id));
@@ -22,7 +24,7 @@ for (const a of accounts) counts.set(a.id, await countDevices(a.id));
   <div class="form-grid">
     <div class="field"><label for="u-email">{s.userLogin}</label><input id="u-email" name="email" type="email" autocomplete="off" spellcheck="false" required /></div>
     <div class="field"><label for="u-name">{s.userName}</label><input id="u-name" name="name" type="text" autocomplete="off" maxlength="80" required /></div>
-    <div class="field"><label for="u-pass">{s.userPassword}</label><input id="u-pass" name="password" type="password" autocomplete="new-password" minlength={minPass} required /></div>
+    <div class="field"><label for="u-pass">{s.userPassword}</label><input id="u-pass" name="password" type="password" autocomplete="new-password" minlength={minPass} required={!canInvite} />{canInvite && <span class="hint">{s.userPassInviteHint}</span>}</div>
     <div class="field"><label for="u-cap">{s.userCap}</label><input id="u-cap" name="cap" type="number" min="1" value="5" required /></div>
   </div>
   <label class="check"><input type="checkbox" id="u-admin" name="admin" /> {s.userMakeAdmin}</label>
@@ -41,10 +43,12 @@ for (const a of accounts) counts.set(a.id, await countDevices(a.id));
           <span class:list={['role', { op: a.admin }]}>{a.admin ? s.roleAdmin : s.roleUser}</span>
           {a.totpEnabled && <span class="role">2FA</span>}
           {a.lockedUntil && a.lockedUntil > now && <span class="role locked">{s.lockedTag}</span>}
+          {!a.passHash && <span class="role pending">{s.invitedTag}</span>}
         </span>
-        <span>{a.deviceCap}</span>
-        <span>{counts.get(a.id) ?? 0}</span>
+        <span class="num" data-label={s.colCap}>{a.deviceCap}</span>
+        <span class="num" data-label={s.colDevices}>{counts.get(a.id) ?? 0}</span>
         <span class="ut-act">
+          {!a.passHash && canInvite && <button class="btn ghost sm" type="button" data-invite={a.id}>{s.resendInviteBtn}</button>}
           {a.lockedUntil && a.lockedUntil > now && <button class="btn ghost sm" type="button" data-unlock={a.id}>{s.unlockBtn}</button>}
           {a.totpEnabled && a.id !== accountId && <button class="btn ghost sm" type="button" data-totp-reset={a.id}>{s.totpResetBtn}</button>}
           {a.id !== accountId && !(a.admin && operators <= 1) && (
@@ -71,16 +75,17 @@ for (const a of accounts) counts.set(a.id, await countDevices(a.id));
         password: document.getElementById('u-pass').value,
         cap: parseInt(document.getElementById('u-cap').value, 10) || 5,
         admin: document.getElementById('u-admin').checked,
+        lang: document.documentElement.lang,
       };
       fetch('/api/user/new', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
-        .then(function (r) { if (r.ok) location.reload(); else { err.hidden = false; err.textContent = createErr; } })
+        .then(function (r) { if (r.ok) { location.reload(); return; } return r.json().then(function (d) { err.hidden = false; err.textContent = (d && d.error) || createErr; if (r.status === 502) setTimeout(function () { location.reload(); }, 2500); }); })
         .catch(function () { err.hidden = false; err.textContent = createErr; });
     });
-    [['data-unlock', '/api/user/unlock'], ['data-totp-reset', '/api/user/totp-reset']].forEach(function (pair) {
+    [['data-unlock', '/api/user/unlock'], ['data-totp-reset', '/api/user/totp-reset'], ['data-invite', '/api/user/invite-resend']].forEach(function (pair) {
       document.querySelectorAll('[' + pair[0] + ']').forEach(function (b) {
         b.addEventListener('click', function () {
           b.disabled = true;
-          fetch(pair[1], { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: b.getAttribute(pair[0]) }) })
+          fetch(pair[1], { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: b.getAttribute(pair[0]), lang: document.documentElement.lang }) })
             .then(function (r) { if (r.ok) location.reload(); else { alert(roleErr); b.disabled = false; } })
             .catch(function () { alert(roleErr); b.disabled = false; });
         });

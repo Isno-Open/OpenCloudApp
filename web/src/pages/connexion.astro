@@ -3,10 +3,11 @@ import BareLayout from '../layouts/BareLayout.astro';
 import LoginView from '../components/views/LoginView.astro';
 import { resolveAccountId, loginRedirect, localLoginEnabled } from '../server/auth.ts';
 import { LANG, ROUTES, t } from '../lib/i18n.ts';
-import { parseLoginError } from '../lib/login.ts';
+import { parseLoginError, LOGIN_INFO } from '../lib/login.ts';
 import { localAccountsSettings } from '@core/plugins/local-accounts-settings.js';
 import { newChallenge, captchaSvg } from '@core/captcha.js';
 import { signingKey } from '@core/session.js';
+import { mailEnabled } from '@core/mail.js';
 const lang = LANG.fr;
 // deja connecte -> on renvoie vers l'app
 if (await resolveAccountId(Astro.request)) return Astro.redirect(ROUTES.appareils[lang]);
@@ -20,6 +21,8 @@ const error = parseLoginError(Astro.url.searchParams.get('e'));
 const step = Astro.url.searchParams.get('step');
 // captcha : un nouveau defi a chaque affichage, si le reglage est active
 const captcha = local && localAccountsSettings().captcha ? (() => { const c = newChallenge(signingKey()); return { svg: captchaSvg(c.code), token: c.token }; })() : null;
+const forgot = local && mailEnabled();   // mot de passe oublie : seulement si un e-mail peut partir
+const info = Astro.url.searchParams.get('ok') === LOGIN_INFO.passwordSet;
 const none = !local;   // aucun greffon ne fournit de connexion
 ---
-<BareLayout title={`${t(lang).signInTitle}`} lang={lang}><LoginView lang={lang} error={error} none={none} step={step} captcha={captcha} /></BareLayout>
+<BareLayout title={`${t(lang).signInTitle}`} lang={lang}><LoginView lang={lang} error={error} none={none} step={step} captcha={captcha} forgot={forgot} info={info} /></BareLayout>

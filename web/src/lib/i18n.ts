@@ -59,7 +59,13 @@ interface S {
   publicUrlLabel: string; brokerUrlLabel: string;
   pluginsTitle: string; pluginBuiltin: string; pluginExternal: string; noLoginMethod: string;
   // connexion securisee (greffon Comptes locaux)
-  loginCaptchaLabel: string; loginCaptchaError: string; loginLocked: string; loginTotpPrompt: string; loginTotpError: string; loginExpired: string; totpCodeLabel: string;
+  loginCaptchaLabel: string;
+  forgotLink: string; forgotTitle: string; forgotIntro: string; forgotBtn: string; forgotSent: string; backToLogin: string;
+  setPasswordTitle: string; newPassword: string; confirmPassword: string; setPasswordBtn: string; passwordMismatch: string;
+  linkExpired: string; askNewLink: string; passwordSetOk: string;
+  userPassInviteHint: string; invitedTag: string; resendInviteBtn: string;
+  smtpTitle: string; smtpOff: string; smtpIntro: string; smtpHost: string; smtpPort: string; smtpSecurity: string; smtpSecNone: string;
+  smtpUser: string; smtpPass: string; smtpPassKept: string; smtpFrom: string; smtpFromName: string; smtpDisable: string; smtpTest: string; smtpTestOk: string; loginCaptchaError: string; loginLocked: string; loginTotpPrompt: string; loginTotpError: string; loginExpired: string; totpCodeLabel: string;
   // double authentification (Compte)
   totpTitle: string; totpIntro: string; totpEnable: string; totpManual: string; totpConfirm: string; totpOnNote: string; totpDisable: string; totpRequiredNotice: string;
   // utilisateurs : etat de securite
@@ -129,7 +135,16 @@ export const STRINGS = {
     publicUrlLabel: 'URL publique du portail', brokerUrlLabel: 'URL publique du broker MQTT',
     pluginsTitle: 'Greffons installés', pluginBuiltin: 'intégré', pluginExternal: 'externe',
     noLoginMethod: "Aucun mode de connexion n'est installé sur ce portail (greffon manquant).",
-    loginCaptchaLabel: 'Recopiez le code', loginCaptchaError: 'Code de vérification incorrect.',
+    loginCaptchaLabel: 'Recopiez le code',
+    forgotLink: 'Mot de passe oublié ?', forgotTitle: 'Mot de passe oublié', forgotIntro: 'Indiquez votre e-mail : si un compte y est rattaché, vous recevrez un lien pour choisir un nouveau mot de passe.',
+    forgotBtn: 'Envoyer le lien', forgotSent: 'Si un compte existe pour cette adresse, un e-mail vient de partir. Pensez à regarder les indésirables.', backToLogin: 'Retour à la connexion',
+    setPasswordTitle: 'Choisir un mot de passe', newPassword: 'Nouveau mot de passe', confirmPassword: 'Confirmez le mot de passe', setPasswordBtn: 'Enregistrer',
+    passwordMismatch: 'Les deux mots de passe ne correspondent pas.', linkExpired: 'Ce lien a expiré ou a déjà servi.', askNewLink: 'Demander un nouveau lien',
+    passwordSetOk: 'Mot de passe enregistré. Vous pouvez vous connecter.',
+    userPassInviteHint: "Laissez vide pour envoyer une invitation par e-mail : l'utilisateur choisira son mot de passe.", invitedTag: 'invité', resendInviteBtn: "Renvoyer l'invitation",
+    smtpTitle: 'Messagerie (SMTP)', smtpOff: 'non configurée', smtpIntro: 'Sert aux invitations et au mot de passe oublié. Sans messagerie, ces fonctions restent masquées.',
+    smtpHost: 'Serveur', smtpPort: 'Port', smtpSecurity: 'Sécurité', smtpSecNone: 'Aucune', smtpUser: 'Identifiant', smtpPass: 'Mot de passe', smtpPassKept: 'inchangé',
+    smtpFrom: 'Adresse d’expédition', smtpFromName: 'Nom d’expéditeur', smtpDisable: 'Désactiver', smtpTest: "Envoyer un test", smtpTestOk: 'E-mail de test envoyé à', loginCaptchaError: 'Code de vérification incorrect.',
     loginLocked: 'Compte temporairement bloqué après trop de tentatives. Réessayez plus tard, ou demandez à un opérateur de le débloquer.',
     loginTotpPrompt: "Saisissez le code à 6 chiffres de votre appli d'authentification.", loginTotpError: 'Code incorrect.',
     loginExpired: 'Délai dépassé : reconnectez-vous.', totpCodeLabel: 'Code',
@@ -204,7 +219,16 @@ export const STRINGS = {
     publicUrlLabel: 'Public portal URL', brokerUrlLabel: 'Public MQTT broker URL',
     pluginsTitle: 'Installed plugins', pluginBuiltin: 'built-in', pluginExternal: 'external',
     noLoginMethod: 'No sign-in method is installed on this portal (missing plugin).',
-    loginCaptchaLabel: 'Type the code', loginCaptchaError: 'Wrong verification code.',
+    loginCaptchaLabel: 'Type the code',
+    forgotLink: 'Forgot password?', forgotTitle: 'Forgot password', forgotIntro: "Enter your email: if an account uses it, you'll receive a link to choose a new password.",
+    forgotBtn: 'Send the link', forgotSent: 'If an account exists for this address, an email is on its way. Check your spam folder.', backToLogin: 'Back to sign in',
+    setPasswordTitle: 'Choose a password', newPassword: 'New password', confirmPassword: 'Confirm password', setPasswordBtn: 'Save',
+    passwordMismatch: "The two passwords don't match.", linkExpired: 'This link has expired or was already used.', askNewLink: 'Request a new link',
+    passwordSetOk: 'Password saved. You can sign in.',
+    userPassInviteHint: 'Leave empty to send an email invitation: the user will choose their password.', invitedTag: 'invited', resendInviteBtn: 'Resend invitation',
+    smtpTitle: 'Mail (SMTP)', smtpOff: 'not configured', smtpIntro: 'Used for invitations and password resets. Without mail, these features stay hidden.',
+    smtpHost: 'Server', smtpPort: 'Port', smtpSecurity: 'Security', smtpSecNone: 'None', smtpUser: 'Username', smtpPass: 'Password', smtpPassKept: 'unchanged',
+    smtpFrom: 'Sender address', smtpFromName: 'Sender name', smtpDisable: 'Disable', smtpTest: 'Send a test', smtpTestOk: 'Test email sent to', loginCaptchaError: 'Wrong verification code.',
     loginLocked: 'Account temporarily locked after too many attempts. Try again later, or ask an operator to unlock it.',
     loginTotpPrompt: 'Enter the 6-digit code from your authenticator app.', loginTotpError: 'Wrong code.',
     loginExpired: 'Timed out: please sign in again.', totpCodeLabel: 'Code',
@@ -247,6 +271,8 @@ export const ROUTES = {
   utilisateurs: { [LANG.fr]: '/utilisateurs', [LANG.en]: '/en/users' },
   parametres: { [LANG.fr]: '/parametres', [LANG.en]: '/en/settings' },
   lier: { [LANG.fr]: '/lier', [LANG.en]: '/en/link' },
+  motDePasse: { [LANG.fr]: '/mot-de-passe', [LANG.en]: '/en/password' },
+  oubli: { [LANG.fr]: '/mot-de-passe-oublie', [LANG.en]: '/en/forgot-password' },
 } satisfies Record<string, Record<Lang, string>>;
 /** URL de configuration d'un appareil (le chemin reste /boitier pour l'historique des liens). */
 export const appareilHref = (id: string, lang: Lang): string => (lang === LANG.en ? `/en/box/${id}` : `/boitier/${id}`);
