@@ -12,7 +12,11 @@ export type Appareil = {
   /** slug du cover cote firmware, sert a cibler la commande (/api/cmd) */
   slug: string;
   name: string;
-  type: DeviceType;
+  /** Type que le portail sait afficher et piloter, ou null : type INCONNU du portail (montre comme
+   *  « appareil inconnu », sans commandes, jamais deguise en volet). */
+  type: DeviceType | null;
+  /** Type tel que le boitier le declare (vide s'il n'en declare aucun), pour le dire a l'utilisateur. */
+  declaredType: string;
   /** positionnel : affiche la position (slat + %). Impulsionnel (portail) : ni slat ni %. */
   positional: boolean;
   /** 0..100, null si inconnu/non positionnel */
@@ -23,6 +27,9 @@ export type Appareil = {
   /** detail optionnel (derriere la roue crantee) */
   rssiDbm?: number | null;
 };
+/** Appareil d'un type connu : le seul qu'une carte de commande accepte. */
+export type KnownAppareil = Appareil & { type: DeviceType };
+export const isKnownAppareil = (a: Appareil): a is KnownAppareil => a.type !== null;
 
 /** Un boitier OpenProfalux appaire au compte. Nommable par l'utilisateur. */
 export type Boitier = {

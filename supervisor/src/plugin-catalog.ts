@@ -40,6 +40,15 @@ export const LOCAL_SOURCE = "local";
 /** Adresse d'une source ajoutee : https seulement (le contenu decide du code qui tournera dans le portail). */
 export const isSourceUrl = (u: string): boolean => { try { return new URL(u).protocol === "https:" && u.length <= 500; } catch { return false; } };
 
+/** Catalogue local de l'instance, RELU a chaque appel : l'administrateur change une version dans le
+ *  fichier, la page Plugins la voit sans redemarrer le superviseur. Fichier absent ou illisible : une
+ *  erreur de source, jamais un arret du superviseur. Chemin vide : pas de catalogue local. */
+export function readLocalCatalog(path: string): { raws: { source: string; raw: unknown }[]; errors: SourceError[] } {
+  if (!path) return { raws: [], errors: [] };
+  try { return { raws: [{ source: LOCAL_SOURCE, raw: JSON.parse(readFileSync(path, "utf8")) }], errors: [] }; }
+  catch (e) { return { raws: [], errors: [{ source: LOCAL_SOURCE, error: e instanceof Error ? e.message : String(e), unreadable: true }] }; }
+}
+
 /** unreadable : la source entiere est inutilisable (illisible, invalide) ; sinon une seule entree est ignoree. */
 export type SourceError = { source: string; error: string; unreadable: boolean };
 export type MergedCatalog = { plugins: PluginCatalog; sourceOf: Record<string, string>; errors: SourceError[] };

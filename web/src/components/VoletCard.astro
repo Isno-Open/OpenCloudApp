@@ -2,9 +2,9 @@
 // Carte d'un appareil, au visuel EXACT du firmware OpenProfalux : icone de type, dpad glyphes,
 // volet dessine (slat) pour les positionnels, roue crantee pour les details + renommage.
 // Libelles de commande localises PAR TYPE (i18n.actionLabels) : le device declare le type, l'app traduit.
-import { DEVICE_TYPE, type Appareil } from '../lib/types.ts';
+import { DEVICE_TYPE, type KnownAppareil } from '../lib/types.ts';
 import { actionLabels, t, type Lang } from '../lib/i18n.ts';
-interface Props { appareil: Appareil; boitierName: string; lang: Lang; grouped?: boolean; }
+interface Props { appareil: KnownAppareil; boitierName: string; lang: Lang; grouped?: boolean; }
 const { appareil: a, boitierName, lang, grouped = false } = Astro.props;
 const s = t(lang);
 const act = actionLabels(a.type, lang);

@@ -105,6 +105,17 @@ curl -s -o /dev/null -b "$J" -X POST -H 'content-type: application/json' -d "{\"
 sleep 3; chk "commande recue par le boitier (mTLS, nom verifie)" "$(docker logs isno-e2e-device 2>&1)" "CLOSE"
 chk "isolation : un autre topic ne recoit rien" "$(docker run --rm -v "$WORK:/d:ro" "${SUB[@]}" -t 'openprofalux/opf-autre/#' -C 1 -W 4 2>&1 | grep -vc 'Timed out')" 0
 
+echo "== types d'appareils : un type gere a sa carte, tout autre est un appareil inconnu"
+PUB=(eclipse-mosquitto:2.0.22 mosquitto_pub -h "$LAN" -p 18883 --cafile /d/ca.pem --cert /d/cert.pem --key /d/key.pem -r)
+docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "openprofalux/$ID/cover/salon/attrs" -m '{"type":"volet","positional":true}'
+docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "openprofalux/$ID/cover/pergola/attrs" -m '{"type":"pergola","positional":false}'
+docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "openprofalux/$ID/cover/mystere/attrs" -m '{"positional":false}'
+sleep 3; PAGE=$(curl -s -b "$J" "$B/")
+chk "type gere : une carte de commande" "$(echo "$PAGE" | grep -c 'data-slug="salon"')" 1
+chk "type non gere : pas de commandes" "$(echo "$PAGE" | grep -c 'data-slug="pergola"')" 0
+chk "type non gere : nomme dans la carte inconnue" "$(echo "$PAGE" | grep -c 'Type « pergola » non géré par ce portail.')" 1
+chk "aucun type declare : dit tel quel" "$(echo "$PAGE" | grep -c 'Le boîtier ne déclare aucun type pour cet appareil.')" 1
+
 echo "== reconciliation : la config change de nom, le certificat suit"
 FP1=$(docker exec isno-cloud-server openssl x509 -in /broker-certs/server.crt -noout -fingerprint -sha256)
 docker exec isno-cloud-server sh -c "sed -i 's#mqtts://$LAN:18883#mqtts://localtest.me:18883#' /data/portal.config.json"

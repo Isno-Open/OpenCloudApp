@@ -46,3 +46,20 @@ test("sources : https seulement", () => {
   assert.equal(isSourceUrl("https://exemple.fr/plugins.json"), true);
   for (const u of ["http://exemple.fr/p.json", "file:///etc/passwd", "pas une url"]) assert.equal(isSourceUrl(u), false);
 });
+
+test("catalogue local relu a chaque appel, illisible = erreur de source, pas d'arret", async () => {
+  const { mkdtempSync, writeFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const { tmpdir } = await import("node:os");
+  const { readLocalCatalog, LOCAL_SOURCE } = await import("./plugin-catalog.js");
+  const f = join(mkdtempSync(join(tmpdir(), "cat-")), "plugins.json");
+  writeFileSync(f, JSON.stringify({ a: { image: "img:0.1.0" } }));
+  assert.deepEqual(readLocalCatalog(f).raws, [{ source: LOCAL_SOURCE, raw: { a: { image: "img:0.1.0" } } }]);
+  writeFileSync(f, JSON.stringify({ a: { image: "img:0.2.0" } }));
+  assert.deepEqual(readLocalCatalog(f).raws[0]?.raw, { a: { image: "img:0.2.0" } });
+  writeFileSync(f, "{ pas du json");
+  const bad = readLocalCatalog(f);
+  assert.deepEqual(bad.raws, []);
+  assert.equal(bad.errors[0]?.unreadable, true);
+  assert.deepEqual(readLocalCatalog(""), { raws: [], errors: [] });
+});

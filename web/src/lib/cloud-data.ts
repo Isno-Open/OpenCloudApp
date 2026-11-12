@@ -6,7 +6,9 @@ import { coversOf } from '@core/mqtt.js';
 import { DEVICE_TYPE, type Appareil, type Boitier, type Account, type DeviceType } from './types.ts';
 import { boot } from '../server/boot.ts';
 
-const mapType = (t: string): DeviceType => (t === DEVICE_TYPE.portail ? DEVICE_TYPE.portail : DEVICE_TYPE.volet);
+// Type declare par le boitier -> type connu du portail, ou null (inconnu). Jamais de repli sur « volet » :
+// un type nouveau deguise en volet recevrait des commandes de volet.
+const mapType = (t: string): DeviceType | null => Object.values(DEVICE_TYPE).find((k) => k === t) ?? null;
 
 // online : proxy MVP (le firmware ne publie pas encore de presence) = au moins un cover vu via le relais.
 const boitierOf = (d: { deviceId: string; name: string; firmware: string }): Boitier => {
@@ -42,7 +44,7 @@ export async function listAppareils(accountId: string): Promise<Appareil[]> {
     for (const c of covers) {
       out.push({
         id: `${d.deviceId}:${c.slug}`, boitierId: d.deviceId, slug: c.slug, name: c.slug,
-        type: mapType(c.type), positional: c.positional, position: c.position, online,
+        type: mapType(c.type), declaredType: c.type, positional: c.positional, position: c.position, online,
       });
     }
   }

@@ -21,6 +21,7 @@ interface S {
   leadAppareils: (n: number) => string;
   // carte volet/portail
   details: string; rename: string; typeWord: string; positional: string; impulsional: string;
+  unknownDevice: string; unknownDeclared: (type: string) => string; unknownNoType: string;
   posWord: string; radioState: (dbm: number) => string; offline: string; offlineSuffix: string; nameLabel: string;
   // etat appareil
   online: string; offlineShort: string; updAvail: string; configure: string; devicesWord: string;
@@ -89,6 +90,7 @@ export const STRINGS = {
     appareilsTitle: 'Mes appareils', noCovers: 'Aucun volet pour cet appareil.',
     leadAppareils: (n) => `${n} appareil${n > 1 ? 's' : ''}`,
     details: 'Détails', rename: 'Renommer', typeWord: 'Type', positional: 'positionnel', impulsional: 'impulsionnel',
+    unknownDevice: 'Appareil inconnu', unknownDeclared: (type: string) => `Type « ${type} » non géré par ce portail.`, unknownNoType: 'Le boîtier ne déclare aucun type pour cet appareil.',
     posWord: 'Position', radioState: (d) => `reçu ${d} dBm`, offline: 'hors ligne', offlineSuffix: ' · hors ligne', nameLabel: 'Nom',
     online: 'en ligne', offlineShort: 'hors ligne', updAvail: 'maj dispo', configure: 'Configurer', devicesWord: 'volets',
     backBoxes: 'Mes appareils',
@@ -185,6 +187,7 @@ export const STRINGS = {
     appareilsTitle: 'My devices', noCovers: 'No shutter on this device.',
     leadAppareils: (n) => `${n} device${n === 1 ? '' : 's'}`,
     details: 'Details', rename: 'Rename', typeWord: 'Type', positional: 'positional', impulsional: 'pulsed',
+    unknownDevice: 'Unknown device', unknownDeclared: (type: string) => `Type "${type}" is not supported by this portal.`, unknownNoType: 'The box declares no type for this device.',
     posWord: 'Position', radioState: (d) => `received ${d} dBm`, offline: 'offline', offlineSuffix: ' · offline', nameLabel: 'Name',
     online: 'online', offlineShort: 'offline', updAvail: 'update', configure: 'Configure', devicesWord: 'shutters',
     backBoxes: 'My devices',
