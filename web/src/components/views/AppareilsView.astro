@@ -1,7 +1,7 @@
 ---
 // Accueil : « Mes appareils ». Un appareil = un boitier OpenProfalux. On liste les appareils, chacun en
 // section avec ses volets/portails (cartes au visuel firmware) dessous. La roue crantee ouvre la config.
-import VoletCard from '../VoletCard.astro';
+import DeviceCard from '../DeviceCard.astro';
 import UnknownDeviceCard from '../UnknownDeviceCard.astro';
 import { isKnownAppareil } from '../../lib/types.ts';
 import LinkCodeForm from '../LinkCodeForm.astro';
@@ -36,7 +36,7 @@ const coversOf = (boitierId: string): Appareil[] => appareils.filter((a) => a.bo
       {covers.length ? (
         <div class="hw-grid">
           {covers.map((a) => isKnownAppareil(a)
-            ? <VoletCard appareil={a} boitierName={b.name} lang={lang} grouped={true} />
+            ? <DeviceCard appareil={a} boitierName={b.name} lang={lang} grouped={true} />
             : <UnknownDeviceCard appareil={a} boitierName={b.name} lang={lang} grouped={true} />)}
         </div>
       ) : (

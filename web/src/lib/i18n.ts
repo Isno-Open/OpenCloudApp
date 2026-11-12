@@ -4,7 +4,6 @@
 // l'appareil declare le type et l'action canonique (UP/STOP/DOWN), l'app ne traduit que l'etiquette.
 // Vocabulaire : « appareil » = le boitier OpenProfalux (ce qu'on ajoute, nomme, configure). Un appareil
 // contient ses volets/portails.
-import { DEVICE_TYPE, type DeviceType } from './types.ts';
 
 export const LANG = { fr: 'fr', en: 'en' } as const;
 export type Lang = (typeof LANG)[keyof typeof LANG];
@@ -279,19 +278,6 @@ export const STRINGS = {
 } satisfies Record<Lang, S>;
 
 export const t = (lang: Lang): S => STRINGS[lang];
-
-/** Libelles des 3 commandes, localises PAR TYPE. L'appareil declare le type ; l'app traduit l'etiquette. */
-const ACTIONS = {
-  [DEVICE_TYPE.volet]: {
-    [LANG.fr]: { up: 'Montée', stop: 'Stop', down: 'Descente' },
-    [LANG.en]: { up: 'Up', stop: 'Stop', down: 'Down' },
-  },
-  [DEVICE_TYPE.portail]: {
-    [LANG.fr]: { up: 'Ouvrir', stop: 'Stop', down: 'Fermer' },
-    [LANG.en]: { up: 'Open', stop: 'Stop', down: 'Close' },
-  },
-} satisfies Record<DeviceType, Record<Lang, { up: string; stop: string; down: string }>>;
-export const actionLabels = (type: DeviceType, lang: Lang) => ACTIONS[type][lang];
 
 /** Table des routes par langue (FR racine, EN sous /en/ avec slugs traduits). */
 export const ROUTES = {

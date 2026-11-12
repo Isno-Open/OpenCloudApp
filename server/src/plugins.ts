@@ -6,6 +6,9 @@
 // - Ajoutes depuis le catalogue ISNO : le superviseur copie leur code dans PLUGINS_DIR/<id>/index.js.
 // - Developpement : modules charges depuis HARNESS_MODULE (chemins separes par « , »).
 import { externalAuthPlugin } from "./plugins/external-auth.js";
+import { shutterTypePlugin, gateTypePlugin } from "./plugins/device-types.js";
+import { registerDeviceType } from "./device-types.js";
+import type { PortalConfig } from "./config.js";
 import { registerAuthProvider, localProvider } from "./auth-provider.js";
 import { ensureAccount } from "./store.js";
 import { DEFAULT_CAP } from "./entitlement.js";
@@ -17,9 +20,15 @@ import { CAPABILITY, type Capability, type Plugin, type PluginApi, type PluginIn
 export { CAPABILITY, type Capability, type Plugin, type PluginApi, type PluginInfo };
 
 /** Greffons livres avec le portail. */
-export const BUILTIN_PLUGINS: Record<string, Plugin> = { [localAccountsPlugin.id]: localAccountsPlugin, [externalAuthPlugin.id]: externalAuthPlugin };
+export const BUILTIN_PLUGINS: Record<string, Plugin> = {
+  [localAccountsPlugin.id]: localAccountsPlugin, [externalAuthPlugin.id]: externalAuthPlugin,
+  [shutterTypePlugin.id]: shutterTypePlugin, [gateTypePlugin.id]: gateTypePlugin,
+};
 /** Actives quand la config n'en dit rien. */
 export const DEFAULT_PLUGINS: readonly string[] = [localAccountsPlugin.id];
+/** Integres actives D'OFFICE, meme sur une instance deja configuree (sa liste ne les nomme pas) :
+ *  seul un retrait explicite (pluginsOff) les eteint. Ce sont les types d'appareils de base. */
+export const ALWAYS_ON_PLUGINS: readonly string[] = [shutterTypePlugin.id, gateTypePlugin.id];
 
 const installed: PluginInfo[] = [];
 const settingsById = new Map<string, PluginSettings>();
@@ -39,6 +48,7 @@ async function registerOne(p: Plugin, builtin: boolean): Promise<void> {
     provideCapability: (c) => { capabilities.add(c); },
     ensureAccount,
     defaultCap: DEFAULT_CAP,
+    registerDeviceType,
   };
   await p.register(api);
   installed.push({ id: p.id, title: p.title, description: p.description, builtin, configurable: !!p.settings });
@@ -104,5 +114,29 @@ export function loadPlugins(enabled: readonly string[] = DEFAULT_PLUGINS): Promi
   return loaded;
 }
 
+/** Plugins actifs selon une config : sa liste (ou celle par defaut), plus les integres actives d'office
+ *  qu'elle n'a pas eteints. */
+export function enabledIn(cfg: Pick<PortalConfig, "plugins" | "pluginsOff"> | null): readonly string[] {
+  const list = cfg?.plugins ?? DEFAULT_PLUGINS;
+  const off = cfg?.pluginsOff ?? [];
+  return [...list, ...ALWAYS_ON_PLUGINS.filter((id) => !list.includes(id) && !off.includes(id))];
+}
 /** Plugins actives par la config (ceux qui seront charges au prochain demarrage). */
-export const enabledPlugins = (): readonly string[] => loadConfig()?.plugins ?? DEFAULT_PLUGINS;
+export const enabledPlugins = (): readonly string[] => enabledIn(loadConfig());
+
+/** Config avec `id` active : ajoute a la liste, retire des eteints. */
+export function withPluginOn<C extends Pick<PortalConfig, "plugins" | "pluginsOff">>(cfg: C, id: string): C {
+  // la liste ne nomme pas les integres actives d'office : ils le sont sans y etre
+  const listed = enabledIn(cfg).filter((x) => !ALWAYS_ON_PLUGINS.includes(x));
+  const plugins = ALWAYS_ON_PLUGINS.includes(id) || listed.includes(id) ? listed : [...listed, id];
+  return { ...cfg, plugins, pluginsOff: (cfg.pluginsOff ?? []).filter((x) => x !== id) };
+}
+/** Config avec `id` desactive : retire de la liste ; un integre actif d'office est note comme eteint. */
+export function withPluginOff<C extends Pick<PortalConfig, "plugins" | "pluginsOff">>(cfg: C, id: string): C {
+  const off = cfg.pluginsOff ?? [];
+  return {
+    ...cfg,
+    plugins: enabledIn(cfg).filter((x) => x !== id && !ALWAYS_ON_PLUGINS.includes(x)),
+    pluginsOff: ALWAYS_ON_PLUGINS.includes(id) && !off.includes(id) ? [...off, id] : off,
+  };
+}

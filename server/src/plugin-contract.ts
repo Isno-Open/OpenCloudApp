@@ -29,3 +29,17 @@ export type PluginSettings = {
   fromForm(input: Record<string, unknown>): unknown;           // valeur a enregistrer, bornee par le plugin
 };
 
+
+/** Icone d'un type d'appareil : un caractere (emoji) ou un trace SVG (attribut d d'un path, 24x24,
+ *  dessine au trait par le coeur). Jamais de balisage : un plugin ne peut pas injecter de HTML. */
+export type DeviceIcon = { glyph: string } | { path: string };
+
+/** Type d'appareil DECLARE par un plugin. `id` est le type tel que le boitier le publie (attrs.type) ;
+ *  le coeur dessine la carte (icone, nom, trois commandes UP/STOP/DOWN) avec ces libelles. Ce qui est
+ *  positionnel ou non vient du boitier lui-meme, pas du type. */
+export type DeviceTypeDecl = {
+  id: string;
+  label: LocalizedText;
+  icon: DeviceIcon;
+  actions: { up: LocalizedText; stop: LocalizedText; down: LocalizedText };
+};

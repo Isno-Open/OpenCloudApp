@@ -1,13 +1,12 @@
 // Résolution du compte courant via le point d'extension d'auth : on parcourt les providers enregistrés
 // (le local, et ceux d'un greffon s'il y en a un). Le cœur délègue au registre.
 import { resolveAccount, externalLoginUrl } from '@core/auth-provider.js';
-import { loadPlugins, hasCapability, CAPABILITY } from '@core/plugins.js';
-import { loadConfig } from '@core/config.js';
+import { loadPlugins, hasCapability, CAPABILITY, enabledPlugins } from '@core/plugins.js';
 import { getAccount } from '@core/store.js';
 import { boot } from './boot.ts';
 
 /** Charge les greffons actifs (config, sinon « comptes locaux » par defaut) ; une seule fois. */
-export const plugins = (): Promise<void> => loadPlugins(loadConfig()?.plugins);
+export const plugins = (): Promise<void> => loadPlugins(enabledPlugins());
 
 export async function resolveAccountId(request: Request): Promise<string | null> {
   await boot();            // init du store (un provider de greffon peut provisionner un compte)

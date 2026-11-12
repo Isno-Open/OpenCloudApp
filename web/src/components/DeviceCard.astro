@@ -1,22 +1,23 @@
 ---
 // Carte d'un appareil, au visuel EXACT du firmware OpenProfalux : icone de type, dpad glyphes,
 // volet dessine (slat) pour les positionnels, roue crantee pour les details + renommage.
-// Libelles de commande localises PAR TYPE (i18n.actionLabels) : le device declare le type, l'app traduit.
-import { DEVICE_TYPE, type KnownAppareil } from '../lib/types.ts';
-import { actionLabels, t, type Lang } from '../lib/i18n.ts';
+// Icone, nom et libelles des commandes viennent du TYPE, declare par un plugin (kind) ; le boitier
+// recoit l'action canonique (UP/STOP/DOWN). Meme cadre pour tous les types : seul le contenu varie.
+import type { KnownAppareil } from '../lib/types.ts';
+import { t, type Lang } from '../lib/i18n.ts';
 interface Props { appareil: KnownAppareil; boitierName: string; lang: Lang; grouped?: boolean; }
 const { appareil: a, boitierName, lang, grouped = false } = Astro.props;
 const s = t(lang);
-const act = actionLabels(a.type, lang);
-const isPortail = a.type === DEVICE_TYPE.portail;
+const act = { up: a.kind.actions.up[lang], stop: a.kind.actions.stop[lang], down: a.kind.actions.down[lang] };
+const icon = a.kind.icon;
 const showPos = a.positional && a.position !== null;
 ---
 <div class:list={['volet', { offline: !a.online }]} data-box={a.boitierId}>
   <div class="top">
     <span class="ico">
-      {isPortail ? (
-        <svg viewBox="0 0 24 24" width="1.05em" height="1.05em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M4 8h12v12H4M4 11h12M4 14h12M4 17h12M1 20h22M18 14h4M20 12l2 2-2 2"></path></svg>
-      ) : '🪟'}
+      {'path' in icon ? (
+        <svg viewBox="0 0 24 24" width="1.05em" height="1.05em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px" aria-label={a.kind.label[lang]}><path d={icon.path}></path></svg>
+      ) : <span aria-label={a.kind.label[lang]}>{icon.glyph}</span>}
     </span>
     <span class="vname">{a.name}</span>
     {showPos && <span class="pct">{a.position} %</span>}
@@ -43,7 +44,7 @@ const showPos = a.positional && a.position !== null;
 
   <div class="hw-det" hidden>
     <div class="mini-field"><input type="text" value={a.name} aria-label={s.nameLabel} /><button class="btn sm primary" type="button">{s.rename}</button></div>
-    <div class="kv"><span class="k">{s.typeWord}</span><span class="v">{a.type} · {a.positional ? s.positional : s.impulsional}</span></div>
+    <div class="kv"><span class="k">{s.typeWord}</span><span class="v">{a.kind.label[lang]} · {a.positional ? s.positional : s.impulsional}</span></div>
     {showPos && <div class="kv"><span class="k">{s.posWord}</span><span class="v">{a.position} %</span></div>}
     {a.rssiDbm != null && <div class="kv"><span class="k">{s.wifiSignal}</span><span class="v">{s.radioState(a.rssiDbm)}</span></div>}
     {!a.online && <div class="kv"><span class="k">{s.state}</span><span class="v">{s.offline}</span></div>}

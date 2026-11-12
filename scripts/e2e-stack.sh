@@ -112,6 +112,7 @@ docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "openprofalux/$ID/cover/pergola/
 docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "openprofalux/$ID/cover/mystere/attrs" -m '{"positional":false}'
 sleep 3; PAGE=$(curl -s -b "$J" "$B/")
 chk "type gere : une carte de commande" "$(echo "$PAGE" | grep -c 'data-slug="salon"')" 1
+chk "type gere : libelles declares par son plugin" "$(echo "$PAGE" | grep -c 'aria-label="Montée"')" 1
 chk "type non gere : pas de commandes" "$(echo "$PAGE" | grep -c 'data-slug="pergola"')" 0
 chk "type non gere : nomme dans la carte inconnue" "$(echo "$PAGE" | grep -c 'Type « pergola » non géré par ce portail.')" 1
 chk "aucun type declare : dit tel quel" "$(echo "$PAGE" | grep -c 'Le boîtier ne déclare aucun type pour cet appareil.')" 1
@@ -283,6 +284,19 @@ chk "deconnexion : cookie partage efface sur le domaine commun" "$(echo "$LOGOUT
 chk "desactivation (le portail redemarre)" "$(apiJ /api/plugins/disable '{"id":"external-auth"}')" 200
 wait_restart
 chk "desactive : formulaire local de nouveau" "$(curl -s -o /dev/null -w '%{http_code}' "$B/connexion")" 200
+echo "== types d'appareils : chacun est un plugin, active d'office, desactivable"
+chk "plugin du type volet : actif d'office" "$(curl -s -b "$J" "$B/plugins" | grep -c 'data-disable="device-volet"')" 1
+chk "type volet desactive (le portail redemarre)" "$(apiJ /api/plugins/disable '{"id":"device-volet"}')" 200
+wait_restart
+for _ in $(seq 1 20); do curl -s -b "$J" "$B/" | grep -q 'Type « volet » non géré' && break; sleep 1; done
+chk "type desactive : le volet devient un appareil inconnu" "$(curl -s -b "$J" "$B/" | grep -c 'Type « volet » non géré par ce portail.')" 1
+chk "type desactive : plus de commandes pour lui" "$(curl -s -b "$J" "$B/" | grep -c 'data-slug="salon"')" 0
+chk "type desactive : reste eteint (config)" "$(docker exec isno-cloud-server grep -c '"device-volet"' /data/portal.config.json)" 1
+chk "type volet reactive (le portail redemarre)" "$(apiJ /api/plugins/enable '{"id":"device-volet"}')" 200
+wait_restart
+# apres redemarrage, l'etat des appareils revient du broker (messages retenus) en quelques secondes
+for _ in $(seq 1 20); do curl -s -b "$J" "$B/" | grep -q 'data-slug="salon"' && break; sleep 1; done
+chk "type reactive : la carte de commande revient" "$(curl -s -b "$J" "$B/" | grep -c 'data-slug="salon"')" 1
 chk "desactive : le secret partage est garde" "$(docker exec isno-cloud-server node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync("/data/plugin-secrets.json","utf8"))["external-auth"]||"")')" "$SEC"
 
 echo "== Instance : adresse du portail modifiable apres verification"
