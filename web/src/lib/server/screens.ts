@@ -11,7 +11,9 @@ import { localAccountsSettings, totpAllowed, totpRequiredFor } from '@openclouda
 import { newChallenge, captchaSvg } from '@opencloudapp/core/captcha.js';
 import { signingKey } from '@opencloudapp/core/session.js';
 import { mailEnabled, smtpConfig, SMTP_SECURITY } from '@opencloudapp/core/mail.js';
-import { resolveAccountId, requireAdmin, requireUserAdmin, loginRedirect, localLoginEnabled } from '#lib/server/auth.ts';
+import { resolveAccountId, requireAdmin, requireUserAdmin, loginRedirect, localLoginEnabled, plugins } from '#lib/server/auth.ts';
+import { listThemes } from '@opencloudapp/core/themes.js';
+import { DEFAULT_THEME_ID } from '@opencloudapp/core/plugins/theme-isno.js';
 import { getAccountInfo, listBoitiers, listAppareils, getBoitier } from '#lib/server/cloud-data.ts';
 import { listCatalogPlugins } from '#lib/server/supervisor.ts';
 import { accountFromLink } from '#lib/server/password.ts';
@@ -95,12 +97,15 @@ export async function usersScreen(lang: Lang, request: Request) {
 
 export async function settingsScreen(lang: Lang, request: Request) {
   await requireOperator(request, lang);
+  await plugins();   // les themes viennent des plugins
   const s = t(lang);
   const cfg = loadConfig();
   const smtp = smtpConfig();
   const secLabel = { [SMTP_SECURITY.starttls]: 'STARTTLS', [SMTP_SECURITY.tls]: 'TLS', [SMTP_SECURITY.none]: s.smtpSecNone };
   return {
     appName: cfg?.appName ?? '',
+    theme: cfg?.theme ?? DEFAULT_THEME_ID,
+    themeOptions: listThemes().map((th) => ({ value: th.id, label: th.label[lang] })),
     // valeurs initiales de la messagerie ; le mot de passe n'est jamais renvoye au navigateur
     smtp: {
       host: smtp?.host ?? '', port: smtp?.port ?? 587, security: smtp?.security ?? SMTP_SECURITY.starttls, user: smtp?.user ?? '',

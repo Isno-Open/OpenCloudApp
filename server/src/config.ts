@@ -24,6 +24,8 @@ export type PortalConfig = {
   plugins?: string[];
   /** Plugins integres actives d'office (types d'appareils) que l'operateur a desactives. */
   pluginsOff?: string[];
+  /** Theme choisi dans Parametres (identifiant d'un theme declare) ; absent : le theme ISNO. */
+  theme?: string;
   // Nom du portail (barre et titre des onglets). Absent : la marque par defaut.
   appName?: string;
   // Reglages propres a chaque greffon, par identifiant (chaque greffon valide les siens).

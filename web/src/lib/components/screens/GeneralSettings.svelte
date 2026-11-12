@@ -8,14 +8,14 @@
 
   export type SmtpInitial = { host: string; port: number; security: string; user: string; passKept: boolean; fromEmail: string; fromName: string };
   interface Props {
-    lang: Lang; appName: string; smtp: SmtpInitial; smtpOn: boolean;
+    lang: Lang; appName: string; theme: string; themeOptions: { value: string; label: string }[]; smtp: SmtpInitial; smtpOn: boolean;
     securityOptions: { value: string; label: string }[];
   }
   const props: Props = $props();
   const s = $derived(t(props.lang));
 
   // valeurs du formulaire, initialisees une fois depuis le serveur
-  const init = (): SmtpInitial & { appName: string; pass: string } => ({ ...props.smtp, appName: props.appName, pass: '' });
+  const init = (): SmtpInitial & { appName: string; theme: string; pass: string } => ({ ...props.smtp, appName: props.appName, theme: props.theme, pass: '' });
   let f = $state(init());
   let msg = $state<{ state: SaveState; text: string }>({ state: SAVE.idle, text: '' });
   let testing = $state(false);
@@ -27,6 +27,7 @@
     msg = { state: SAVE.pending, text: '' };
     const r = await postJson('/api/settings/general', {
       appName: f.appName,
+      theme: f.theme,
       smtp: { host: f.host.trim(), port: Number(f.port), security: f.security, user: f.user.trim(), pass: f.pass, fromEmail: f.fromEmail.trim(), fromName: f.fromName.trim() },
     }, s.saveError, ignoreBody);
     msg = r.ok ? { state: SAVE.ok, text: s.savedMsg } : { state: SAVE.err, text: r.error };
@@ -43,6 +44,10 @@
 <form class="panel" id="generalForm" onsubmit={save}>
   <h3>{s.generalTitle}</h3>
   <Field label={s.appNameLabel} forId="appName" hint={s.appNameHint}><input id="appName" type="text" maxlength="60" bind:value={f.appName} placeholder="ISNO Cloud" /></Field>
+
+  <Field label={s.themeLabel} forId="theme" hint={s.themeHint}>
+    <select id="theme" bind:value={f.theme}>{#each props.themeOptions as o (o.value)}<option value={o.value}>{o.label}</option>{/each}</select>
+  </Field>
 
   <h4 class="subhead">{s.smtpTitle} {#if !props.smtpOn}<span class="ro">{s.smtpOff}</span>{/if}</h4>
   <p class="hint" style="margin:0 0 .5rem">{s.smtpIntro}</p>

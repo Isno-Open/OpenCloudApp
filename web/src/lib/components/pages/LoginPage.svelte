@@ -14,7 +14,7 @@
   } satisfies Record<LoginError, string>);
 </script>
 
-<BareLayout title={s.signInTitle} lang={data.lang} portalName={data.shell.portalName}>
+<BareLayout title={s.signInTitle} lang={data.lang} portalName={data.shell.portalName} theme={data.shell.theme}>
   <AuthShell shell={data.shell}>
     {#if data.none}
       <div class="login-box"><p class="note">{s.noLoginMethod}</p></div>

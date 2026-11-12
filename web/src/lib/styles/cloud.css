@@ -274,3 +274,5 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.015em; margin: 0; }
 .tag-ok { font-size: .78rem; color: var(--ok); white-space: nowrap; }
 .plugin-row .mono { font-family: var(--font-mono); font-size: .8rem; word-break: break-all; }
 .panel.spaced { margin-top: .9rem; }
+.brand-logo { height: 26px; width: auto; max-width: 160px; object-fit: contain; display: block; }
+.login-mark .brand-logo { height: 34px; margin: 0 auto .4rem; }

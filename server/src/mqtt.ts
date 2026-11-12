@@ -52,6 +52,21 @@ export function applyCoverMessage(covers: Map<string, Map<string, Cover>>, topic
 const covers = new Map<string, Map<string, Cover>>();
 export const coversOf = (deviceId: string): Cover[] => [...(covers.get(deviceId)?.values() ?? [])];
 
+/** Presence d'un boitier, telle qu'il l'annonce : « online » (retenu) a sa connexion, et « offline »
+ *  par son testament (LWT), que le broker publie lui-meme s'il disparait. */
+export const DEVICE_PRESENCE = { online: "online", offline: "offline" } as const;
+const presence = new Map<string, boolean>();
+/** Applique un message de presence (openprofalux/<device>/status). Fonction pure (testable). */
+export function applyStatusMessage(map: Map<string, boolean>, topic: string, payload: string): void {
+  const m = /^openprofalux\/([^/]+)\/status$/.exec(topic);
+  if (!m) return;
+  const p = payload.trim();
+  if (p === DEVICE_PRESENCE.online) map.set(m[1]!, true);
+  else if (p === DEVICE_PRESENCE.offline) map.set(m[1]!, false);
+}
+/** Le boitier est-il connecte ? Faute d'annonce (jamais vu), non. */
+export const deviceOnline = (deviceId: string): boolean => presence.get(deviceId) === true;
+
 let client: MqttClient | null = null;
 function get(brokerUrl: string): MqttClient {
   if (client) return client;
@@ -62,14 +77,22 @@ function get(brokerUrl: string): MqttClient {
     rejectUnauthorized: true,
   });
   client.on("error", (e: Error) => console.error("[mqtt relay]", e.message));
-  client.on("message", (t: string, p: Buffer) => applyCoverMessage(covers, t, p.toString("utf8")));
+  client.on("message", (t: string, p: Buffer) => {
+    const payload = p.toString("utf8");
+    applyCoverMessage(covers, t, payload);
+    applyStatusMessage(presence, t, payload);
+  });
   return client;
 }
 /** Démarre le relais vers le broker (adresse INTERNE à la pile, fournie par le catalogue du
- *  superviseur) et l'abonnement à l'état des covers (retained => peuplé au branchement). */
+ *  superviseur) et l'abonnement à l'état des covers et à la présence des boîtiers (retenus => peuplés au
+ *  branchement). */
 export function startRelay(brokerUrl: string): void {
   const c = get(brokerUrl);
-  const sub = (): void => { for (const leaf of ["attrs", "state", "position"]) c.subscribe(`openprofalux/+/cover/+/${leaf}`, { qos: 0 }); };
+  const sub = (): void => {
+    for (const leaf of ["attrs", "state", "position"]) c.subscribe(`openprofalux/+/cover/+/${leaf}`, { qos: 0 });
+    c.subscribe("openprofalux/+/status", { qos: 1 });   // presence des boitiers (retenue, LWT)
+  };
   c.on("connect", sub);
   if (c.connected) sub();
 }

@@ -5,7 +5,7 @@
   const { data }: { data: SetupData } = $props();
 </script>
 
-<BareLayout title="Configuration" lang={data.lang} portalName={data.shell.portalName}>
+<BareLayout title="Configuration" lang={data.lang} portalName={data.shell.portalName} theme={data.shell.theme}>
   <SetupWizard remaining={data.remaining} windowMin={data.windowMin} kinds={data.kinds} checkLabels={data.checkLabels}
     userAdminLabel={data.userAdminLabel} userAdminHint={data.userAdminHint} loginUrl={data.loginUrl} />
 </BareLayout>

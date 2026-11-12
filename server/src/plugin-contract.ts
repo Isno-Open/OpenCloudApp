@@ -48,3 +48,25 @@ export type DeviceTypeDecl = {
   icon: DeviceIcon;
   actions: { up: LocalizedText; stop: LocalizedText; down: LocalizedText };
 };
+
+/** Jetons de couleur qu'un theme peut redefinir (variables CSS du portail, --<nom>). Leurs valeurs par
+ *  defaut vivent dans web/src/lib/styles/tokens.css ; un banc verifie que chaque nom y existe. */
+export const THEME_TOKENS = [
+  "bg", "bg-elev", "bg-code", "text", "text-soft", "text-muted", "text-faint", "border", "border-soft",
+  "accent", "accent-hover", "accent-soft", "accent2", "link", "link-hover", "ok", "ok-soft",
+  "accent-fg", "accent-weak", "accent-line", "warn", "danger",
+] as const;
+export type ThemeToken = (typeof THEME_TOKENS)[number];
+export type ThemePalette = Partial<Record<ThemeToken, string>>;
+
+/** Theme DECLARE par un plugin : couleurs (sombre et clair), polices (familles Google Fonts) et logo
+ *  (image en data: URL, PNG, WebP ou SVG, montree comme une image). Rien de libre : ni CSS, ni
+ *  balisage. Le pied « powered by » n'est pas thematisable. */
+export type ThemeDecl = {
+  id: string;
+  label: LocalizedText;
+  dark?: ThemePalette;
+  light?: ThemePalette;
+  fonts?: { sans?: string; mono?: string };
+  logo?: { src: string; alt?: LocalizedText };
+};

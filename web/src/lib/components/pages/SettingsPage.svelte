@@ -15,7 +15,7 @@
 <CloudLayout title={s.settingsTitle} lang={data.lang} altUrl={ROUTES.parametres[otherLang(data.lang)]} shell={data.shell}>
   <div class="page-head"><h1>{s.settingsTitle}</h1></div>
   <p class="lead">{s.settingsLead}</p>
-  <GeneralSettings lang={data.lang} appName={data.appName} smtp={data.smtp} smtpOn={data.smtpOn} securityOptions={data.securityOptions} />
+  <GeneralSettings lang={data.lang} appName={data.appName} theme={data.theme} themeOptions={data.themeOptions} smtp={data.smtp} smtpOn={data.smtpOn} securityOptions={data.securityOptions} />
   <Panel title={s.instanceTitle} spaced>
     <PortalHostForm lang={data.lang} host={data.appHost} />
     <KeyValue label={s.brokerUrlLabel}>{data.brokerUrl} <span class="ro">{s.readonly}</span></KeyValue>

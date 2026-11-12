@@ -8,6 +8,8 @@
 import { externalAuthPlugin } from "./plugins/external-auth.js";
 import { shutterTypePlugin, gateTypePlugin } from "./plugins/device-types.js";
 import { registerDeviceType } from "./device-types.js";
+import { registerTheme } from "./themes.js";
+import { isnoThemePlugin } from "./plugins/theme-isno.js";
 import type { PortalConfig } from "./config.js";
 import { registerAuthProvider, localProvider } from "./auth-provider.js";
 import { ensureAccount } from "./store.js";
@@ -22,13 +24,13 @@ export { CAPABILITY, type Capability, type Plugin, type PluginApi, type PluginIn
 /** Greffons livres avec le portail. */
 export const BUILTIN_PLUGINS: Record<string, Plugin> = {
   [localAccountsPlugin.id]: localAccountsPlugin, [externalAuthPlugin.id]: externalAuthPlugin,
-  [shutterTypePlugin.id]: shutterTypePlugin, [gateTypePlugin.id]: gateTypePlugin,
+  [shutterTypePlugin.id]: shutterTypePlugin, [gateTypePlugin.id]: gateTypePlugin, [isnoThemePlugin.id]: isnoThemePlugin,
 };
 /** Actives quand la config n'en dit rien. */
 export const DEFAULT_PLUGINS: readonly string[] = [localAccountsPlugin.id];
 /** Integres actives D'OFFICE, meme sur une instance deja configuree (sa liste ne les nomme pas) :
  *  seul un retrait explicite (pluginsOff) les eteint. Ce sont les types d'appareils de base. */
-export const ALWAYS_ON_PLUGINS: readonly string[] = [shutterTypePlugin.id, gateTypePlugin.id];
+export const ALWAYS_ON_PLUGINS: readonly string[] = [shutterTypePlugin.id, gateTypePlugin.id, isnoThemePlugin.id];
 
 const installed: PluginInfo[] = [];
 const settingsById = new Map<string, PluginSettings>();
@@ -49,6 +51,7 @@ async function registerOne(p: Plugin, builtin: boolean): Promise<void> {
     ensureAccount,
     defaultCap: DEFAULT_CAP,
     registerDeviceType,
+    registerTheme,
   };
   await p.register(api);
   installed.push({ id: p.id, title: p.title, description: p.description, builtin, configurable: !!p.settings });

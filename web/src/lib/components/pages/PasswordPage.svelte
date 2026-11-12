@@ -11,7 +11,7 @@
   const forgot = $derived(data.mode === PASSWORD_MODE.forgot);
 </script>
 
-<BareLayout title={forgot ? s.forgotTitle : s.setPasswordTitle} lang={data.lang} portalName={data.shell.portalName}>
+<BareLayout title={forgot ? s.forgotTitle : s.setPasswordTitle} lang={data.lang} portalName={data.shell.portalName} theme={data.shell.theme}>
   <AuthShell shell={data.shell}>
     {#if !forgot && !data.valid}
       <div class="login-box">

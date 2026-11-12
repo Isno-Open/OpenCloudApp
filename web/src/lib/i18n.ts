@@ -79,7 +79,7 @@ interface S {
   // utilisateurs : etat de securite
   lockedTag: string; unlockBtn: string; totpResetBtn: string;
   // parametres
-  generalTitle: string; appNameLabel: string; appNameHint: string; saveBtn: string; savedMsg: string; saveError: string;
+  generalTitle: string; appNameLabel: string; appNameHint: string; themeLabel: string; themeHint: string; saveBtn: string; savedMsg: string; saveError: string;
 }
 
 export const STRINGS = {
@@ -177,7 +177,7 @@ export const STRINGS = {
     totpOnNote: 'Double authentification activée.', totpDisable: 'Désactiver (code requis)',
     totpRequiredNotice: 'Ce portail exige la double authentification pour votre compte : activez-la pour continuer.',
     lockedTag: 'bloqué', unlockBtn: 'Débloquer', totpResetBtn: 'Réinitialiser la 2FA',
-    generalTitle: 'Général', appNameLabel: 'Nom du portail', appNameHint: 'Affiché dans la barre et le titre des onglets. Vide : la marque par défaut.',
+    generalTitle: 'Général', themeLabel: 'Thème', themeHint: 'Couleurs, polices et logo du portail, apportés par les plugins de thème. Le pied de page reste celui d’origine.', appNameLabel: 'Nom du portail', appNameHint: 'Affiché dans la barre et le titre des onglets. Vide : la marque par défaut.',
     saveBtn: 'Enregistrer', savedMsg: 'Enregistré.', saveError: 'Enregistrement impossible.',
   },
   [LANG.en]: {
@@ -274,7 +274,7 @@ export const STRINGS = {
     totpOnNote: 'Two-factor authentication is on.', totpDisable: 'Disable (code required)',
     totpRequiredNotice: 'This portal requires two-factor authentication for your account: enable it to continue.',
     lockedTag: 'locked', unlockBtn: 'Unlock', totpResetBtn: 'Reset 2FA',
-    generalTitle: 'General', appNameLabel: 'Portal name', appNameHint: 'Shown in the top bar and tab titles. Empty: default branding.',
+    generalTitle: 'General', themeLabel: 'Theme', themeHint: 'Portal colors, fonts and logo, brought by theme plugins. The page footer stays the original one.', appNameLabel: 'Portal name', appNameHint: 'Shown in the top bar and tab titles. Empty: default branding.',
     saveBtn: 'Save', savedMsg: 'Saved.', saveError: 'Could not save.',
   },
 } satisfies Record<Lang, S>;

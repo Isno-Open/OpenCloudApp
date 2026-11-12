@@ -1,11 +1,13 @@
 <script lang="ts">
-  // Marque du portail : son nom s'il a ete personnalise, sinon « isno.fr ». Meme rendu dans la barre et
-  // au-dessus des ecrans de connexion (avec ou sans les ondes).
+  // Marque du portail : le logo du theme s'il en a un (sinon les ondes ISNO), puis son nom s'il a ete
+  // personnalise, sinon « isno.fr ». Meme rendu dans la barre et au-dessus des ecrans de connexion.
   import type { Shell } from '#lib/shell.ts';
-  const { shell, withWaves = false }: { shell: Pick<Shell, 'portalName' | 'portalNameIsCustom'>; withWaves?: boolean } = $props();
+  const { shell, withWaves = false }: { shell: Pick<Shell, 'portalName' | 'portalNameIsCustom' | 'theme'>; withWaves?: boolean } = $props();
 </script>
 
-{#if withWaves}
+{#if shell.theme.logo}
+  <img class="brand-logo" src={shell.theme.logo.src} alt={shell.theme.logo.alt} />
+{:else if withWaves}
   <svg class="rf" viewBox="0 0 28 28" aria-hidden="true">
     <circle cx="6" cy="14" r="2.6" fill="currentColor"></circle>
     <g fill="none" stroke="currentColor" stroke-linecap="round">

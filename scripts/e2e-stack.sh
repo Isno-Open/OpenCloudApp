@@ -110,12 +110,24 @@ PUB=(eclipse-mosquitto:2.0.22 mosquitto_pub -h "$LAN" -p 18883 --cafile /d/ca.pe
 docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "openprofalux/$ID/cover/salon/attrs" -m '{"type":"volet","positional":true}'
 docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "openprofalux/$ID/cover/pergola/attrs" -m '{"type":"pergola","positional":false}'
 docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "openprofalux/$ID/cover/mystere/attrs" -m '{"positional":false}'
+# presence annoncee par le boitier (comme le firmware : online retenu a la connexion)
+docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "openprofalux/$ID/status" -m 'online'
 sleep 3; PAGE=$(curl -s -b "$J" "$B/")
+# commandes du salon actives ou non : on lit les boutons de SA carte (data-slug="salon")
+salon_disabled() { curl -s -b "$J" "$B/" | grep -o 'data-slug="salon">.\{0,40\}<button[^>]*>' | grep -c 'disabled'; }
+chk "presence : boitier annonce en ligne, commandes actives" "$(salon_disabled)" 0
 chk "type gere : une carte de commande" "$(echo "$PAGE" | grep -c 'data-slug="salon"')" 1
 chk "type gere : libelles declares par son plugin" "$(echo "$PAGE" | grep -c 'aria-label="Montée"')" 1
 chk "type non gere : pas de commandes" "$(echo "$PAGE" | grep -c 'data-slug="pergola"')" 0
 chk "type non gere : nomme dans la carte inconnue" "$(echo "$PAGE" | grep -c 'Type « pergola » non géré par ce portail.')" 1
 chk "aucun type declare : dit tel quel" "$(echo "$PAGE" | grep -c 'Le boîtier ne déclare aucun type pour cet appareil.')" 1
+# le boitier disparait : son testament (offline, retenu) est publie par le broker a sa place
+docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "openprofalux/$ID/status" -m 'offline'
+sleep 3
+chk "presence : boitier hors ligne (testament), commandes coupees" "$(salon_disabled)" 1
+chk "presence : etat hors ligne affiche malgre les etats retenus de ses appareils" "$(curl -s -b "$J" "$B/" | grep -o 'class="grp-head"[^>]*>.\{0,40\}class="dot off"' | wc -l)" 1
+docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "openprofalux/$ID/status" -m 'online'
+sleep 2
 
 echo "== reconciliation : la config change de nom, le certificat suit"
 FP1=$(docker exec isno-cloud-server openssl x509 -in /broker-certs/server.crt -noout -fingerprint -sha256)
@@ -254,9 +266,19 @@ chk "mise a jour : le portail recharge (redemarrage)" "$(apiJ /api/plugins/enabl
 wait_restart
 chk "apres mise a jour : plus rien a mettre a jour" "$(curl -s -b "$J" "$B/plugins" | grep -c 'Mettre à jour')" 0
 chk "apres mise a jour : toujours installe" "$(curl -s -b "$J" "$B/plugins" | grep -c 'href="/plugins/example"')" 1
+echo "== themes : un plugin apporte couleurs et logo ; le pied « powered by » ne change pas"
+chk "theme du plugin propose dans Parametres" "$(curl -s -b "$J" "$B/parametres" | grep -c '<option value="example"')" 1
+chk "theme inconnu refuse" "$(apiJ /api/settings/general '{"theme":"nexiste-pas"}')" 400
+chk "theme choisi" "$(apiJ /api/settings/general '{"theme":"example"}')" 200
+TP=$(curl -s -b "$J" "$B/")
+chk "theme applique : couleur d'accent" "$(echo "$TP" | grep -c '<style id="portal-theme">:root{--accent:#ff7a1a;')" 1
+chk "theme applique : logo dans la barre" "$(echo "$TP" | grep -o '<img class="brand-logo" src="data:image/png;base64,' | wc -l)" 1
+chk "theme applique : le pied « powered by » est toujours la" "$(echo "$TP" | grep -o 'class="foot">.\{0,120\}href="https://www.isno.fr"' | wc -l)" 1
+chk "theme applique aussi a la connexion" "$(curl -s "$B/connexion?local=1" | grep -c 'id="portal-theme"')" 1
 chk "desinstallation (le portail redemarre)" "$(apiJ /api/plugins/disable '{"id":"example"}')" 200
 wait_restart
 chk "apres desinstallation : de nouveau propose" "$(curl -s -b "$J" "$B/plugins" | grep -c 'data-install="example"')" 1
+chk "plugin du theme retire : retour au theme ISNO (pas de feuille de theme)" "$(curl -s -b "$J" "$B/" | grep -c 'id="portal-theme"')" 0
 for _ in $(seq 1 20); do docker run --rm -v isno-plugins:/p:ro busybox:1.38.0-musl test -e /p/example || break; sleep 1; done
 chk "apres desinstallation : code retire du volume" "$(docker run --rm -v isno-plugins:/p:ro busybox:1.38.0-musl sh -c 'test -e /p/example && echo present || echo absent')" absent
 

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ACTIONS, cmdTopic, cmdPayload, applyCoverMessage, type Cover } from "./mqtt.js";
+import { ACTIONS, cmdTopic, cmdPayload, applyCoverMessage, applyStatusMessage, type Cover } from "./mqtt.js";
 
 test("le topic cible device + cover (namespace de l'ACL)", () => {
   assert.equal(cmdTopic("opf-1", "salon"), "openprofalux/opf-1/cover/salon/set");
@@ -43,4 +43,16 @@ test("attrs non-JSON n'explose pas et ne corrompt pas le cover", () => {
   const c = covers();
   applyCoverMessage(c, "openprofalux/dev1/cover/salon/attrs", "pas du json");
   assert.ok(c.get("dev1")!.get("salon"));   // cover créé, valeurs par défaut
+});
+
+test("presence : online et offline (testament) annonces par le boitier ; le reste ignore", () => {
+  const p = new Map<string, boolean>();
+  applyStatusMessage(p, "openprofalux/dev1/status", "online");
+  assert.equal(p.get("dev1"), true);
+  applyStatusMessage(p, "openprofalux/dev1/status", "offline");
+  assert.equal(p.get("dev1"), false);
+  applyStatusMessage(p, "openprofalux/dev2/status", "peut-etre");
+  assert.equal(p.has("dev2"), false);
+  applyStatusMessage(p, "openprofalux/dev3/cover/x/status", "online");
+  assert.equal(p.has("dev3"), false);
 });

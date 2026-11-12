@@ -8,6 +8,9 @@
 import type { Plugin } from "../../server/src/plugin-types.js";
 import { SETTING_KIND } from "../../server/src/plugin-contract.js";
 
+// logo d'exemple : une image PNG de 1 pixel
+const LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
 type ExampleSettings = { greet: boolean; times: number };
 const DEFAULTS: ExampleSettings = { greet: true, times: 1 };
 const read = (raw: unknown): ExampleSettings => {
@@ -28,8 +31,16 @@ const plugin: Plugin = {
     toForm: (stored) => read(stored),
     fromForm: (input) => read(input),
   },
-  register() {
+  register(api) {
     console.log("[plugin example] charge");
+    // un theme d'exemple : une couleur d'accent et un logo (image en data: URL, verifiee par le coeur)
+    api.registerTheme({
+      id: "example",
+      label: { fr: "Exemple", en: "Example" },
+      dark: { accent: "#ff7a1a", "accent-hover": "#ff9a4d" },
+      light: { accent: "#c2560a" },
+      logo: { src: LOGO, alt: { fr: "Logo d'exemple", en: "Example logo" } },
+    });
   },
 };
 export default plugin;
