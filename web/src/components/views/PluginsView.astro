@@ -18,7 +18,7 @@ const catalog = await listCatalogPlugins(sources);
 type Entry = { id: string; title: string; description?: { fr: string; en: string }; origin: string; builtin: boolean };
 const entries: Entry[] = [
   ...Object.values(BUILTIN_PLUGINS).map((p) => ({ id: p.id, title: p.title, description: p.description, origin: s.pluginBuiltin, builtin: true })),
-  ...(catalog.ok ? catalog.plugins.map((p) => ({ id: p.id, title: p.title, description: p.description, origin: p.official ? s.pluginCatalog : new URL(p.source).host, builtin: false })) : []),
+  ...(catalog.ok ? catalog.plugins.map((p) => ({ id: p.id, title: p.title, description: p.description, origin: p.official ? s.pluginCatalog : p.local ? s.pluginLocal : new URL(p.source).host, builtin: false })) : []),
 ];
 const sourceErrors = catalog.ok ? catalog.errors : [];
 ---

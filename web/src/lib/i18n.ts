@@ -65,7 +65,7 @@ interface S {
   linkExpired: string; askNewLink: string; passwordSetOk: string;
   userPassInviteHint: string; invitedTag: string; resendInviteBtn: string;
   pluginSettings: string; pluginSettingsLead: string; pluginsLead: string; pluginsInstalled: string;
-  pluginCatalog: string; pluginInstall: string; pluginEnable: string; pluginDisable: string; pluginRemove: string;
+  pluginCatalog: string; pluginLocal: string; pluginInstall: string; pluginEnable: string; pluginDisable: string; pluginRemove: string;
   pluginsCatalogDown: string; pluginsNoneInstalled: string; pluginsCatalogTitle: string; pluginIsInstalled: string;
   pluginSourcesTitle: string; pluginSourceIsno: string; pluginSourceRemove: string; pluginSourceAdd: string; pluginSourceAddBtn: string; pluginSourceWarn: string;
   setupUserAdmin: string; setupUserAdminHint: string; pluginRestarting: string; pluginInstalling: string;
@@ -148,7 +148,7 @@ export const STRINGS = {
     userPassInviteHint: "Laissez vide pour envoyer une invitation par e-mail : l'utilisateur choisira son mot de passe.", invitedTag: 'invité', resendInviteBtn: "Renvoyer l'invitation",
     pluginSettings: 'Réglages', pluginSettingsLead: 'Réglages de ce plugin.',
     pluginsLead: 'Ce que le portail sait faire en plus de son cœur. Activer ou retirer un plugin redémarre le portail (quelques secondes).',
-    pluginsInstalled: 'Installés', pluginCatalog: 'catalogue ISNO', pluginInstall: 'Installer', pluginEnable: 'Activer',
+    pluginsInstalled: 'Installés', pluginCatalog: 'catalogue ISNO', pluginLocal: 'cette instance', pluginInstall: 'Installer', pluginEnable: 'Activer',
     pluginDisable: 'Désactiver', pluginRemove: 'Désinstaller',
     pluginsCatalogDown: 'Catalogue indisponible', pluginsNoneInstalled: 'Aucun plugin : le portail fonctionne avec le seul compte créé à l\'installation.',
     pluginsCatalogTitle: 'Catalogue', pluginIsInstalled: 'installé',
@@ -244,7 +244,7 @@ export const STRINGS = {
     userPassInviteHint: 'Leave empty to send an email invitation: the user will choose their password.', invitedTag: 'invited', resendInviteBtn: 'Resend invitation',
     pluginSettings: 'Settings', pluginSettingsLead: 'Settings of this plugin.',
     pluginsLead: 'What the portal can do beyond its core. Enabling or removing a plugin restarts the portal (a few seconds).',
-    pluginsInstalled: 'Installed', pluginCatalog: 'ISNO catalog', pluginInstall: 'Install', pluginEnable: 'Enable',
+    pluginsInstalled: 'Installed', pluginCatalog: 'ISNO catalog', pluginLocal: 'this instance', pluginInstall: 'Install', pluginEnable: 'Enable',
     pluginDisable: 'Disable', pluginRemove: 'Uninstall',
     pluginsCatalogDown: 'Catalog unavailable', pluginsNoneInstalled: 'No plugin: the portal runs with the single account created at installation.',
     pluginsCatalogTitle: 'Catalog', pluginIsInstalled: 'installed',

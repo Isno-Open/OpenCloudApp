@@ -32,7 +32,7 @@ export const restartModule = (id: string): Promise<SupervisorResult> => call('PO
 export const BROKER_MODULE = 'broker';
 
 /** Plugin du catalogue ISNO, vu par le superviseur (busy : installation ou retrait en cours). */
-export type CatalogPlugin = { id: string; title: string; description: { fr: string; en: string }; busy: boolean; progress: number; error?: string; source: string; official: boolean };
+export type CatalogPlugin = { id: string; title: string; description: { fr: string; en: string }; busy: boolean; progress: number; error?: string; source: string; official: boolean; local: boolean };
 export type CatalogView = { plugins: CatalogPlugin[]; errors: { source: string; error: string; unreadable: boolean }[] };
 export type PluginsResult = ({ ok: true } & CatalogView) | { ok: false; error: string };
 

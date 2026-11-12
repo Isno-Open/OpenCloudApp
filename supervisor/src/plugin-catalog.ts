@@ -35,6 +35,8 @@ export const loadPluginCatalog = (path: string): PluginCatalog => validatePlugin
 
 /** Source du catalogue ISNO, livre avec cette version (toujours prioritaire). */
 export const ISNO_SOURCE = "isno";
+/** Source du catalogue propre a CETTE instance (fichier pose par son administrateur, ex. plugin prive). */
+export const LOCAL_SOURCE = "local";
 /** Adresse d'une source ajoutee : https seulement (le contenu decide du code qui tournera dans le portail). */
 export const isSourceUrl = (u: string): boolean => { try { return new URL(u).protocol === "https:" && u.length <= 500; } catch { return false; } };
 

@@ -8,7 +8,7 @@ import { dirname } from "node:path";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { loadCatalog } from "./catalog.js";
 import { moduleStatus, startInstall, restartModule } from "./install.js";
-import { loadPluginCatalog, mergeCatalogs, isSourceUrl, PLUGIN_ACTION, ISNO_SOURCE, type MergedCatalog, type SourceError } from "./plugin-catalog.js";
+import { loadPluginCatalog, mergeCatalogs, isSourceUrl, PLUGIN_ACTION, ISNO_SOURCE, LOCAL_SOURCE, type MergedCatalog, type SourceError } from "./plugin-catalog.js";
 import { pluginStatus, startPluginJob } from "./plugin-install.js";
 
 const PORT = Number(process.env.PORT ?? 8090);
@@ -19,8 +19,13 @@ if (!NETWORK) throw new Error("STACK_NETWORK requis (reseau de la pile auquel ra
 
 const catalog = loadCatalog(CATALOG);
 const isnoPlugins = loadPluginCatalog(process.env.PLUGIN_CATALOG_PATH ?? new URL("../plugins.json", import.meta.url).pathname);
-// catalogue courant : ISNO + sources ajoutees par l'operateur (relues a chaque ouverture de la page Plugins)
-let merged: MergedCatalog = mergeCatalogs(isnoPlugins, []);
+// Catalogue de CETTE instance (facultatif) : fichier monte par l'administrateur de la machine, pour un
+// plugin qui ne regarde qu'elle (ex. plugin prive, image construite sur place). Lu au demarrage.
+const LOCAL_CATALOG = process.env.PLUGIN_LOCAL_CATALOG_PATH ?? "";
+const localRaw: { source: string; raw: unknown }[] = LOCAL_CATALOG ? [{ source: LOCAL_SOURCE, raw: JSON.parse(readFileSync(LOCAL_CATALOG, "utf8")) }] : [];
+// catalogue courant : ISNO, puis local, puis sources ajoutees par l'operateur (relues a chaque ouverture
+// de la page Plugins). Un identifiant deja pris n'est jamais remplace.
+let merged: MergedCatalog = mergeCatalogs(isnoPlugins, localRaw);
 
 async function readBodyJson(req: IncomingMessage): Promise<unknown> {
   let raw = "";
@@ -41,11 +46,11 @@ async function refreshSources(urls: string[]): Promise<void> {
       extra.push({ source: url, raw: JSON.parse(text) });
     } catch (e) { errors.push({ source: url, error: e instanceof Error ? e.message : String(e), unreadable: true }); }
   }
-  const m = mergeCatalogs(isnoPlugins, extra);
+  const m = mergeCatalogs(isnoPlugins, [...localRaw, ...extra]);
   merged = { ...m, errors: [...errors, ...m.errors] };
 }
 // official : la DECISION « catalogue ISNO » est prise ici, l'app ne compare pas le nom de la source
-const describe = (id: string) => ({ ...pluginStatus(merged.plugins, id), source: merged.sourceOf[id], official: merged.sourceOf[id] === ISNO_SOURCE });
+const describe = (id: string) => ({ ...pluginStatus(merged.plugins, id), source: merged.sourceOf[id], official: merged.sourceOf[id] === ISNO_SOURCE, local: merged.sourceOf[id] === LOCAL_SOURCE });
 const pluginList = () => Object.keys(merged.plugins).map(describe);
 
 function ensureToken(): string {
@@ -99,4 +104,4 @@ createServer(async (req, res) => {
   } catch (e) {
     return send(res, 500, { error: e instanceof Error ? e.message : String(e) });
   }
-}).listen(PORT, "0.0.0.0", () => console.log(`[supervisor] pret sur :${PORT}, modules : ${Object.keys(catalog).join(", ")}, plugins ISNO : ${Object.keys(isnoPlugins).join(", ") || "aucun"}, reseau ${NETWORK}`));
+}).listen(PORT, "0.0.0.0", () => console.log(`[supervisor] pret sur :${PORT}, modules : ${Object.keys(catalog).join(", ")}, plugins ISNO : ${Object.keys(isnoPlugins).join(", ") || "aucun"}, locaux : ${Object.keys(merged.plugins).filter((id) => merged.sourceOf[id] === LOCAL_SOURCE).join(", ") || "aucun"}, reseau ${NETWORK}`));
