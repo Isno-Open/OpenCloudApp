@@ -4,15 +4,16 @@ import '../styles/tokens.css';
 import '../styles/cloud.css';
 import { t, type Lang } from '../lib/i18n.ts';
 import { SPONSOR } from '../lib/sponsor.ts';
+import { portalName, portalNameIsCustom } from '../lib/portal.ts';
 interface Props { title?: string; lang: Lang; }
-const { title = 'ISNO Cloud', lang } = Astro.props;
+const { title, lang } = Astro.props;
 ---
 <!doctype html>
 <html lang={lang}>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>{title}</title>
+  <title>{title ? `${title} · ${portalName()}` : portalName()}</title>
   <script is:inline>
     try { if (localStorage.getItem('theme') === 'light') document.documentElement.setAttribute('data-theme', 'light'); } catch (e) {}
   </script>

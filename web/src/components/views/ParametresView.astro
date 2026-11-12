@@ -1,9 +1,10 @@
 ---
-// Ecran operateur : la configuration de l'instance (choix fait a l'installation). La base est en lecture
-// seule (changer de store se fait par une reinstallation). Les noms publics aussi pour l'instant : les
-// changer demande de reemettre le certificat du broker et de reverifier (meme parcours que /setup).
+// Ecran operateur : reglages de l'instance. General (nom du portail) ; Securite, fournie par le greffon
+// « Comptes locaux » s'il est installe ; base et noms d'hote en lecture seule (les changer demande de
+// reemettre le certificat du broker et de reverifier : meme parcours que /setup) ; greffons installes.
 import { loadConfig, DB_KIND } from '@core/config.js';
 import { installedPlugins } from '@core/plugins.js';
+import { localAccountsSettings, TOTP_POLICY, PLUGIN_ID } from '@core/plugins/local-accounts-settings.js';
 import { t, type Lang } from '../../lib/i18n.ts';
 interface Props { lang: Lang; }
 const { lang } = Astro.props;
@@ -11,22 +12,67 @@ const s = t(lang);
 const cfg = loadConfig();
 const dbLabel = cfg?.db.kind === DB_KIND.mongoExternal ? s.dbMongoExternal
   : cfg?.db.kind === DB_KIND.mongoBundled ? s.dbMongoBundled : s.dbSqlite;
+const plugins = installedPlugins();
+const hasLocal = plugins.some((p) => p.id === PLUGIN_ID);
+const sec = localAccountsSettings();
+const POLICY_LABEL = { [TOTP_POLICY.off]: s.totpPolicyOff, [TOTP_POLICY.optional]: s.totpPolicyOptional, [TOTP_POLICY.operators]: s.totpPolicyOperators, [TOTP_POLICY.all]: s.totpPolicyAll };
 ---
 <div class="page-head"><h1>{s.settingsTitle}</h1></div>
 <p class="lead">{s.settingsLead}</p>
 
-<div class="panel">
-  <div class="kv"><span class="k">{s.dbKindLabel}</span><span class="v">{dbLabel} <span class="ro">{s.readonly}</span></span></div>
-</div>
+<form class="panel" id="generalForm">
+  <h3>{s.generalTitle}</h3>
+  <div class="field"><label for="appName">{s.appNameLabel}</label><input id="appName" type="text" maxlength="60" value={cfg?.appName ?? ''} placeholder="ISNO Cloud" /><span class="hint">{s.appNameHint}</span></div>
+  <div class="row end"><span class="savemsg" id="generalMsg"></span><button class="btn primary" type="submit">{s.saveBtn}</button></div>
+</form>
+
+{hasLocal && (
+  <form class="panel" id="securityForm" style="margin-top:.9rem">
+    <h3>{s.securityTitle} <span class="ro">{s.securityByPlugin}</span></h3>
+    <label class="check"><input type="checkbox" id="secCaptcha" checked={sec.captcha} /> {s.secCaptcha}</label>
+    <label class="check"><input type="checkbox" id="secLockout" checked={sec.lockout.enabled} /> {s.secLockout}</label>
+    <div class="form-grid sub-grid">
+      <div class="field"><label for="secMax">{s.secMaxFailures}</label><input id="secMax" type="number" min="3" max="20" value={sec.lockout.maxFailures} /></div>
+      <div class="field"><label for="secMin">{s.secLockMinutes}</label><input id="secMin" type="number" min="1" max="1440" value={sec.lockout.minutes} /></div>
+    </div>
+    <div class="field"><label for="secTotp">{s.secTotp}</label>
+      <select id="secTotp">{Object.values(TOTP_POLICY).map((v) => <option value={v} selected={v === sec.totp}>{POLICY_LABEL[v]}</option>)}</select>
+    </div>
+    <div class="field"><label for="secPass">{s.secPasswordMin}</label><input id="secPass" type="number" min="8" max="128" value={sec.passwordMinLength} /></div>
+    <div class="row end"><span class="savemsg" id="securityMsg"></span><button class="btn primary" type="submit">{s.saveBtn}</button></div>
+  </form>
+)}
 
 <div class="panel" style="margin-top:.9rem">
+  <div class="kv"><span class="k">{s.dbKindLabel}</span><span class="v">{dbLabel} <span class="ro">{s.readonly}</span></span></div>
   <div class="kv"><span class="k">{s.publicUrlLabel}</span><span class="v">{cfg?.publicAppUrl ?? ''} <span class="ro">{s.readonly}</span></span></div>
   <div class="kv"><span class="k">{s.brokerUrlLabel}</span><span class="v">{cfg?.brokerPublicUrl ?? ''} <span class="ro">{s.readonly}</span></span></div>
 </div>
 
 <div class="panel" style="margin-top:.9rem">
   <h3>{s.pluginsTitle}</h3>
-  {installedPlugins().map((p) => (
+  {plugins.map((p) => (
     <div class="kv"><span class="k">{p.title}</span><span class="v"><span class="ro">{p.builtin ? s.pluginBuiltin : s.pluginExternal}</span></span></div>
   ))}
 </div>
+
+<script is:inline define:vars={{ okMsg: s.savedMsg, errMsg: s.saveError }}>
+  (function () {
+    var $ = function (id) { return document.getElementById(id); };
+    function save(form, url, payload, msgId) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var m = $(msgId); m.className = 'savemsg'; m.textContent = '…';
+        fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload()) })
+          .then(function (r) { m.className = 'savemsg ' + (r.ok ? 'ok' : 'err'); m.textContent = r.ok ? okMsg : errMsg; if (r.ok && url.indexOf('general') > 0) setTimeout(function () { location.reload(); }, 600); })
+          .catch(function () { m.className = 'savemsg err'; m.textContent = errMsg; });
+      });
+    }
+    save($('generalForm'), '/api/settings/general', function () { return { appName: $('appName').value }; }, 'generalMsg');
+    var sf = $('securityForm');
+    if (sf) save(sf, '/api/settings/security', function () {
+      return { captcha: $('secCaptcha').checked, lockoutEnabled: $('secLockout').checked, maxFailures: Number($('secMax').value),
+        lockMinutes: Number($('secMin').value), totp: $('secTotp').value, passwordMinLength: Number($('secPass').value) };
+    }, 'securityMsg');
+  })();
+</script>

@@ -7,6 +7,6 @@ const lang = LANG.en;
 const acc = await requireAdmin(Astro.request);
 if (!acc) return Astro.redirect(ROUTES.appareils[lang]);
 ---
-<CloudLayout title={`${t(lang).settingsTitle} · ISNO Cloud`} lang={lang} altUrl={ROUTES.parametres[LANG.fr]}>
+<CloudLayout title={`${t(lang).settingsTitle}`} lang={lang} altUrl={ROUTES.parametres[LANG.fr]}>
   <ParametresView lang={lang} />
 </CloudLayout>

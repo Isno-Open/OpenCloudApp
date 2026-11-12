@@ -7,6 +7,6 @@ const lang = LANG.en;
 const acc = await resolveAccountId(Astro.request);
 if (!acc) return Astro.redirect(ROUTES.connexion[lang]);
 ---
-<CloudLayout title={`${t(lang).addTitle} · ISNO Cloud`} lang={lang} altUrl={ROUTES.ajouter[LANG.fr]}>
+<CloudLayout title={`${t(lang).addTitle}`} lang={lang} altUrl={ROUTES.ajouter[LANG.fr]}>
   <AjouterView lang={lang} />
 </CloudLayout>

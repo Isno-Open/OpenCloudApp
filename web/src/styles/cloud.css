@@ -169,12 +169,22 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.015em; margin: 0; }
 .code { font-family: var(--font-mono); font-size: 1rem; letter-spacing: .1em; color: var(--accent); background: var(--accent-weak); border: 1px solid var(--accent-line); border-radius: var(--radius-sm); padding: .3rem .6rem; margin-top: .8rem; display: inline-block; }
 .foot { color: var(--text-faint); font-size: .76rem; text-align: center; margin-top: 1.8rem; font-family: var(--font-mono); }
 .bare-wrap { min-height: 100svh; display: grid; place-items: center; padding: 2rem max(16px, env(safe-area-inset-left, 0px)); }
-.login-card { width: 100%; max-width: 22rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.6rem 1.5rem; }
-.login-brand { display: inline-flex; align-items: center; gap: .5rem; font-weight: 800; font-size: 1.2rem; letter-spacing: -.02em; margin-bottom: 1.1rem; }
-.login-brand .rf { width: 26px; height: 24px; color: var(--accent2); }
-.login-brand .tld { color: var(--accent2); }
-.login-card form { display: flex; flex-direction: column; gap: .7rem; }
-.login-card .err { color: var(--danger); font-size: .84rem; margin: 0 0 .2rem; }
+/* connexion : meme visuel que le /admin d'isno.fr (marque au-dessus, carte, titre a empattement) */
+.login { width: 100%; max-width: 360px; }
+.login-mark { display: block; text-align: center; font-family: var(--font-mono); font-size: 1.4rem; font-weight: 700; color: var(--text); margin-bottom: 1.4rem; }
+.login-mark .tld { color: var(--accent); }
+.login-box { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 14px; padding: 1.6rem 1.4rem; display: flex; flex-direction: column; }
+.login-box h1 { font-family: Georgia, 'Source Serif 4', serif; font-size: 1.3rem; font-weight: 700; margin: 0 0 .8rem; }
+.login-box label { font-size: .8rem; color: var(--text-muted); margin: .9rem 0 .3rem; }
+.login-box input:not([type=hidden]) { width: 100%; box-sizing: border-box; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: .6rem .7rem; font: inherit; font-size: 1rem; }
+.login-box input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.login-box input.code { text-transform: uppercase; letter-spacing: .25em; text-align: center; font-family: var(--font-mono); }
+.login-box button { width: 100%; margin-top: 1.4rem; background: var(--accent); color: #fff; border: 0; border-radius: 9px; padding: .7rem 1rem; font: inherit; font-size: 1rem; font-weight: 600; cursor: pointer; }
+.login-box button:hover { filter: brightness(1.12); }
+.login-box .err { background: color-mix(in srgb, var(--danger) 14%, transparent); border: 1px solid color-mix(in srgb, var(--danger) 50%, var(--border)); color: var(--danger); border-radius: 8px; padding: .6rem .8rem; margin: 0 0 .4rem; font-size: .9rem; }
+.login-box .note { margin: 0; }
+.login-captcha { display: flex; flex-direction: column; gap: .5rem; }
+.login-captcha svg { align-self: center; max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; }
 .linkish { color: var(--accent); text-decoration: none; font-size: .85rem; font-weight: 550; display: inline-flex; align-items: center; gap: .3rem; margin-top: .9rem; }
 .linkish:hover { text-decoration: underline; }
 .linkish svg { width: 14px; height: 14px; }
@@ -214,3 +224,13 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.015em; margin: 0; }
 .welcome-steps { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: .35rem; color: var(--text); font-size: .92rem; }
 .legacy { font-size: .84rem; color: var(--text-muted); margin: 0; }
 .legacy a { color: var(--accent); }
+
+.qr { width: 180px; max-width: 100%; background: #fff; padding: 6px; border-radius: var(--radius-sm); }
+.qr svg { display: block; width: 100%; height: auto; }
+.code-in { font-family: var(--font-mono); font-size: 1.05rem; letter-spacing: .15em; width: 9rem; padding: .45rem .6rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-2); color: var(--text); }
+.ut-row .tags { display: flex; gap: .3rem; flex-wrap: wrap; }
+.role.locked { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
+.sub-grid { margin-left: 1.6rem; }
+.field select { font: inherit; font-size: .95rem; padding: .5rem .6rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-2); color: var(--text); }
+.field .hint { font-size: .76rem; color: var(--text-faint); }
+#securityForm .check { display: flex; margin: .35rem 0; }

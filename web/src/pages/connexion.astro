@@ -3,6 +3,10 @@ import BareLayout from '../layouts/BareLayout.astro';
 import LoginView from '../components/views/LoginView.astro';
 import { resolveAccountId, loginRedirect, localLoginEnabled } from '../server/auth.ts';
 import { LANG, ROUTES, t } from '../lib/i18n.ts';
+import { parseLoginError } from '../lib/login.ts';
+import { localAccountsSettings } from '@core/plugins/local-accounts-settings.js';
+import { newChallenge, captchaSvg } from '@core/captcha.js';
+import { signingKey } from '@core/session.js';
 const lang = LANG.fr;
 // deja connecte -> on renvoie vers l'app
 if (await resolveAccountId(Astro.request)) return Astro.redirect(ROUTES.appareils[lang]);
@@ -12,7 +16,10 @@ if (await resolveAccountId(Astro.request)) return Astro.redirect(ROUTES.appareil
 const local = await localLoginEnabled();
 const ext = local && Astro.url.searchParams.get('local') === '1' ? null : await loginRedirect();
 if (ext) return Astro.redirect(ext);
-const error = Astro.url.searchParams.get('e') === '1';
+const error = parseLoginError(Astro.url.searchParams.get('e'));
+const step = Astro.url.searchParams.get('step');
+// captcha : un nouveau defi a chaque affichage, si le reglage est active
+const captcha = local && localAccountsSettings().captcha ? (() => { const c = newChallenge(signingKey()); return { svg: captchaSvg(c.code), token: c.token }; })() : null;
 const none = !local;   // aucun greffon ne fournit de connexion
 ---
-<BareLayout title={`${t(lang).signInTitle} · ISNO Cloud`} lang={lang}><LoginView lang={lang} error={error} none={none} /></BareLayout>
+<BareLayout title={`${t(lang).signInTitle}`} lang={lang}><LoginView lang={lang} error={error} none={none} step={step} captcha={captcha} /></BareLayout>

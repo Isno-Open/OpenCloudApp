@@ -11,6 +11,6 @@ const { id } = Astro.params;
 const b = id ? await getBoitier(id, acc) : undefined;
 if (!b) return Astro.redirect(ROUTES.appareils[lang]);
 ---
-<CloudLayout title={`${b.name} · ISNO Cloud`} lang={lang} altUrl={appareilHref(b.id, LANG.en)}>
+<CloudLayout title={`${b.name}`} lang={lang} altUrl={appareilHref(b.id, LANG.en)}>
   <BoitierView boitier={b} lang={lang} />
 </CloudLayout>

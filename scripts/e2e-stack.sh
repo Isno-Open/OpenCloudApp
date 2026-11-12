@@ -90,6 +90,43 @@ FP2=$(docker exec isno-cloud-server openssl x509 -in /broker-certs/server.crt -n
 chk "certificat reemis au nouveau nom" "$([ "$FP1" != "$FP2" ] && docker exec isno-cloud-server openssl x509 -in /broker-certs/server.crt -noout -ext subjectAltName | tail -1 | grep -c localtest.me)" 1
 chk "le broker presente le nouveau certificat" "$(echo | openssl s_client -connect "$LAN:18883" 2>/dev/null | openssl x509 -noout -fingerprint -sha256)" "$FP2"
 
+echo "== parametres et securite des comptes locaux"
+totp_code() { python3 - "$1" "$2" <<'PY'
+import sys,hmac,hashlib,struct,time,base64
+sec=base64.b32decode(sys.argv[1]+'='*(-len(sys.argv[1])%8)); step=int(time.time()//30)+int(sys.argv[2])
+h=hmac.new(sec,struct.pack('>Q',step),hashlib.sha1).digest(); o=h[-1]&15
+print(str((struct.unpack('>I',h[o:o+4])[0]&0x7fffffff)%1000000).zfill(6))
+PY
+}
+setsec() { curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' -d "$1" "$B/api/settings/security"; }
+login() { curl -s -o /dev/null -w '%{redirect_url}' -c "${3:-/dev/null}" -X POST --data-urlencode "user=$1" --data-urlencode "pass=$2" "$B/api/login"; }
+chk "nom du portail enregistre" "$(curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' -d '{"appName":"Maison Durand"}' "$B/api/settings/general")" 200
+chk "nom du portail dans le titre" "$(curl -s -b "$J" "$B/parametres" | grep -c '<title>Paramètres · Maison Durand</title>')" 1
+chk "reglages de securite enregistres" "$(setsec '{"lockoutEnabled":true,"maxFailures":3,"lockMinutes":1,"totp":"optional","passwordMinLength":12}')" 200
+chk "regle de mot de passe : 10 caracteres refuses (minimum 12)" "$(curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' -d '{"email":"bob@exemple.fr","name":"Bob","password":"court12345","cap":5}' "$B/api/user/new")" 400
+chk "compte bob cree (mot de passe conforme)" "$(curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' -d '{"email":"bob@exemple.fr","name":"Bob","password":"bob-mot-de-passe","cap":5}' "$B/api/user/new")" 200
+for _ in 1 2; do login bob@exemple.fr faux >/dev/null; done
+chk "3e echec : compte bloque" "$(login bob@exemple.fr faux | grep -c 'e=locked')" 1
+chk "bloque : meme le bon mot de passe est refuse" "$(login bob@exemple.fr bob-mot-de-passe | grep -c 'e=locked')" 1
+chk "l'operateur debloque bob" "$(curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' -d '{"id":"bob@exemple.fr"}' "$B/api/user/unlock")" 200
+JB="$WORK/jar-bob"; chk "bob se connecte apres deblocage" "$(login bob@exemple.fr bob-mot-de-passe "$JB")" "$B/"
+chk "captcha active" "$(setsec '{"captcha":true,"lockoutEnabled":true,"maxFailures":3,"lockMinutes":1,"totp":"optional","passwordMinLength":12}')" 200
+chk "captcha : connexion sans le code refusee" "$(login bob@exemple.fr bob-mot-de-passe | grep -c 'e=captcha')" 1
+PAGE=$(curl -s "$B/connexion?local=1"); TOK=$(echo "$PAGE" | grep -o 'name="captcha_token" value="[^"]*"' | cut -d'"' -f4)
+CODE=$(echo "$PAGE" | grep -o '<svg[^§]*</svg>' | head -1 | grep -o '>[A-Z0-9]</text>' | tr -d '<>/text' | tr -d '\n')
+chk "captcha : avec le bon code, connexion acceptee" "$(curl -s -o /dev/null -w '%{redirect_url}' -X POST --data-urlencode 'user=bob@exemple.fr' --data-urlencode 'pass=bob-mot-de-passe' --data-urlencode "captcha=$CODE" --data-urlencode "captcha_token=$TOK" "$B/api/login")" "$B/"
+setsec '{"captcha":false,"lockoutEnabled":true,"maxFailures":3,"lockMinutes":1,"totp":"optional","passwordMinLength":12}' >/dev/null
+SEC=$(curl -s -b "$JB" -X POST "$B/api/account/totp/start" | python3 -c 'import sys,json;print(json.load(sys.stdin)["secret"])')
+chk "2FA : activation confirmee par un code" "$(curl -s -o /dev/null -w '%{http_code}' -b "$JB" -X POST -H 'content-type: application/json' -d "{\"code\":\"$(totp_code "$SEC" 0)\"}" "$B/api/account/totp/confirm")" 200
+JP="$WORK/jar-pending"; chk "2FA : apres le mot de passe, etape du code" "$(login bob@exemple.fr bob-mot-de-passe "$JP" | grep -c 'step=totp')" 1
+NEXT=$(totp_code "$SEC" 1)
+chk "2FA : code juste, session ouverte" "$(curl -s -o /dev/null -w '%{redirect_url}' -b "$JP" -c "$JB" -X POST --data-urlencode "code=$NEXT" "$B/api/login/totp")" "$B/"
+login bob@exemple.fr bob-mot-de-passe "$JP" >/dev/null
+chk "2FA : le meme code rejoue est refuse" "$(curl -s -o /dev/null -w '%{redirect_url}' -b "$JP" -X POST --data-urlencode "code=$NEXT" "$B/api/login/totp" | grep -c 'e=totp')" 1
+chk "politique « exigee pour les operateurs »" "$(setsec '{"lockoutEnabled":false,"totp":"operators","passwordMinLength":12}')" 200
+chk "operateur sans 2FA renvoye vers Compte" "$(curl -s -o /dev/null -w '%{redirect_url}' -b "$J" "$B/")" "$B/compte?totp=required"
+setsec '{"totp":"off"}' >/dev/null
+
 echo "== greffons : la gestion des comptes est un greffon (desactive => ecrans et connexion locale absents)"
 chk "Parametres liste le greffon « Comptes locaux »" "$(curl -s -b "$J" "$B/parametres" | grep -c 'Comptes locaux')" 1
 docker exec isno-cloud-server sh -c "python3 -c 1 2>/dev/null; node -e \"const f='/data/portal.config.json';const c=JSON.parse(require('fs').readFileSync(f));c.plugins=[];require('fs').writeFileSync(f,JSON.stringify(c))\""

@@ -3,11 +3,14 @@
 // et peut en faire des operateurs. Reserve a l'admin (la page gate l'acces).
 import { listAccounts, countDevices } from '@core/store.js';
 import { t, type Lang } from '../../lib/i18n.ts';
+import { localAccountsSettings } from '@core/plugins/local-accounts-settings.js';
 interface Props { lang: Lang; accountId: string; }
 const { lang, accountId } = Astro.props;
 const s = t(lang);
 const accounts = await listAccounts();
 const operators = accounts.filter((a) => a.admin).length;
+const minPass = localAccountsSettings().passwordMinLength;
+const now = Date.now();
 const counts = new Map<string, number>();
 for (const a of accounts) counts.set(a.id, await countDevices(a.id));
 ---
@@ -19,7 +22,7 @@ for (const a of accounts) counts.set(a.id, await countDevices(a.id));
   <div class="form-grid">
     <div class="field"><label for="u-email">{s.userLogin}</label><input id="u-email" name="email" type="email" autocomplete="off" spellcheck="false" required /></div>
     <div class="field"><label for="u-name">{s.userName}</label><input id="u-name" name="name" type="text" autocomplete="off" maxlength="80" required /></div>
-    <div class="field"><label for="u-pass">{s.userPassword}</label><input id="u-pass" name="password" type="password" autocomplete="new-password" minlength="8" required /></div>
+    <div class="field"><label for="u-pass">{s.userPassword}</label><input id="u-pass" name="password" type="password" autocomplete="new-password" minlength={minPass} required /></div>
     <div class="field"><label for="u-cap">{s.userCap}</label><input id="u-cap" name="cap" type="number" min="1" value="5" required /></div>
   </div>
   <label class="check"><input type="checkbox" id="u-admin" name="admin" /> {s.userMakeAdmin}</label>
@@ -34,10 +37,16 @@ for (const a of accounts) counts.set(a.id, await countDevices(a.id));
     {accounts.map((a) => (
       <div class="ut-row">
         <span class="who"><b>{a.name ?? a.id}</b>{a.id === accountId && <span class="youtag">{s.youTag}</span>}<span class="mono">{a.id}</span></span>
-        <span><span class:list={['role', { op: a.admin }]}>{a.admin ? s.roleAdmin : s.roleUser}</span></span>
+        <span class="tags">
+          <span class:list={['role', { op: a.admin }]}>{a.admin ? s.roleAdmin : s.roleUser}</span>
+          {a.totpEnabled && <span class="role">2FA</span>}
+          {a.lockedUntil && a.lockedUntil > now && <span class="role locked">{s.lockedTag}</span>}
+        </span>
         <span>{a.deviceCap}</span>
         <span>{counts.get(a.id) ?? 0}</span>
         <span class="ut-act">
+          {a.lockedUntil && a.lockedUntil > now && <button class="btn ghost sm" type="button" data-unlock={a.id}>{s.unlockBtn}</button>}
+          {a.totpEnabled && a.id !== accountId && <button class="btn ghost sm" type="button" data-totp-reset={a.id}>{s.totpResetBtn}</button>}
           {a.id !== accountId && !(a.admin && operators <= 1) && (
             <>
               <button class="btn ghost sm" type="button" data-role={a.id} data-admin={a.admin ? 'false' : 'true'}>{a.admin ? s.unmakeOperator : s.makeOperator}</button>
@@ -66,6 +75,16 @@ for (const a of accounts) counts.set(a.id, await countDevices(a.id));
       fetch('/api/user/new', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
         .then(function (r) { if (r.ok) location.reload(); else { err.hidden = false; err.textContent = createErr; } })
         .catch(function () { err.hidden = false; err.textContent = createErr; });
+    });
+    [['data-unlock', '/api/user/unlock'], ['data-totp-reset', '/api/user/totp-reset']].forEach(function (pair) {
+      document.querySelectorAll('[' + pair[0] + ']').forEach(function (b) {
+        b.addEventListener('click', function () {
+          b.disabled = true;
+          fetch(pair[1], { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: b.getAttribute(pair[0]) }) })
+            .then(function (r) { if (r.ok) location.reload(); else { alert(roleErr); b.disabled = false; } })
+            .catch(function () { alert(roleErr); b.disabled = false; });
+        });
+      });
     });
     document.querySelectorAll('[data-role]').forEach(function (b) {
       b.addEventListener('click', function () {

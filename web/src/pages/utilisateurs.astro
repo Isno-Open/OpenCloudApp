@@ -7,6 +7,6 @@ const lang = LANG.fr;
 const acc = await requireUserAdmin(Astro.request);
 if (!acc) return Astro.redirect(ROUTES.appareils[lang]);
 ---
-<CloudLayout title={`${t(lang).usersTitle} · ISNO Cloud`} lang={lang} altUrl={ROUTES.utilisateurs[LANG.en]}>
+<CloudLayout title={`${t(lang).usersTitle}`} lang={lang} altUrl={ROUTES.utilisateurs[LANG.en]}>
   <UtilisateursView lang={lang} accountId={acc} />
 </CloudLayout>

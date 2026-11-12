@@ -11,6 +11,6 @@ if (!acc) return Astro.redirect(ROUTES.connexion[lang]);
 const pending = Astro.cookies.get(LINK_COOKIE)?.value;
 if (pending) return Astro.redirect(`${ROUTES.lier[lang]}?code=${encodeURIComponent(pending)}`);
 ---
-<CloudLayout title={`${t(lang).appareilsTitle} · ISNO Cloud`} lang={lang} altUrl={ROUTES.appareils[LANG.en]}>
+<CloudLayout title={`${t(lang).appareilsTitle}`} lang={lang} altUrl={ROUTES.appareils[LANG.en]}>
   <AppareilsView lang={lang} accountId={acc} />
 </CloudLayout>

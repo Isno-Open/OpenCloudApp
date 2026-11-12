@@ -17,6 +17,10 @@ export const setAccountPass = (id: string, h: string): Promise<void> => m().setA
 export const createAccount = (id: string, name: string, passHash: string, cap: number, admin: boolean): Promise<void> => m().createAccount(id, name, passHash, cap, admin);
 export const listAccounts = (): Promise<Account[]> => m().listAccounts();
 export const setAccountAdmin = (id: string, admin: boolean): Promise<void> => m().setAccountAdmin(id, admin);
+export const recordLoginFailure = (id: string, max: number, minutes: number, now: number): Promise<number | null> => m().recordLoginFailure(id, max, minutes, now);
+export const resetLoginFailures = (id: string): Promise<void> => m().resetLoginFailures(id);
+export const setTotp = (id: string, secret: string | null, enabled: boolean): Promise<void> => m().setTotp(id, secret, enabled);
+export const setTotpLastStep = (id: string, step: number): Promise<void> => m().setTotpLastStep(id, step);
 export const removeAccount = (id: string): Promise<void> => m().removeAccount(id);
 export const countDevices = (a: string): Promise<number> => m().countDevices(a);
 export const listDevices = (a: string): Promise<Device[]> => m().listDevices(a);

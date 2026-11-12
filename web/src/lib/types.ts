@@ -41,6 +41,8 @@ export type Boitier = {
 export type Account = {
   email: string;
   name: string | null;
+  admin: boolean;
+  totpEnabled: boolean;
   boitiers: number;
   cap: number;
 };

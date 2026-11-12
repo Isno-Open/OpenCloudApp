@@ -19,15 +19,30 @@ export async function init(): Promise<void> {
   await deviceAuth().createIndex({ deviceCode: 1 }, { unique: true });
   await deviceAuth().createIndex({ userCode: 1 }, { unique: true });
 }
-const withAdmin = (a: Account | null): Account | null => (a ? { ...a, admin: a.admin ?? false, name: a.name ?? null } : null);
+const withAdmin = (a: Account | null): Account | null => (a ? {
+  ...a, admin: a.admin ?? false, name: a.name ?? null, failedCount: a.failedCount ?? 0, lockedUntil: a.lockedUntil ?? null,
+  totpSecret: a.totpSecret ?? null, totpEnabled: a.totpEnabled ?? false, totpLastStep: a.totpLastStep ?? null } : null);
 export const getAccount = (id: string): Promise<Account | null> => accounts().findOne({ id }, { projection: { _id: 0 } }).then(withAdmin);
 export async function createAccount(id: string, name: string, passHash: string, cap: number, admin: boolean): Promise<void> {
-  await accounts().insertOne({ id, name, deviceCap: cap, passHash, admin });
+  await accounts().insertOne({ id, name, deviceCap: cap, passHash, admin, failedCount: 0, lockedUntil: null, totpSecret: null, totpEnabled: false, totpLastStep: null });
 }
+export async function recordLoginFailure(id: string, maxFailures: number, minutes: number, now: number): Promise<number | null> {
+  const a = await accounts().findOneAndUpdate({ id }, { $inc: { failedCount: 1 } }, { returnDocument: "after" });
+  if (!a) return null;
+  if ((a.failedCount ?? 0) < maxFailures) return null;
+  const until = now + minutes * 60_000;
+  await accounts().updateOne({ id }, { $set: { failedCount: 0, lockedUntil: until } });
+  return until;
+}
+export async function resetLoginFailures(id: string): Promise<void> { await accounts().updateOne({ id }, { $set: { failedCount: 0, lockedUntil: null } }); }
+export async function setTotp(id: string, secret: string | null, enabled: boolean): Promise<void> {
+  await accounts().updateOne({ id }, { $set: { totpSecret: secret, totpEnabled: enabled, totpLastStep: null } });
+}
+export async function setTotpLastStep(id: string, step: number): Promise<void> { await accounts().updateOne({ id }, { $set: { totpLastStep: step } }); }
 export async function setAccountAdmin(id: string, admin: boolean): Promise<void> { await accounts().updateOne({ id }, { $set: { admin } }); }
 export async function listAccounts(): Promise<Account[]> {
   const rows = await accounts().find({}, { projection: { _id: 0 } }).toArray();
-  return rows.map((a) => ({ ...a, admin: a.admin ?? false, name: a.name ?? null })).sort((x, y) => Number(y.admin) - Number(x.admin) || x.id.localeCompare(y.id));
+  return rows.map((a) => withAdmin(a)!).sort((x, y) => Number(y.admin) - Number(x.admin) || x.id.localeCompare(y.id));
 }
 export async function removeAccount(id: string): Promise<void> {
   await devices().deleteMany({ accountId: id });
@@ -46,7 +61,7 @@ export async function takePairing(code: string): Promise<Pairing | null> {
   return r ? { code: r.code, accountId: r.accountId, deviceId: r.deviceId, name: r.name } : null;
 }
 export async function ensureAccount(id: string, cap: number): Promise<void> {
-  await accounts().updateOne({ id }, { $setOnInsert: { id, name: null, deviceCap: cap, passHash: null, admin: false } }, { upsert: true });
+  await accounts().updateOne({ id }, { $setOnInsert: { id, name: null, deviceCap: cap, passHash: null, admin: false, failedCount: 0, lockedUntil: null, totpSecret: null, totpEnabled: false, totpLastStep: null } }, { upsert: true });
 }
 export async function claimDevice(deviceId: string, accountId: string, name: string, firmware: string): Promise<boolean> {
   const existing = await devices().findOne({ deviceId });

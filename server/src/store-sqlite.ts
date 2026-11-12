@@ -22,12 +22,16 @@ db.exec(`
 // le premier operateur est cree a l'installation, avec son e-mail, son nom et son mot de passe.
 const accountCols = db.prepare("PRAGMA table_info(accounts)").all() as { name: string }[];
 if (!accountCols.some((c) => c.name === "admin")) db.exec("ALTER TABLE accounts ADD COLUMN admin INTEGER NOT NULL DEFAULT 0");
-if (!accountCols.some((c) => c.name === "name")) db.exec("ALTER TABLE accounts ADD COLUMN name TEXT");
+for (const [col, def] of [["name", "TEXT"], ["failed_count", "INTEGER NOT NULL DEFAULT 0"], ["locked_until", "INTEGER"],
+  ["totp_secret", "TEXT"], ["totp_enabled", "INTEGER NOT NULL DEFAULT 0"], ["totp_last_step", "INTEGER"]] as const)
+  if (!accountCols.some((c) => c.name === col)) db.exec(`ALTER TABLE accounts ADD COLUMN ${col} ${def}`);
 
-type AccountRow = { id: string; name: string | null; deviceCap: number; passHash: string | null; admin: number };
-const ACCOUNT_COLS = "id, name, device_cap AS deviceCap, pass_hash AS passHash, admin";
+type AccountRow = { id: string; name: string | null; deviceCap: number; passHash: string | null; admin: number;
+  failedCount: number; lockedUntil: number | null; totpSecret: string | null; totpEnabled: number; totpLastStep: number | null };
+const ACCOUNT_COLS = "id, name, device_cap AS deviceCap, pass_hash AS passHash, admin, failed_count AS failedCount, locked_until AS lockedUntil, totp_secret AS totpSecret, totp_enabled AS totpEnabled, totp_last_step AS totpLastStep";
 const rowToAccount = (r: AccountRow | undefined): Account | null =>
-  r ? { id: r.id, name: r.name, deviceCap: r.deviceCap, passHash: r.passHash, admin: !!r.admin } : null;
+  r ? { id: r.id, name: r.name, deviceCap: r.deviceCap, passHash: r.passHash, admin: !!r.admin,
+        failedCount: r.failedCount ?? 0, lockedUntil: r.lockedUntil, totpSecret: r.totpSecret, totpEnabled: !!r.totpEnabled, totpLastStep: r.totpLastStep } : null;
 
 export function init(): Promise<void> { return Promise.resolve(); }
 export function getAccount(id: string): Promise<Account | null> {
@@ -37,6 +41,27 @@ export function getAccount(id: string): Promise<Account | null> {
 export function createAccount(id: string, name: string, passHash: string, cap: number, admin: boolean): Promise<void> {
   db.prepare("INSERT INTO accounts (id, name, device_cap, pass_hash, admin) VALUES (?,?,?,?,?)").run(id, name, cap, passHash, admin ? 1 : 0);
   return Promise.resolve();
+}
+/** Echec de connexion : incremente ; au seuil, bloque jusqu'a now + minutes. Rend la fin de blocage, ou null. */
+export function recordLoginFailure(id: string, maxFailures: number, minutes: number, now: number): Promise<number | null> {
+  const tx = db.transaction((): number | null => {
+    const r = db.prepare("SELECT failed_count AS n FROM accounts WHERE id = ?").get(id) as { n: number } | undefined;
+    if (!r) return null;
+    const n = r.n + 1;
+    const until = n >= maxFailures ? now + minutes * 60_000 : null;
+    db.prepare("UPDATE accounts SET failed_count = ?, locked_until = ? WHERE id = ?").run(until ? 0 : n, until, id);
+    return until;
+  });
+  return Promise.resolve(tx());
+}
+export function resetLoginFailures(id: string): Promise<void> {
+  db.prepare("UPDATE accounts SET failed_count = 0, locked_until = NULL WHERE id = ?").run(id); return Promise.resolve();
+}
+export function setTotp(id: string, secret: string | null, enabled: boolean): Promise<void> {
+  db.prepare("UPDATE accounts SET totp_secret = ?, totp_enabled = ?, totp_last_step = NULL WHERE id = ?").run(secret, enabled ? 1 : 0, id); return Promise.resolve();
+}
+export function setTotpLastStep(id: string, step: number): Promise<void> {
+  db.prepare("UPDATE accounts SET totp_last_step = ? WHERE id = ?").run(step, id); return Promise.resolve();
 }
 export function setAccountAdmin(id: string, admin: boolean): Promise<void> {
   db.prepare("UPDATE accounts SET admin = ? WHERE id = ?").run(admin ? 1 : 0, id); return Promise.resolve();

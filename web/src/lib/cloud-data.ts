@@ -20,6 +20,8 @@ export async function getAccountInfo(accountId: string): Promise<Account> {
   return {
     email: accountId,
     name: a?.name ?? null,
+    admin: !!a?.admin,
+    totpEnabled: !!a?.totpEnabled,
     boitiers: await countDevices(accountId),
     cap: a?.deviceCap ?? 5,
   };

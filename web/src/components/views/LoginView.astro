@@ -1,28 +1,49 @@
 ---
+// Connexion locale (greffon « Comptes locaux ») : e-mail + mot de passe, captcha s'il est active, puis
+// le code de double authentification si le compte l'a activee. Sans greffon de connexion : un message.
 import { t, type Lang } from '../../lib/i18n.ts';
-interface Props { lang: Lang; error?: boolean; none?: boolean; }
-const { lang, error = false, none = false } = Astro.props;
+import { portalName, portalNameIsCustom } from '../../lib/portal.ts';
+import { LOGIN_ERROR, LOGIN_STEP, type LoginError } from '../../lib/login.ts';
+interface Props { lang: Lang; error?: LoginError | null; none?: boolean; step?: string | null; captcha?: { svg: string; token: string } | null; }
+const { lang, error = null, none = false, step = null, captcha = null } = Astro.props;
 const s = t(lang);
+const ERR: Record<LoginError, string> = {
+  [LOGIN_ERROR.bad]: s.signInError, [LOGIN_ERROR.captcha]: s.loginCaptchaError, [LOGIN_ERROR.locked]: s.loginLocked,
+  [LOGIN_ERROR.totp]: s.loginTotpError, [LOGIN_ERROR.expired]: s.loginExpired,
+};
 ---
-<div class="login-card">
-  <span class="login-brand">
-    <svg class="rf" viewBox="0 0 28 28" aria-hidden="true">
-      <circle cx="6" cy="14" r="2.6" fill="currentColor"></circle>
-      <g fill="none" stroke="currentColor" stroke-linecap="round">
-        <path d="M11 8 A8 8 0 0 1 11 20" stroke-width="2.2"></path>
-        <path d="M15.5 5 A12.5 12.5 0 0 1 15.5 23" stroke-width="2.2" opacity=".65"></path>
-        <path d="M20 2.5 A16.5 16.5 0 0 1 20 25.5" stroke-width="2" opacity=".38"></path>
-      </g>
-    </svg>
-    <span>isno<span class="tld">.fr</span></span>
-  </span>
-  {none ? <p class="note">{s.noLoginMethod}</p> : (
-  <form method="post" action="/api/login">
-    <input type="hidden" name="lang" value={lang} />
-    {error && <p class="err">{s.signInError}</p>}
-    <div class="field"><label for="u">{s.signInUser}</label><input id="u" name="user" type="email" autocomplete="username" autofocus required /></div>
-    <div class="field"><label for="p">{s.signInPass}</label><input id="p" name="pass" type="password" autocomplete="current-password" required /></div>
-    <button class="btn primary" type="submit" style="margin-top:.3rem">{s.signInBtn}</button>
-  </form>
+<div class="login">
+  {portalNameIsCustom() ? <span class="login-mark">{portalName()}</span> : <span class="login-mark">isno<span class="tld">.fr</span></span>}
+  {none ? <div class="login-box"><p class="note">{s.noLoginMethod}</p></div> : step === LOGIN_STEP.totp ? (
+    <form class="login-box" method="post" action="/api/login/totp">
+      <h1>{s.signInTitle}</h1>
+      <input type="hidden" name="lang" value={lang} />
+      {error && <p class="err" role="alert">{ERR[error]}</p>}
+      <p class="note">{s.loginTotpPrompt}</p>
+      <label for="c">{s.totpCodeLabel}</label>
+      <input id="c" class="code" name="code" type="text" inputmode="numeric" pattern="[0-9 ]{6,7}" maxlength="7" autocomplete="one-time-code" autofocus required />
+      <button type="submit">{s.signInBtn}</button>
+    </form>
+  ) : (
+    <form class="login-box" method="post" action="/api/login">
+      <h1>{s.signInTitle}</h1>
+      <input type="hidden" name="lang" value={lang} />
+      {error && <p class="err" role="alert">{ERR[error]}</p>}
+      <label for="u">{s.signInUser}</label>
+      <input id="u" name="user" type="email" autocomplete="username" autofocus required />
+      <label for="p">{s.signInPass}</label>
+      <input id="p" name="pass" type="password" autocomplete="current-password" required />
+      {captcha && (
+        <>
+          <label for="cap">{s.loginCaptchaLabel}</label>
+          <div class="login-captcha">
+            <Fragment set:html={captcha.svg} />
+            <input id="cap" class="code" name="captcha" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="5" required />
+          </div>
+          <input type="hidden" name="captcha_token" value={captcha.token} />
+        </>
+      )}
+      <button type="submit">{s.signInBtn}</button>
+    </form>
   )}
 </div>

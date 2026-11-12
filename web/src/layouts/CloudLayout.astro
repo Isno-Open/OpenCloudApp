@@ -7,6 +7,7 @@ import { otherLang, navItems, adminNavItems, t, type Lang } from '../lib/i18n.ts
 import { currentAccount } from '../server/auth.ts';
 import { hasCapability, CAPABILITY } from '@core/plugins.js';
 import { SPONSOR } from '../lib/sponsor.ts';
+import { portalName, portalNameIsCustom } from '../lib/portal.ts';
 
 // Drapeaux du selecteur de langue, identiques au site isno.fr (BaseLayout).
 const FLAG: Record<Lang, string> = {
@@ -15,7 +16,7 @@ const FLAG: Record<Lang, string> = {
 };
 
 interface Props { title?: string; lang: Lang; altUrl: string; }
-const { title = 'ISNO Cloud', lang, altUrl } = Astro.props;
+const { title, lang, altUrl } = Astro.props;
 const s = t(lang);
 const other = otherLang(lang);
 const path = Astro.url.pathname;
@@ -28,7 +29,7 @@ const nav = [...navItems(lang), ...(account?.admin ? adminNavItems(lang, { userA
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>{title}</title>
+  <title>{title ? `${title} · ${portalName()}` : portalName()}</title>
   <link rel="alternate" hreflang={lang} href={path} />
   <link rel="alternate" hreflang={other} href={altUrl} />
   <script is:inline>
@@ -50,7 +51,7 @@ const nav = [...navItems(lang), ...(account?.admin ? adminNavItems(lang, { userA
             <path d="M20 2.5 A16.5 16.5 0 0 1 20 25.5" stroke-width="2" opacity=".38"></path>
           </g>
         </svg>
-        <span>isno<span class="tld">.fr</span></span>
+        {portalNameIsCustom() ? <span>{portalName()}</span> : <span>isno<span class="tld">.fr</span></span>}
       </a>
       <button class="burger" id="menuToggle" type="button" aria-label={s.menu} aria-expanded="false" aria-controls="navLinks">
         <svg class="bars" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"></path></svg>

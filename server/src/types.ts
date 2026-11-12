@@ -2,7 +2,12 @@
 // Un compte = un e-mail (identifiant de connexion, en minuscules), un nom, un mot de passe. Valable pour
 // tous, operateur ou non. admin = operateur du portail (voit Parametres + Utilisateurs) ; il reste un
 // compte comme les autres et pilote aussi ses propres appareils.
-export type Account = { id: string; name: string | null; deviceCap: number; passHash: string | null; admin: boolean };
+export type Account = {
+  id: string; name: string | null; deviceCap: number; passHash: string | null; admin: boolean;
+  // securite (greffon Comptes locaux) : echecs de connexion, blocage, double authentification
+  failedCount: number; lockedUntil: number | null;
+  totpSecret: string | null; totpEnabled: boolean; totpLastStep: number | null;
+};
 export type Device = { deviceId: string; accountId: string; name: string; firmware: string };
 export type Pairing = { code: string; accountId: string; deviceId: string; name: string };
 

@@ -22,6 +22,10 @@ export type PortalConfig = {
   operator: { email: string; name: string; passHash: string } | null;
   // Greffons integres actifs (absent : ceux par defaut, soit « comptes locaux »).
   plugins?: string[];
+  // Nom du portail (barre et titre des onglets). Absent : la marque par defaut.
+  appName?: string;
+  // Reglages propres a chaque greffon, par identifiant (chaque greffon valide les siens).
+  pluginSettings?: Record<string, unknown>;
 };
 
 const CONFIG_PATH = process.env.PORTAL_CONFIG ?? "/data/portal.config.json";

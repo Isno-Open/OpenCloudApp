@@ -113,3 +113,26 @@ test("device-auth : une demande expirée n'est pas approuvable", async () => {
   await s.startDeviceAuth({ deviceCode: "DC3", userCode: "UC3", deviceId: "m5-3", firmware: "openprofalux", state: "pending", accountId: null, name: null, expiresAt: Date.now() - 1 });
   assert.equal(await s.approveDeviceAuth("UC3", "admin", "X", Date.now()), null);
 });
+
+test("blocage : sous le seuil rien, au seuil bloque, puis remise a zero", async () => {
+  await s.createAccount("dave@x.fr", "Dave", "SEL:H", 5, false);
+  const now = Date.now();
+  assert.equal(await s.recordLoginFailure("dave@x.fr", 3, 15, now), null);
+  assert.equal(await s.recordLoginFailure("dave@x.fr", 3, 15, now), null);
+  const until = await s.recordLoginFailure("dave@x.fr", 3, 15, now);
+  assert.equal(until, now + 15 * 60_000);
+  assert.equal((await s.getAccount("dave@x.fr"))?.lockedUntil, until);
+  await s.resetLoginFailures("dave@x.fr");
+  const a = await s.getAccount("dave@x.fr");
+  assert.equal(a?.lockedUntil, null); assert.equal(a?.failedCount, 0);
+});
+test("double authentification : secret, activation, dernier pas", async () => {
+  await s.setTotp("dave@x.fr", "JBSWY3DPEHPK3PXP", false);
+  assert.equal((await s.getAccount("dave@x.fr"))?.totpEnabled, false);
+  await s.setTotp("dave@x.fr", "JBSWY3DPEHPK3PXP", true);
+  await s.setTotpLastStep("dave@x.fr", 42);
+  const a = await s.getAccount("dave@x.fr");
+  assert.equal(a?.totpEnabled, true); assert.equal(a?.totpSecret, "JBSWY3DPEHPK3PXP"); assert.equal(a?.totpLastStep, 42);
+  await s.setTotp("dave@x.fr", null, false);
+  assert.equal((await s.getAccount("dave@x.fr"))?.totpSecret, null);
+});

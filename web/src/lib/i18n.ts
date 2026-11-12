@@ -58,6 +58,16 @@ interface S {
   settingsTitle: string; settingsLead: string; dbKindLabel: string; dbSqlite: string; dbMongoBundled: string; dbMongoExternal: string;
   publicUrlLabel: string; brokerUrlLabel: string;
   pluginsTitle: string; pluginBuiltin: string; pluginExternal: string; noLoginMethod: string;
+  // connexion securisee (greffon Comptes locaux)
+  loginCaptchaLabel: string; loginCaptchaError: string; loginLocked: string; loginTotpPrompt: string; loginTotpError: string; loginExpired: string; totpCodeLabel: string;
+  // double authentification (Compte)
+  totpTitle: string; totpIntro: string; totpEnable: string; totpManual: string; totpConfirm: string; totpOnNote: string; totpDisable: string; totpRequiredNotice: string;
+  // utilisateurs : etat de securite
+  lockedTag: string; unlockBtn: string; totpResetBtn: string;
+  // parametres
+  generalTitle: string; appNameLabel: string; appNameHint: string; saveBtn: string; savedMsg: string; saveError: string;
+  securityTitle: string; securityByPlugin: string; secCaptcha: string; secLockout: string; secMaxFailures: string; secLockMinutes: string;
+  secTotp: string; secPasswordMin: string; totpPolicyOff: string; totpPolicyOptional: string; totpPolicyOperators: string; totpPolicyAll: string;
 }
 
 export const STRINGS = {
@@ -91,7 +101,7 @@ export const STRINGS = {
     accountTitle: 'Compte', accountLead: 'Votre compte sur ce portail.', identity: 'Identité',
     boxesWord: 'Appareils',
     logoutTitle: 'Se déconnecter', logoutNote: 'Ferme la session sur cet appareil.', logoutBtn: 'Déconnexion',
-    signInTitle: 'Connexion', signInUser: 'E-mail', signInPass: 'Mot de passe', signInBtn: 'Entrer', signInError: 'Identifiants invalides.',
+    signInTitle: 'Connexion', signInUser: 'E-mail', signInPass: 'Mot de passe', signInBtn: 'Se connecter', signInError: 'Identifiants invalides.',
     adminNav: { utilisateurs: 'utilisateurs', parametres: 'paramètres' },
     usersTitle: 'Utilisateurs', usersLead: 'Créez et gérez les comptes qui pilotent des appareils sur ce portail.',
     userNewTitle: 'Nouvel utilisateur', userLogin: 'E-mail', userName: 'Nom', userPassword: 'Mot de passe', userCap: "Plafond d'appareils",
@@ -119,6 +129,22 @@ export const STRINGS = {
     publicUrlLabel: 'URL publique du portail', brokerUrlLabel: 'URL publique du broker MQTT',
     pluginsTitle: 'Greffons installés', pluginBuiltin: 'intégré', pluginExternal: 'externe',
     noLoginMethod: "Aucun mode de connexion n'est installé sur ce portail (greffon manquant).",
+    loginCaptchaLabel: 'Recopiez le code', loginCaptchaError: 'Code de vérification incorrect.',
+    loginLocked: 'Compte temporairement bloqué après trop de tentatives. Réessayez plus tard, ou demandez à un opérateur de le débloquer.',
+    loginTotpPrompt: "Saisissez le code à 6 chiffres de votre appli d'authentification.", loginTotpError: 'Code incorrect.',
+    loginExpired: 'Délai dépassé : reconnectez-vous.', totpCodeLabel: 'Code',
+    totpTitle: 'Double authentification', totpIntro: "Protégez votre compte avec un code à 6 chiffres d'une appli d'authentification (Aegis, Google Authenticator, 2FAS…).",
+    totpEnable: 'Activer', totpManual: 'Scannez le QR code avec votre appli, ou saisissez cette clé :', totpConfirm: 'Confirmer',
+    totpOnNote: 'Double authentification activée.', totpDisable: 'Désactiver (code requis)',
+    totpRequiredNotice: 'Ce portail exige la double authentification pour votre compte : activez-la pour continuer.',
+    lockedTag: 'bloqué', unlockBtn: 'Débloquer', totpResetBtn: 'Réinitialiser la 2FA',
+    generalTitle: 'Général', appNameLabel: 'Nom du portail', appNameHint: 'Affiché dans la barre et le titre des onglets. Vide : la marque par défaut.',
+    saveBtn: 'Enregistrer', savedMsg: 'Enregistré.', saveError: 'Enregistrement impossible.',
+    securityTitle: 'Sécurité des comptes locaux', securityByPlugin: 'greffon Comptes locaux',
+    secCaptcha: 'Captcha à la connexion', secLockout: 'Bloquer un compte après plusieurs échecs',
+    secMaxFailures: "Nombre d'échecs", secLockMinutes: 'Durée du blocage (minutes)',
+    secTotp: 'Double authentification', secPasswordMin: 'Longueur minimale du mot de passe',
+    totpPolicyOff: 'Désactivée', totpPolicyOptional: 'Facultative', totpPolicyOperators: 'Exigée pour les opérateurs', totpPolicyAll: 'Exigée pour tous',
   },
   [LANG.en]: {
     brandAria: 'ISNO Cloud, home', themeToggle: 'Toggle light / dark theme', menu: 'Menu',
@@ -150,7 +176,7 @@ export const STRINGS = {
     accountTitle: 'Account', accountLead: 'Your account on this portal.', identity: 'Identity',
     boxesWord: 'Devices',
     logoutTitle: 'Sign out', logoutNote: 'Closes the session on this device.', logoutBtn: 'Sign out',
-    signInTitle: 'Sign in', signInUser: 'Email', signInPass: 'Password', signInBtn: 'Enter', signInError: 'Invalid credentials.',
+    signInTitle: 'Sign in', signInUser: 'Email', signInPass: 'Password', signInBtn: 'Sign in', signInError: 'Invalid credentials.',
     adminNav: { utilisateurs: 'users', parametres: 'settings' },
     usersTitle: 'Users', usersLead: 'Create and manage the accounts that control devices on this portal.',
     userNewTitle: 'New user', userLogin: 'Email', userName: 'Name', userPassword: 'Password', userCap: 'Device limit',
@@ -178,6 +204,22 @@ export const STRINGS = {
     publicUrlLabel: 'Public portal URL', brokerUrlLabel: 'Public MQTT broker URL',
     pluginsTitle: 'Installed plugins', pluginBuiltin: 'built-in', pluginExternal: 'external',
     noLoginMethod: 'No sign-in method is installed on this portal (missing plugin).',
+    loginCaptchaLabel: 'Type the code', loginCaptchaError: 'Wrong verification code.',
+    loginLocked: 'Account temporarily locked after too many attempts. Try again later, or ask an operator to unlock it.',
+    loginTotpPrompt: 'Enter the 6-digit code from your authenticator app.', loginTotpError: 'Wrong code.',
+    loginExpired: 'Timed out: please sign in again.', totpCodeLabel: 'Code',
+    totpTitle: 'Two-factor authentication', totpIntro: 'Protect your account with a 6-digit code from an authenticator app (Aegis, Google Authenticator, 2FAS…).',
+    totpEnable: 'Enable', totpManual: 'Scan the QR code with your app, or enter this key:', totpConfirm: 'Confirm',
+    totpOnNote: 'Two-factor authentication is on.', totpDisable: 'Disable (code required)',
+    totpRequiredNotice: 'This portal requires two-factor authentication for your account: enable it to continue.',
+    lockedTag: 'locked', unlockBtn: 'Unlock', totpResetBtn: 'Reset 2FA',
+    generalTitle: 'General', appNameLabel: 'Portal name', appNameHint: 'Shown in the top bar and tab titles. Empty: default branding.',
+    saveBtn: 'Save', savedMsg: 'Saved.', saveError: 'Could not save.',
+    securityTitle: 'Local accounts security', securityByPlugin: 'Local accounts plugin',
+    secCaptcha: 'Captcha at sign-in', secLockout: 'Lock an account after repeated failures',
+    secMaxFailures: 'Failed attempts', secLockMinutes: 'Lock duration (minutes)',
+    secTotp: 'Two-factor authentication', secPasswordMin: 'Minimum password length',
+    totpPolicyOff: 'Off', totpPolicyOptional: 'Optional', totpPolicyOperators: 'Required for operators', totpPolicyAll: 'Required for everyone',
   },
 } satisfies Record<Lang, S>;
 

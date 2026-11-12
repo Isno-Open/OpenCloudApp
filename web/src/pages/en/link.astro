@@ -28,6 +28,6 @@ if (raw) {
   } else { view = LINK_VIEW.invalid; code = raw.slice(0, 12); }
 }
 ---
-<CloudLayout title={`${t(lang).linkTitle} · ISNO Cloud`} lang={lang} altUrl={ROUTES.lier[LANG.fr]}>
+<CloudLayout title={`${t(lang).linkTitle}`} lang={lang} altUrl={ROUTES.lier[LANG.fr]}>
   <LierView lang={lang} view={view} code={code} deviceId={deviceId} />
 </CloudLayout>
