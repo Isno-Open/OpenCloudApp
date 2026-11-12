@@ -117,9 +117,43 @@ et montré masqué dans l'écrou pour le donner au site externe. `SSO_SECRET` da
 est posé, a priorité.
 
 ## Enrôler un appareil
-Le boîtier lance l'appairage (onglet Cloud) et affiche un **code et un QR code**. L'utilisateur le scanne
-ou le saisit sur `/lier`, confirme, et le boîtier récupère son certificat tout seul
-(*device authorization grant*, RFC 8628 : `/api/device/start`, `/api/device/poll`). Firmware antérieur :
-code obtenu dans « Ajouter » puis saisi dans le boîtier (`/api/enroll`).
+Aujourd'hui (firmware OpenProfalux 0.2.15) : l'utilisateur obtient un **code** dans « Ajouter », puis le
+saisit dans l'onglet Cloud du boîtier ; le boîtier l'échange contre son certificat (`/api/enroll`).
+
+Le portail sait aussi le parcours inverse, prévu pour les prochains firmwares : le boîtier affiche un
+**code et un QR code**, l'utilisateur le scanne ou le saisit sur `/lier`, confirme, et le boîtier
+récupère son certificat tout seul (*device authorization grant*, RFC 8628 : `/api/device/start`,
+`/api/device/poll`).
+
+## Ce qu'un boîtier publie
+Pour que ses appareils s'affichent, un boîtier publie, sur sa connexion cloud et en messages **retenus**,
+pour chaque appareil `<slug>` :
+
+| Topic | Contenu |
+|---|---|
+| `openprofalux/<device_id>/cover/<slug>/attrs` | JSON : `type` (identifiant déclaré par un plugin, ex. `volet`, `portail`), `positional` (booléen) |
+| `openprofalux/<device_id>/cover/<slug>/state` | état : `open`, `closed`, `opening`, `closing`, `stopped` |
+| `openprofalux/<device_id>/cover/<slug>/position` | position en % d'ouverture (100 = ouvert), si l'appareil est positionnel |
+
+Il reçoit les commandes sur `openprofalux/<device_id>/cover/<slug>/set` (`OPEN`, `STOP`, `CLOSE`). Un
+appareil sans `attrs`, ou d'un type qu'aucun plugin ne déclare, s'affiche comme **appareil inconnu**.
+Le broker n'autorise un boîtier que sous son propre `openprofalux/<device_id>/`.
+
+## Développer
+Node 26 (comme l'image). Le cœur se compile avant l'app, qui en dépend (`file:../server`) :
+
+    cd server && npm install && npm run build && npm test
+    cd ../web && npm install
+    npm run check       # svelte-check, échoue au moindre avertissement
+    npm run types       # TypeScript 7 sur les modules .ts
+    npm run dev         # serveur de développement (port 4321)
+
+L'app suit les conventions de SvelteKit 3 : configuration dans `vite.config.ts`, imports `#lib/…`
+(sous-chemins du `package.json`), modules serveur sous `src/lib/server` (jamais envoyés au navigateur).
+Chaque écran a sa fonction de chargement dans `src/lib/server/screens.ts`, partagée par son adresse
+française et son adresse anglaise.
+
+Le parcours au navigateur (`scripts/e2e-ui.sh`) demande `python3` et Playwright avec Chromium
+(`pip install playwright && playwright install chromium`).
 
 > Les clés privées, `.env` et les fichiers de base ne sont **jamais** commités (`.gitignore`).
