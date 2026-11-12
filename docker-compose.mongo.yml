@@ -1,17 +1,20 @@
-# Greffon MongoDB (optionnel). À combiner avec le compose principal pour remplacer SQLite :
+# Greffon MongoDB (optionnel) : fournit un conteneur Mongo dans la pile.
 #   docker compose -f docker-compose.yml -f docker-compose.mongo.yml up -d --build
-# Variante « base déjà en place » : ne pas démarrer ce service mongo, et mettre dans .env
-# MONGO_URL=mongodb://<hôte>:27017 (le serveur bascule dès que MONGO_URL est présent).
+# Le choix de la base se fait ensuite dans l'onboarding (/setup) : « MongoDB fourni » pointe sur ce
+# conteneur. Pour une base deja en place ailleurs, ne pas utiliser ce greffon : choisir « MongoDB
+# externe » dans l'onboarding et saisir son URL.
+# Deploiement automatise sans onboarding (PORTAL_SEED=1) : MONGO_URL ci-dessous est alors repris
+# dans la config semee.
 services:
   mongo:
-    image: mongo:8.0
+    image: mongo:9.0.8
     container_name: isno-mongo
     restart: unless-stopped
     volumes:
       - mongo-data:/data/db
   server:
     environment:
-      - MONGO_URL=mongodb://mongo:27017   # présence de MONGO_URL => le store bascule sur MongoDB
+      - MONGO_URL=mongodb://mongo:27017
     depends_on:
       - broker
       - mongo
