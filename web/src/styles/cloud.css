@@ -1,3 +1,6 @@
+/* L'attribut hidden doit toujours masquer, meme quand une classe impose un display (flex, grid...). */
+[hidden] { display: none !important; }
+
 /* Styles de l'app cloud. Les couleurs/typos viennent des tokens (tokens.css = identite du site).
    Barre reprise du site isno.fr ; cartes de volet au visuel du firmware OpenProfalux (dpad, slat, icone de type). */
 * { box-sizing: border-box; }
@@ -164,7 +167,6 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.015em; margin: 0; }
 .note { color: var(--text-muted); font-size: .82rem; }
 .add { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
 .code { font-family: var(--font-mono); font-size: 1rem; letter-spacing: .1em; color: var(--accent); background: var(--accent-weak); border: 1px solid var(--accent-line); border-radius: var(--radius-sm); padding: .3rem .6rem; margin-top: .8rem; display: inline-block; }
-.code[hidden] { display: none; }  /* la classe .code imposerait inline-block malgre l'attribut hidden */
 .foot { color: var(--text-faint); font-size: .76rem; text-align: center; margin-top: 1.8rem; font-family: var(--font-mono); }
 .bare-wrap { min-height: 100svh; display: grid; place-items: center; padding: 2rem max(16px, env(safe-area-inset-left, 0px)); }
 .login-card { width: 100%; max-width: 22rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.6rem 1.5rem; }
