@@ -1,7 +1,7 @@
 ---
 // Accueil : « Mes appareils ». Un appareil = un boitier OpenProfalux. On liste les appareils, chacun en
 // section avec ses volets/portails (cartes au visuel firmware) dessous. La roue crantee ouvre la config.
-import DeviceCard from '../DeviceCard.astro';
+import DeviceCard from '../DeviceCard.svelte';
 import UnknownDeviceCard from '../UnknownDeviceCard.astro';
 import { isKnownAppareil } from '../../lib/types.ts';
 import LinkCodeForm from '../LinkCodeForm.astro';
@@ -36,7 +36,7 @@ const coversOf = (boitierId: string): Appareil[] => appareils.filter((a) => a.bo
       {covers.length ? (
         <div class="hw-grid">
           {covers.map((a) => isKnownAppareil(a)
-            ? <DeviceCard appareil={a} boitierName={b.name} lang={lang} grouped={true} />
+            ? <DeviceCard client:load appareil={a} boitierName={b.name} lang={lang} grouped={true} />
             : <UnknownDeviceCard appareil={a} boitierName={b.name} lang={lang} grouped={true} />)}
         </div>
       ) : (
@@ -57,30 +57,3 @@ const coversOf = (boitierId: string): Appareil[] => appareils.filter((a) => a.bo
     <p class="legacy">{s.legacyHint} <a href={ROUTES.ajouter[lang]}>{s.legacyLink}</a></p>
   </section>
 )}
-
-<script is:inline>
-  (function () {
-    // roue crantee de chaque carte : montre/cache les details materiel.
-    document.querySelectorAll('.gear[data-det]').forEach(function (g) {
-      g.addEventListener('click', function () {
-        var card = g.closest('.volet'); if (!card) return;
-        var d = card.querySelector('.hw-det');
-        if (d) d.hidden = !d.hidden;
-      });
-    });
-    // commandes : chaque bouton du dpad envoie device_id + slug + action au relais.
-    document.querySelectorAll('.dpad').forEach(function (pad) {
-      var device = pad.getAttribute('data-device'), slug = pad.getAttribute('data-slug');
-      pad.querySelectorAll('button[data-action]').forEach(function (b) {
-        b.addEventListener('click', function () {
-          if (b.disabled) return;
-          b.classList.add('sending');
-          fetch('/api/cmd', { method: 'POST', headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ device_id: device, slug: slug, action: b.getAttribute('data-action') }) })
-            .catch(function () {})
-            .finally(function () { setTimeout(function () { b.classList.remove('sending'); }, 400); });
-        });
-      });
-    });
-  })();
-</script>

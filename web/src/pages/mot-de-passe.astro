@@ -1,6 +1,7 @@
 ---
 import BareLayout from '../layouts/BareLayout.astro';
 import PasswordView from '../components/views/PasswordView.astro';
+import { PASSWORD_MODE } from '../lib/password-view.ts';
 import { accountFromLink } from '../pages/api/password/set.ts';
 import { localAccountsSettings } from '@core/plugins/local-accounts-settings.js';
 import { LANG, t } from '../lib/i18n.ts';
@@ -8,4 +9,4 @@ const lang = LANG.fr;
 const token = Astro.url.searchParams.get('t') ?? '';
 const valid = !!token && !!(await accountFromLink(token));
 ---
-<BareLayout title={t(lang).setPasswordTitle} lang={lang}><PasswordView lang={lang} mode="set" token={token} valid={valid} minLength={localAccountsSettings().passwordMinLength} /></BareLayout>
+<BareLayout title={t(lang).setPasswordTitle} lang={lang}><PasswordView lang={lang} mode={PASSWORD_MODE.set} token={token} valid={valid} minLength={localAccountsSettings().passwordMinLength} /></BareLayout>

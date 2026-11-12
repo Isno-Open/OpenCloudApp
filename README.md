@@ -58,6 +58,12 @@ et leur sécurité, la messagerie, les plugins (catalogues, installation, mise �
 connexion externe), puis démonte tout. `E2E_KEEP=1` laisse la pile en place pour l'explorer (supprimer
 ensuite le `.env` de test qu'il a créé).
 
+    scripts/e2e-ui.sh               # parcours au navigateur (Playwright)
+
+Le premier vérifie l'API et le HTML sans cliquer. Le second, sur une pile neuve, fait l'installation
+par l'écran `/setup` puis clique dans Paramètres, Utilisateurs, les réglages d'un plugin, Ajouter et
+Compte, et échoue à la moindre erreur JavaScript.
+
 ## Plugins
 Ce que le portail sait faire en plus de son cœur vient de **plugins**, page **Plugins** de
 l'opérateur. Un plugin a un seul contrat, `register(api)` (`server/src/plugin-types.ts`), et peut :

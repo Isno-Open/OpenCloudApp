@@ -3,6 +3,8 @@
 // et peut en faire des operateurs. Reserve a l'admin (la page gate l'acces).
 import { listAccounts, countDevices } from '@core/store.js';
 import { t, type Lang } from '../../lib/i18n.ts';
+import UsersPanel from '../islands/UsersPanel.svelte';
+import type { UserRow } from '../../lib/users-view.ts';
 import { localAccountsSettings } from '@core/plugins/local-accounts-settings.js';
 import { mailEnabled } from '@core/mail.js';
 interface Props { lang: Lang; accountId: string; }
@@ -15,99 +17,14 @@ const canInvite = mailEnabled();   // messagerie configuree : le mot de passe de
 const now = Date.now();
 const counts = new Map<string, number>();
 for (const a of accounts) counts.set(a.id, await countDevices(a.id));
+const rows: UserRow[] = accounts.map((a) => ({
+  id: a.id, name: a.name ?? a.id, admin: a.admin, totpEnabled: !!a.totpEnabled,
+  locked: !!a.lockedUntil && a.lockedUntil > now, invited: !a.passHash,
+  cap: a.deviceCap, devices: counts.get(a.id) ?? 0,
+  isSelf: a.id === accountId, canChange: a.id !== accountId && !(a.admin && operators <= 1),
+}));
 ---
 <div class="page-head"><h1>{s.usersTitle}</h1></div>
 <p class="lead">{s.usersLead}</p>
 
-<form class="panel" id="userForm" style="margin-bottom:1rem">
-  <h3>{s.userNewTitle}</h3>
-  <div class="form-grid">
-    <div class="field"><label for="u-email">{s.userLogin}</label><input id="u-email" name="email" type="email" autocomplete="off" spellcheck="false" required /></div>
-    <div class="field"><label for="u-name">{s.userName}</label><input id="u-name" name="name" type="text" autocomplete="off" maxlength="80" required /></div>
-    <div class="field"><label for="u-pass">{s.userPassword}</label><input id="u-pass" name="password" type="password" autocomplete="new-password" minlength={minPass} required={!canInvite} />{canInvite && <span class="hint">{s.userPassInviteHint}</span>}</div>
-    <div class="field"><label for="u-cap">{s.userCap}</label><input id="u-cap" name="cap" type="number" min="1" value="5" required /></div>
-  </div>
-  <label class="check"><input type="checkbox" id="u-admin" name="admin" /> {s.userMakeAdmin}</label>
-  <div class="row end" style="margin-top:.7rem"><button class="btn primary" type="submit">{s.createUserBtn}</button></div>
-  <p class="formerr" id="userErr" hidden></p>
-</form>
-
-<div class="panel">
-  <h3>{s.usersListTitle}</h3>
-  <div class="utable">
-    <div class="ut-head"><span>{s.colLogin}</span><span>{s.colRole}</span><span>{s.colCap}</span><span>{s.colDevices}</span><span></span></div>
-    {accounts.map((a) => (
-      <div class="ut-row">
-        <span class="who"><b>{a.name ?? a.id}</b>{a.id === accountId && <span class="youtag">{s.youTag}</span>}<span class="mono">{a.id}</span></span>
-        <span class="tags">
-          <span class:list={['role', { op: a.admin }]}>{a.admin ? s.roleAdmin : s.roleUser}</span>
-          {a.totpEnabled && <span class="role">2FA</span>}
-          {a.lockedUntil && a.lockedUntil > now && <span class="role locked">{s.lockedTag}</span>}
-          {!a.passHash && <span class="role pending">{s.invitedTag}</span>}
-        </span>
-        <span class="num" data-label={s.colCap}>{a.deviceCap}</span>
-        <span class="num" data-label={s.colDevices}>{counts.get(a.id) ?? 0}</span>
-        <span class="ut-act">
-          {!a.passHash && canInvite && <button class="btn ghost sm" type="button" data-invite={a.id}>{s.resendInviteBtn}</button>}
-          {a.lockedUntil && a.lockedUntil > now && <button class="btn ghost sm" type="button" data-unlock={a.id}>{s.unlockBtn}</button>}
-          {a.totpEnabled && a.id !== accountId && <button class="btn ghost sm" type="button" data-totp-reset={a.id}>{s.totpResetBtn}</button>}
-          {a.id !== accountId && !(a.admin && operators <= 1) && (
-            <>
-              <button class="btn ghost sm" type="button" data-role={a.id} data-admin={a.admin ? 'false' : 'true'}>{a.admin ? s.unmakeOperator : s.makeOperator}</button>
-              <button class="btn danger sm" type="button" data-del={a.id}>{s.removeUser}</button>
-            </>
-          )}
-        </span>
-      </div>
-    ))}
-  </div>
-</div>
-
-<script is:inline define:vars={{ createErr: s.createUserError, removeErr: s.removeUserError, roleErr: s.roleError, confirmTpl: s.confirmRemoveUser('__ID__') }}>
-  (function () {
-    var form = document.getElementById('userForm');
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      var err = document.getElementById('userErr'); err.hidden = true;
-      var payload = {
-        email: document.getElementById('u-email').value.trim(),
-        name: document.getElementById('u-name').value.trim(),
-        password: document.getElementById('u-pass').value,
-        cap: parseInt(document.getElementById('u-cap').value, 10) || 5,
-        admin: document.getElementById('u-admin').checked,
-        lang: document.documentElement.lang,
-      };
-      fetch('/api/user/new', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
-        .then(function (r) { if (r.ok) { location.reload(); return; } return r.json().then(function (d) { err.hidden = false; err.textContent = (d && d.error) || createErr; if (r.status === 502) setTimeout(function () { location.reload(); }, 2500); }); })
-        .catch(function () { err.hidden = false; err.textContent = createErr; });
-    });
-    [['data-unlock', '/api/user/unlock'], ['data-totp-reset', '/api/user/totp-reset'], ['data-invite', '/api/user/invite-resend']].forEach(function (pair) {
-      document.querySelectorAll('[' + pair[0] + ']').forEach(function (b) {
-        b.addEventListener('click', function () {
-          b.disabled = true;
-          fetch(pair[1], { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: b.getAttribute(pair[0]), lang: document.documentElement.lang }) })
-            .then(function (r) { if (r.ok) location.reload(); else { alert(roleErr); b.disabled = false; } })
-            .catch(function () { alert(roleErr); b.disabled = false; });
-        });
-      });
-    });
-    document.querySelectorAll('[data-role]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        b.disabled = true;
-        fetch('/api/user/role', { method: 'POST', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ id: b.getAttribute('data-role'), admin: b.getAttribute('data-admin') === 'true' }) })
-          .then(function (r) { if (r.ok) location.reload(); else { alert(roleErr); b.disabled = false; } })
-          .catch(function () { alert(roleErr); b.disabled = false; });
-      });
-    });
-    document.querySelectorAll('[data-del]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var id = b.getAttribute('data-del');
-        if (!confirm(confirmTpl.replace('__ID__', id))) return;
-        fetch('/api/user/delete', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: id }) })
-          .then(function (r) { if (r.ok) location.reload(); else alert(removeErr); })
-          .catch(function () { alert(removeErr); });
-      });
-    });
-  })();
-</script>
+<UsersPanel client:load lang={lang} rows={rows} minPass={minPass} canInvite={canInvite} />

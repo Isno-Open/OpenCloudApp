@@ -3,8 +3,9 @@
 // l'appareil trouve, ou code invalide/expire. La confirmation appelle /api/device/approve ; le boitier,
 // qui interroge de son cote, recupere alors son certificat.
 import LinkCodeForm from '../LinkCodeForm.astro';
-import { t, ROUTES, type Lang } from '../../lib/i18n.ts';
-import { LINK_VIEW, LINK_ERROR, type LinkView } from '../../lib/link.ts';
+import { t, type Lang } from '../../lib/i18n.ts';
+import { LINK_VIEW, type LinkView } from '../../lib/link.ts';
+import LinkConfirm from '../islands/LinkConfirm.svelte';
 interface Props { lang: Lang; view: LinkView; code?: string; deviceId?: string; }
 const { lang, view, code = '', deviceId = '' } = Astro.props;
 const s = t(lang);
@@ -12,14 +13,7 @@ const s = t(lang);
 <div class="page-head"><h1>{s.linkTitle}</h1></div>
 
 {view === LINK_VIEW.confirm ? (
-  <div class="panel link-confirm" id="linkConfirm">
-    <h3>{s.linkConfirmTitle}</h3>
-    <div class="kv"><span class="k">Code</span><span class="v mono">{code}</span></div>
-    <div class="kv"><span class="k">{s.linkIdWord}</span><span class="v mono">{deviceId}</span></div>
-    <div class="field"><label for="link-name">{s.linkNameLabel}</label><input id="link-name" type="text" maxlength="60" placeholder={s.linkNamePh} /></div>
-    <div class="row end"><button class="btn primary" type="button" id="linkBtn">{s.linkConfirmBtn}</button></div>
-    <p class="formerr" id="linkErr" hidden></p>
-  </div>
+  <LinkConfirm client:load lang={lang} code={code} deviceId={deviceId} />
 ) : (
   <>
     <p class="lead">{s.linkLead}</p>
@@ -27,28 +21,3 @@ const s = t(lang);
     <div class="panel"><LinkCodeForm lang={lang} value={view === LINK_VIEW.invalid ? code : ''} /></div>
   </>
 )}
-
-<div class="panel link-done" id="linkDone" hidden>
-  <h3>{s.linkDoneTitle}</h3>
-  <p class="note">{s.linkDoneNote}</p>
-  <div class="row"><a class="btn primary" href={ROUTES.appareils[lang]}>{s.linkGoDevices}</a></div>
-</div>
-
-<script is:inline define:vars={{ code, ERR: LINK_ERROR, invalidMsg: s.linkInvalid, capTpl: s.linkCapError(9999), netErr: s.netErr }}>
-  (function () {
-    var btn = document.getElementById('linkBtn');
-    if (!btn) return;
-    btn.addEventListener('click', function () {
-      var err = document.getElementById('linkErr'); err.hidden = true; btn.disabled = true;
-      fetch('/api/device/approve', { method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ code: code, name: document.getElementById('link-name').value.trim() }) })
-        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
-        .then(function (res) {
-          if (res.ok) { document.getElementById('linkConfirm').hidden = true; document.getElementById('linkDone').hidden = false; return; }
-          err.hidden = false; btn.disabled = false;
-          err.textContent = res.d.error === ERR.cap ? capTpl.replace('9999', String(res.d.cap)) : invalidMsg;
-        })
-        .catch(function () { err.hidden = false; err.textContent = netErr; btn.disabled = false; });
-    });
-  })();
-</script>

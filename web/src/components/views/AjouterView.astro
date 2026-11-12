@@ -1,5 +1,6 @@
 ---
 import LinkCodeForm from '../LinkCodeForm.astro';
+import PairCodeButton from '../islands/PairCodeButton.svelte';
 import { t, type Lang } from '../../lib/i18n.ts';
 interface Props { lang: Lang; }
 const { lang } = Astro.props;
@@ -13,38 +14,10 @@ const s = t(lang);
 </div>
 
 <div class="card">
-  <div class="add">
-    <div>
-      <div style="font-weight:550">{s.getCodeTitle}</div>
-      <p class="note" style="margin:.15rem 0 0">{s.getCodeNote}</p>
-    </div>
-    <button class="btn primary" type="button" id="pairBtn">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
-      {s.getCodeBtn}
-    </button>
-  </div>
-  <span class="code" id="pairCode" hidden></span>
+  <PairCodeButton client:load lang={lang} />
 </div>
 
 <div class="card">
   <div class="sect-label">{s.howTitle}</div>
   <p class="note">{s.howText}</p>
 </div>
-
-<script is:inline define:vars={{ pairPrefix: s.pairCode('__C__'), errPrefix: s.errPrefix('__E__'), netErr: s.netErr }}>
-  (function () {
-    var btn = document.getElementById('pairBtn'), out = document.getElementById('pairCode');
-    if (!btn || !out) return;
-    btn.addEventListener('click', function () {
-      btn.disabled = true;
-      fetch('/api/device/new', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
-        .then(function (r) { return r.json(); })
-        .then(function (d) {
-          out.hidden = false;
-          out.textContent = d.code ? pairPrefix.replace('__C__', d.code) : errPrefix.replace('__E__', d.error || '');
-        })
-        .catch(function () { out.hidden = false; out.textContent = netErr; })
-        .finally(function () { btn.disabled = false; });
-    });
-  })();
-</script>

@@ -2,78 +2,14 @@
 // Ecran de reglages d'un plugin. Le cadre (retour, titre, panneau, bouton unique) est le meme pour tous
 // les plugins : seul le contenu varie, et il vient de ce que le plugin DECLARE (champs, bornes, libelles).
 import type { PluginInfo, SettingField, SettingValue } from '@core/plugin-types.js';
-import { SETTING_KIND, TEXT_FORMAT } from '@core/plugin-types.js';
+import PluginSettingsForm from '../islands/PluginSettingsForm.svelte';
 import { t, ROUTES, type Lang } from '../../lib/i18n.ts';
 interface Props { lang: Lang; plugin: PluginInfo; fields: readonly SettingField[]; values: Record<string, SettingValue>; }
 const { lang, plugin, fields, values } = Astro.props;
 const s = t(lang);
-const id = (f: SettingField) => `pf-${f.key}`;
 ---
 <a class="backlink" href={ROUTES.plugins[lang]}>← {s.pluginsTitle}</a>
 <div class="page-head"><h1>{plugin.title}</h1></div>
 <p class="lead">{s.pluginSettingsLead} <span class="ro">{plugin.builtin ? s.pluginBuiltin : s.pluginExternal}</span></p>
 
-<form class="panel plugin-form" id="pluginForm" data-plugin={plugin.id}>
-  {fields.map((f) => (
-    <div class:list={['pf', { under: !!f.under }]} data-under={f.under}>
-      {f.kind === SETTING_KIND.toggle ? (
-        <label class="check"><input type="checkbox" id={id(f)} data-key={f.key} data-kind={f.kind} checked={values[f.key] === true} /> {f.label[lang]}</label>
-      ) : f.kind === SETTING_KIND.number ? (
-        <div class="field"><label for={id(f)}>{f.label[lang]}</label><input id={id(f)} data-key={f.key} data-kind={f.kind} type="number" min={f.min} max={f.max} value={String(values[f.key] ?? '')} /></div>
-      ) : f.kind === SETTING_KIND.secret ? (
-        <div class="field"><label for={id(f)}>{f.label[lang]}</label>
-          <div class="row"><input id={id(f)} data-secret type="password" readonly spellcheck="false" style="flex:1" value={String(values[f.key] ?? '')} />
-            <button class="btn ghost sm" type="button" data-reveal={id(f)}>{s.secretShow}</button>
-            <button class="btn ghost sm" type="button" data-copy={id(f)}>{s.secretCopy}</button></div>
-        </div>
-      ) : f.kind === SETTING_KIND.text ? (
-        <div class="field"><label for={id(f)}>{f.label[lang]}</label><input id={id(f)} data-key={f.key} data-kind={f.kind} type={f.format === TEXT_FORMAT.url ? 'url' : 'text'} maxlength={f.maxLength} placeholder={f.placeholder} spellcheck="false" value={String(values[f.key] ?? '')} /></div>
-      ) : (
-        <div class="field"><label for={id(f)}>{f.label[lang]}</label>
-          <select id={id(f)} data-key={f.key} data-kind={f.kind}>{f.options.map((o) => <option value={o.value} selected={o.value === values[f.key]}>{o.label[lang]}</option>)}</select>
-        </div>
-      )}
-      {f.hint && <span class="hint">{f.hint[lang]}</span>}
-    </div>
-  ))}
-  <div class="row end" style="margin-top:.6rem"><span class="savemsg" id="pluginMsg"></span><button class="btn primary" type="submit">{s.saveBtn}</button></div>
-</form>
-
-<script is:inline define:vars={{ okMsg: s.savedMsg, errMsg: s.saveError, kinds: SETTING_KIND, showMsg: s.secretShow, hideMsg: s.secretHide, copiedMsg: s.secretCopied }}>
-  (function () {
-    // secret cree par le plugin : masque, a afficher ou copier ; jamais renvoye a l'enregistrement
-    document.querySelectorAll('[data-reveal]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var el = document.getElementById(b.getAttribute('data-reveal')); var hidden = el.type === 'password';
-        el.type = hidden ? 'text' : 'password'; b.textContent = hidden ? hideMsg : showMsg;
-      });
-    });
-    document.querySelectorAll('[data-copy]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var el = document.getElementById(b.getAttribute('data-copy'));
-        navigator.clipboard.writeText(el.value).then(function () { b.textContent = copiedMsg; }).catch(function () { el.type = 'text'; el.select(); });
-      });
-    });
-    var form = document.getElementById('pluginForm'), msg = document.getElementById('pluginMsg');
-    var inputs = form.querySelectorAll('[data-key]');
-    // un champ « sous » une case n'est actif que si la case est cochee
-    function sync() {
-      form.querySelectorAll('[data-under]').forEach(function (row) {
-        var parent = form.querySelector('[data-key="' + row.getAttribute('data-under') + '"]');
-        row.querySelectorAll('input,select').forEach(function (el) { el.disabled = !!parent && !parent.checked; });
-      });
-    }
-    form.addEventListener('change', sync); sync();
-    form.addEventListener('submit', function (e) {
-      e.preventDefault(); msg.className = 'savemsg'; msg.textContent = '…';
-      var values = {};
-      inputs.forEach(function (el) {
-        var k = el.getAttribute('data-kind');
-        values[el.getAttribute('data-key')] = k === kinds.toggle ? el.checked : k === kinds.number ? Number(el.value) : el.value;
-      });
-      fetch('/api/settings/plugin', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: form.getAttribute('data-plugin'), values: values }) })
-        .then(function (r) { msg.className = 'savemsg ' + (r.ok ? 'ok' : 'err'); msg.textContent = r.ok ? okMsg : errMsg; })
-        .catch(function () { msg.className = 'savemsg err'; msg.textContent = errMsg; });
-    });
-  })();
-</script>
+<PluginSettingsForm client:load lang={lang} pluginId={plugin.id} fields={fields} values={values} />

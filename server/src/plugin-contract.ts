@@ -30,6 +30,11 @@ export type PluginSettings = {
 };
 
 
+/** Les trois commandes d'un appareil, telles que l'app les envoie au relais (/api/cmd). Le relais les
+ *  traduit pour le boitier (mqtt.ts) ; un type d'appareil n'en change que les libelles. */
+export const DEVICE_ACTION = { up: "UP", stop: "STOP", down: "DOWN" } as const;
+export type DeviceAction = (typeof DEVICE_ACTION)[keyof typeof DEVICE_ACTION];
+
 /** Icone d'un type d'appareil : un caractere (emoji) ou un trace SVG (attribut d d'un path, 24x24,
  *  dessine au trait par le coeur). Jamais de balisage : un plugin ne peut pas injecter de HTML. */
 export type DeviceIcon = { glyph: string } | { path: string };

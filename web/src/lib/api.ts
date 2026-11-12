@@ -2,7 +2,9 @@
 // Svelte). Un seul endroit pour le format des reponses, les erreurs reseau et l'attente du redemarrage.
 
 /** Reponse d'un appel : les donnees, ou un message d'erreur pret a afficher. */
-export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string };
+/** `body` d'un echec : le corps tel que le serveur l'a rendu (null sans reponse), pour un ecran qui
+ *  montre plus qu'un message (ex. la liste des verifications d'une adresse refusee). */
+export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string; body: unknown; status: number | null };
 
 const errorOf = (body: unknown, fallback: string): string => {
   const e = field(body, 'error');
@@ -19,11 +21,11 @@ async function call<T>(url: string, init: RequestInit, fallback: string, parse: 
   try {
     const r = await fetch(url, { cache: 'no-store', ...init });
     const body: unknown = await r.json().catch(() => null);
-    if (!r.ok) return { ok: false, error: errorOf(body, fallback) };
+    if (!r.ok) return { ok: false, error: errorOf(body, fallback), body, status: r.status };
     const data = parse(body);
-    return data === null ? { ok: false, error: fallback } : { ok: true, data };
+    return data === null ? { ok: false, error: fallback, body, status: r.status } : { ok: true, data };
   } catch {
-    return { ok: false, error: fallback };
+    return { ok: false, error: fallback, body: null, status: null };
   }
 }
 

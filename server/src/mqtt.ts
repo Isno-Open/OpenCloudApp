@@ -4,11 +4,13 @@
 // Ingestion : on s'abonne à l'état des covers publié par les devices (retained) pour afficher, PAR
 // TYPE, ce que le device DÉCLARE (type/positional/labels viennent de profiles.json côté firmware ;
 // le cloud ne recode rien, il reflète).
+import { DEVICE_ACTION } from "./plugin-contract.js";
 import mqtt, { type MqttClient } from "mqtt";
 import { readFileSync } from "node:fs";
 import { PKI_FILES } from "./pki.js";
 
-export const ACTIONS = { UP: "OPEN", STOP: "STOP", DOWN: "CLOSE" } as const;
+// commande de l'app (DEVICE_ACTION) -> charge envoyee au boitier
+export const ACTIONS = { [DEVICE_ACTION.up]: "OPEN", [DEVICE_ACTION.stop]: "STOP", [DEVICE_ACTION.down]: "CLOSE" } as const;
 export type Action = keyof typeof ACTIONS;
 export const cmdTopic = (deviceId: string, slug: string): string => `openprofalux/${deviceId}/cover/${slug}/set`;
 export const cmdPayload = (action: Action): string => ACTIONS[action];
