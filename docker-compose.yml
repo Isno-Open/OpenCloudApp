@@ -11,8 +11,10 @@ services:
     ports:
       - "${BROKER_PUBLIC_PORT:-8883}:8883"   # port public du broker (meme variable cote app)
     volumes:
-      - ./config:/mosquitto/config
-      - ./certs:/mosquitto/certs
+      # lecture seule : le broker n'ecrit ni sa config ni ses certificats (et l'image ne reprend plus
+      # la propriete de ces dossiers du depot, ce qui bloquait les mises a jour git)
+      - ./config:/mosquitto/config:ro
+      - ./certs:/mosquitto/certs:ro
       - broker-data:/mosquitto/data
     networks: [stack]
 
