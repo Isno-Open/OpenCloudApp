@@ -1,0 +1,38 @@
+/* Identite ISNO : SOURCE DE VERITE = isno-astro/src/styles/global.css (le site). Ces tokens en sont le
+   miroir ; le site en est proprietaire. A garder synchronise (a terme : garde CI contre la divergence,
+   cf. regle « une config, un seul fichier »). Ne pas diverger ici sans repercuter cote site.
+   Theme comme le site : SOMBRE par defaut, clair en opt-in via [data-theme="light"] + localStorage. */
+:root {
+  /* --- tokens du site (identite partagee) --- */
+  --bg: #0a1424; --bg-elev: #101f38; --bg-code: #0d1b30;
+  --text: #e8eef8; --text-soft: #b8c6de; --text-muted: #8598ba; --text-faint: #5f74a0;
+  --border: #1d3457; --border-soft: #16273f;
+  --accent: #2e86ff; --accent-hover: #5aa0ff; --accent-soft: #14294a; --accent2: #00d9ff;
+  --link: #2e86ff; --link-hover: #5aa0ff;
+  --ok: #3ad17e; --ok-soft: #10311f;
+  --font-serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* --- ajouts propres a l'app (repris du firmware OpenProfalux, meme palette) --- */
+  --surface-2: var(--bg-code);
+  --accent-fg: #ffffff;
+  --accent-weak: rgba(46, 134, 255, .14);
+  --accent-line: rgba(46, 134, 255, .34);
+  --warn: #ffb03a; --danger: #ff5f56;
+  --radius: 13px; --radius-sm: 9px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 8px 24px rgba(0, 0, 0, .45);
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --bg: #f1f5fb; --bg-elev: #ffffff; --bg-code: #e9eff8;
+  --text: #0a1424; --text-soft: #33456a; --text-muted: #566a8f; --text-faint: #8397b8;
+  --border: #d3ddee; --border-soft: #e4ebf6;
+  --accent: #1560bd; --accent-hover: #0d4a99; --accent-soft: #e2edfb; --accent2: #0090c0;
+  --link: #1560bd; --link-hover: #0d4a99;
+  --ok: #1f8f52; --ok-soft: #e0f2e7;
+  --accent-weak: rgba(21, 96, 189, .10);
+  --accent-line: rgba(21, 96, 189, .30);
+  --warn: #9a6a00; --danger: #c0392b;
+  --shadow: 0 1px 2px rgba(20, 30, 45, .06), 0 3px 10px rgba(20, 30, 45, .05);
+  color-scheme: light;
+}

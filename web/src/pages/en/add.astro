@@ -1,0 +1,12 @@
+---
+import CloudLayout from '../../layouts/CloudLayout.astro';
+import AjouterView from '../../components/views/AjouterView.astro';
+import { resolveAccountId } from '../../server/auth.ts';
+import { LANG, ROUTES, t } from '../../lib/i18n.ts';
+const lang = LANG.en;
+const acc = await resolveAccountId(Astro.request);
+if (!acc) return Astro.redirect(ROUTES.connexion[lang]);
+---
+<CloudLayout title={`${t(lang).addTitle} · ISNO Cloud`} lang={lang} altUrl={ROUTES.ajouter[LANG.fr]}>
+  <AjouterView lang={lang} />
+</CloudLayout>

@@ -1,0 +1,43 @@
+---
+import { getAccountInfo } from '../../lib/cloud-data.ts';
+import { t, ROUTES, type Lang } from '../../lib/i18n.ts';
+interface Props { lang: Lang; accountId: string; }
+const { lang, accountId } = Astro.props;
+const s = t(lang);
+const account = await getAccountInfo(accountId);
+---
+<div class="page-head"><h1>{s.accountTitle}</h1></div>
+<p class="lead">{s.accountLead}</p>
+
+<div class="cfg-grid">
+  <div class="panel">
+    <h3>{s.identity} <span class="ro">{s.readonly}</span></h3>
+    <div class="kv"><span class="k">{s.address}</span><span class="v">{account.email}</span></div>
+    <div class="kv"><span class="k">{s.connection}</span><span class="v">{account.via}</span></div>
+  </div>
+  <div class="panel">
+    <h3>{s.subscription}</h3>
+    <div class="kv"><span class="k">{s.boxesWord}</span><span class="v">{account.boitiers} / {account.cap}</span></div>
+    <div class="kv"><span class="k">{s.formula}</span><span class="v">{s.included}</span></div>
+    <p class="note" style="margin:.5rem 0 0">{s.capNote(account.cap)}</p>
+  </div>
+</div>
+
+<div class="card" style="margin-top:.9rem">
+  <div class="add">
+    <div>
+      <div style="font-weight:550">{s.logoutTitle}</div>
+      <p class="note" style="margin:.15rem 0 0">{s.logoutNote}</p>
+    </div>
+    <button class="btn ghost" type="button" id="logoutBtn">{s.logoutBtn}</button>
+  </div>
+</div>
+
+<script is:inline define:vars={{ home: ROUTES.volets[lang] }}>
+  (function () {
+    var b = document.getElementById('logoutBtn');
+    if (b) b.addEventListener('click', function () {
+      fetch('/api/logout', { method: 'POST' }).then(function () { location.href = home; }).catch(function () { location.href = home; });
+    });
+  })();
+</script>

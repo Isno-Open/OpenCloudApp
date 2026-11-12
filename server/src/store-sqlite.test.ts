@@ -27,6 +27,20 @@ test("device : ajout, comptage, liste, et propriété vérifiée", async () => {
   assert.ok(await s.findDevice("dev-1", "admin"));
   assert.equal(await s.findDevice("dev-1", "autre-compte"), null);
 });
+test("device : renommer n'affecte que le device du bon compte", async () => {
+  await s.addDevice({ deviceId: "dev-2", accountId: "admin", name: "Avant", firmware: "openprofalux" });
+  await s.renameDevice("dev-2", "autre-compte", "Pirate");   // mauvais compte : no-op
+  assert.equal((await s.findDevice("dev-2", "admin"))?.name, "Avant");
+  await s.renameDevice("dev-2", "admin", "Après");
+  assert.equal((await s.findDevice("dev-2", "admin"))?.name, "Après");
+});
+test("device : supprimer n'affecte que le device du bon compte", async () => {
+  await s.addDevice({ deviceId: "dev-3", accountId: "admin", name: "X", firmware: "openprofalux" });
+  await s.removeDevice("dev-3", "autre-compte");             // mauvais compte : no-op
+  assert.ok(await s.findDevice("dev-3", "admin"));
+  await s.removeDevice("dev-3", "admin");
+  assert.equal(await s.findDevice("dev-3", "admin"), null);
+});
 test("ensureAccount : provisionne au plafond donné, idempotent", async () => {
   await s.ensureAccount("sso-user", 5);
   assert.equal((await s.getAccount("sso-user"))?.deviceCap, 5);

@@ -9,3 +9,7 @@ certs/*.srl
 data/
 server/node_modules
 server/dist
+server/dist-test
+web/node_modules
+web/dist
+web/.astro

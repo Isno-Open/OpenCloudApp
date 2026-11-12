@@ -1,0 +1,25 @@
+---
+// Gabarit minimal (sans barre) pour la connexion : identite + theme, contenu centre.
+import '../styles/tokens.css';
+import '../styles/cloud.css';
+import type { Lang } from '../lib/i18n.ts';
+interface Props { title?: string; lang: Lang; }
+const { title = 'ISNO Cloud', lang } = Astro.props;
+---
+<!doctype html>
+<html lang={lang}>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>{title}</title>
+  <script is:inline>
+    try { if (localStorage.getItem('theme') === 'light') document.documentElement.setAttribute('data-theme', 'light'); } catch (e) {}
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" />
+</head>
+<body>
+  <main class="bare-wrap"><slot /></main>
+</body>
+</html>

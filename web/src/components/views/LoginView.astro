@@ -1,0 +1,27 @@
+---
+import { t, ROUTES, type Lang } from '../../lib/i18n.ts';
+interface Props { lang: Lang; error?: boolean; }
+const { lang, error = false } = Astro.props;
+const s = t(lang);
+---
+<div class="login-card">
+  <span class="login-brand">
+    <svg class="rf" viewBox="0 0 28 28" aria-hidden="true">
+      <circle cx="6" cy="14" r="2.6" fill="currentColor"></circle>
+      <g fill="none" stroke="currentColor" stroke-linecap="round">
+        <path d="M11 8 A8 8 0 0 1 11 20" stroke-width="2.2"></path>
+        <path d="M15.5 5 A12.5 12.5 0 0 1 15.5 23" stroke-width="2.2" opacity=".65"></path>
+        <path d="M20 2.5 A16.5 16.5 0 0 1 20 25.5" stroke-width="2" opacity=".38"></path>
+      </g>
+    </svg>
+    <span>isno<span class="tld">.fr</span></span>
+  </span>
+  <form method="post" action="/api/login">
+    <input type="hidden" name="lang" value={lang} />
+    {error && <p class="err">{s.signInError}</p>}
+    <div class="field"><label for="u">{s.signInUser}</label><input id="u" name="user" type="text" autocomplete="username" autofocus required /></div>
+    <div class="field"><label for="p">{s.signInPass}</label><input id="p" name="pass" type="password" autocomplete="current-password" required /></div>
+    <button class="btn primary" type="submit" style="margin-top:.3rem">{s.signInBtn}</button>
+  </form>
+  <a class="linkish" href={ROUTES.volets[lang]}>isno.fr →</a>
+</div>

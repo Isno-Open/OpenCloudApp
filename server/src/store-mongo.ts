@@ -23,6 +23,8 @@ export const countDevices = (accountId: string): Promise<number> => devices().co
 export const listDevices = (accountId: string): Promise<Device[]> => devices().find({ accountId }, { projection: { _id: 0 } }).toArray();
 export const findDevice = (deviceId: string, accountId: string): Promise<Device | null> => devices().findOne({ deviceId, accountId }, { projection: { _id: 0 } });
 export async function addDevice(d: Device): Promise<void> { await devices().insertOne(d); }
+export async function renameDevice(deviceId: string, accountId: string, name: string): Promise<void> { await devices().updateOne({ deviceId, accountId }, { $set: { name } }); }
+export async function removeDevice(deviceId: string, accountId: string): Promise<void> { await devices().deleteOne({ deviceId, accountId }); }
 export async function addPairing(p: Pairing): Promise<void> { await pairings().insertOne({ ...p, used: false }); }
 export async function takePairing(code: string): Promise<Pairing | null> {
   const r = await pairings().findOneAndUpdate({ code, used: false }, { $set: { used: true } }, { projection: { _id: 0, used: 0 } });

@@ -14,7 +14,7 @@ services:
       - ./certs:/mosquitto/certs
       - broker-data:/mosquitto/data
   server:
-    build: ./server
+    build: .                                # image unique : coeur backend + app Astro SSR (web/)
     container_name: isno-cloud-server
     restart: unless-stopped
     ports:
@@ -22,6 +22,8 @@ services:
     env_file:
       - .env
     environment:
+      - HOST=0.0.0.0
+      - PORT=8080
       - CERTS_DIR=/certs
       - BROKER_URL=mqtts://broker:8883
       - DB_PATH=/data/isno-cloud.db        # store SQLite par défaut (ignoré si MONGO_URL défini)

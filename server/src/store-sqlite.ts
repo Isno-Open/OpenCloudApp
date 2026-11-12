@@ -37,6 +37,12 @@ export function findDevice(deviceId: string, accountId: string): Promise<Device 
 export function addDevice(d: Device): Promise<void> {
   db.prepare("INSERT INTO devices (device_id, account_id, name, firmware) VALUES (?,?,?,?)").run(d.deviceId, d.accountId, d.name, d.firmware); return Promise.resolve();
 }
+export function renameDevice(deviceId: string, accountId: string, name: string): Promise<void> {
+  db.prepare("UPDATE devices SET name = ? WHERE device_id = ? AND account_id = ?").run(name, deviceId, accountId); return Promise.resolve();
+}
+export function removeDevice(deviceId: string, accountId: string): Promise<void> {
+  db.prepare("DELETE FROM devices WHERE device_id = ? AND account_id = ?").run(deviceId, accountId); return Promise.resolve();
+}
 export function addPairing(p: Pairing): Promise<void> {
   db.prepare("INSERT INTO pairings (code, account_id, device_id, name, used) VALUES (?,?,?,?,0)").run(p.code, p.accountId, p.deviceId, p.name); return Promise.resolve();
 }
