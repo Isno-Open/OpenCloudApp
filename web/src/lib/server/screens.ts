@@ -46,7 +46,7 @@ export async function devicesScreen(lang: Lang, request: Request, cookies: Cooki
   const pending = cookies.get(LINK_COOKIE);
   if (pending) redirect(302, `${ROUTES.lier[lang]}?code=${encodeURIComponent(pending)}`);
   const [account, boitiers, appareils] = await Promise.all([getAccountInfo(acc), listBoitiers(acc), listAppareils(acc)]);
-  return { account, boitiers, appareils };
+  return { account, boitiers, appareils, now: Date.now() };
 }
 
 export async function addScreen(lang: Lang, request: Request) {
@@ -190,7 +190,7 @@ export async function boxScreen(lang: Lang, request: Request, id: string) {
   const acc = await requireAccount(request, lang);
   const b = await getBoitier(id, acc);
   if (!b) redirect(302, ROUTES.appareils[lang]);
-  return { boitier: b };
+  return { boitier: b, now: Date.now() };
 }
 
 /** Installation : tant que l'instance n'est pas configuree. */

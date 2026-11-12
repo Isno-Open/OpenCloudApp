@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ACTIONS, cmdTopic, cmdPayload, applyCoverMessage, applyStatusMessage, type Cover } from "./mqtt.js";
+import { ACTIONS, cmdTopic, cmdPayload, applyCoverMessage, applyStatusMessage, isLiveActivity, deviceOfTopic, type Cover } from "./mqtt.js";
 
 test("le topic cible device + cover (namespace de l'ACL)", () => {
   assert.equal(cmdTopic("opf-1", "salon"), "openprofalux/opf-1/cover/salon/set");
@@ -55,4 +55,14 @@ test("presence : online et offline (testament) annonces par le boitier ; le rest
   assert.equal(p.has("dev2"), false);
   applyStatusMessage(p, "openprofalux/dev3/cover/x/status", "online");
   assert.equal(p.has("dev3"), false);
+});
+
+test("activite : en direct oui ; retenu non, sauf l'annonce online ; testament recu en direct oui", () => {
+  assert.equal(isLiveActivity("openprofalux/d/cover/s/state", "open", false), true);
+  assert.equal(isLiveActivity("openprofalux/d/cover/s/state", "open", true), false);
+  assert.equal(isLiveActivity("openprofalux/d/status", "online", true), true);
+  assert.equal(isLiveActivity("openprofalux/d/status", "offline", true), false);
+  assert.equal(isLiveActivity("openprofalux/d/status", "offline", false), true);
+  assert.equal(deviceOfTopic("openprofalux/opf-1/cover/x/attrs"), "opf-1");
+  assert.equal(deviceOfTopic("autre/opf-1/x"), null);
 });

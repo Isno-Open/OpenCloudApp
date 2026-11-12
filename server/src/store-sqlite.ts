@@ -26,6 +26,11 @@ for (const [col, def] of [["name", "TEXT"], ["failed_count", "INTEGER NOT NULL D
   ["totp_secret", "TEXT"], ["totp_enabled", "INTEGER NOT NULL DEFAULT 0"], ["totp_last_step", "INTEGER"]] as const)
   if (!accountCols.some((c) => c.name === col)) db.exec(`ALTER TABLE accounts ADD COLUMN ${col} ${def}`);
 
+// Derniere activite d'un boitier (relais), ajoutee apres coup.
+const deviceCols = db.prepare("PRAGMA table_info(devices)").all() as { name: string }[];
+if (!deviceCols.some((c) => c.name === "last_seen_at")) db.exec("ALTER TABLE devices ADD COLUMN last_seen_at INTEGER");
+const DEVICE_COLS = "device_id AS deviceId, account_id AS accountId, name, firmware, last_seen_at AS lastSeenAt";
+
 type AccountRow = { id: string; name: string | null; deviceCap: number; passHash: string | null; admin: number;
   failedCount: number; lockedUntil: number | null; totpSecret: string | null; totpEnabled: number; totpLastStep: number | null };
 const ACCOUNT_COLS = "id, name, device_cap AS deviceCap, pass_hash AS passHash, admin, failed_count AS failedCount, locked_until AS lockedUntil, totp_secret AS totpSecret, totp_enabled AS totpEnabled, totp_last_step AS totpLastStep";
@@ -85,14 +90,18 @@ export function countDevices(accountId: string): Promise<number> {
   return Promise.resolve((db.prepare("SELECT COUNT(*) AS n FROM devices WHERE account_id = ?").get(accountId) as { n: number }).n);
 }
 export function listDevices(accountId: string): Promise<Device[]> {
-  return Promise.resolve(db.prepare("SELECT device_id AS deviceId, account_id AS accountId, name, firmware FROM devices WHERE account_id = ?").all(accountId) as Device[]);
+  return Promise.resolve(db.prepare(`SELECT ${DEVICE_COLS} FROM devices WHERE account_id = ?`).all(accountId) as Device[]);
 }
 export function findDevice(deviceId: string, accountId: string): Promise<Device | null> {
-  const r = db.prepare("SELECT device_id AS deviceId, account_id AS accountId, name, firmware FROM devices WHERE device_id = ? AND account_id = ?").get(deviceId, accountId) as Device | undefined;
+  const r = db.prepare(`SELECT ${DEVICE_COLS} FROM devices WHERE device_id = ? AND account_id = ?`).get(deviceId, accountId) as Device | undefined;
   return Promise.resolve(r ?? null);
 }
 export function addDevice(d: Device): Promise<void> {
   db.prepare("INSERT INTO devices (device_id, account_id, name, firmware) VALUES (?,?,?,?)").run(d.deviceId, d.accountId, d.name, d.firmware); return Promise.resolve();
+}
+/** Note la derniere activite d'un boitier (quel que soit son compte). */
+export function touchDevice(deviceId: string, at: number): Promise<void> {
+  db.prepare("UPDATE devices SET last_seen_at = ? WHERE device_id = ?").run(at, deviceId); return Promise.resolve();
 }
 // Enregistre (ou ré-enregistre) un appareil pour un compte. Idempotent : un ré-enrôlement du MÊME
 // appareil par le MÊME compte met à jour ; un appareil déjà détenu par un AUTRE compte est refusé.

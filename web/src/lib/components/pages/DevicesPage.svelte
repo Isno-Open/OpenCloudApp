@@ -7,6 +7,7 @@
   import GearIcon from '#lib/components/ui/GearIcon.svelte';
   import { t, ROUTES, appareilHref, otherLang } from '#lib/i18n.ts';
   import { isKnownAppareil } from '#lib/types.ts';
+  import { relativeTime } from '#lib/time.ts';
   import type { DevicesData } from '#lib/screen-data.ts';
   const { data }: { data: DevicesData } = $props();
   const s = $derived(t(data.lang));
@@ -22,6 +23,7 @@
       <div class="grp-head" style={b.online ? undefined : 'opacity:.75'}>
         <span class={['dot', { off: !b.online }]}></span>
         <span class="grp-name">{b.name}</span>
+        {#if !b.online && b.lastSeenAt !== null}<span class="grp-seen">{s.lastSeen(relativeTime(b.lastSeenAt, data.now, data.lang))}</span>{/if}
         {#if b.updateAvailable}<span class="pill upd">{s.updAvail}</span>{/if}
         <span class="grp-sub">{covers.length} {s.devicesWord}</span>
         <span style="flex:1"></span>

@@ -1,14 +1,16 @@
 <script lang="ts">
   // Ecran d'un boitier : onglets Configuration (lecture seule) et Gerer (renommer, supprimer avec
   // confirmation dans la page).
+  import KeyValue from '#lib/components/ui/KeyValue.svelte';
   import Field from '#lib/components/ui/Field.svelte';
   import ErrorText from '#lib/components/ui/ErrorText.svelte';
   import { t, ROUTES, type Lang } from '#lib/i18n.ts';
   import { postJson, ignoreBody } from '#lib/api.ts';
   import type { Boitier } from '#lib/types.ts';
+  import { relativeTime } from '#lib/time.ts';
 
-  interface Props { boitier: Boitier; lang: Lang; }
-  const { boitier: b, lang }: Props = $props();
+  interface Props { boitier: Boitier; lang: Lang; now: number; }
+  const { boitier: b, lang, now }: Props = $props();
   const s = $derived(t(lang));
 
   const TAB = { cfg: 'cfg', manage: 'manage' } as const;
@@ -43,11 +45,12 @@
   <div class="cfg-grid">
     <div class="panel">
       <h3>{s.availability} <span class="ro">{s.readonly}</span></h3>
-      <div class="kv"><span class="k">{s.state}</span><span class="v">{b.online ? s.online : s.offlineShort}</span></div>
-      {#if b.uptime}<div class="kv"><span class="k">{s.since}</span><span class="v">{b.uptime}</span></div>{/if}
-      {#if b.wifi?.rssiDbm != null}<div class="kv"><span class="k">{s.wifiSignal}</span><span class="v">{b.wifi.rssiDbm} dBm</span></div>{/if}
-      {#if b.radios}<div class="kv"><span class="k">{s.radios}</span><span class="v">{b.radios}</span></div>{/if}
-      <div class="kv"><span class="k">{s.firmware}</span><span class="v" style={b.updateAvailable ? 'color:var(--warn)' : undefined}>{b.updateAvailable ? s.updateAvailable : s.upToDate}</span></div>
+      <KeyValue label={s.state} value={b.online ? s.online : s.offlineShort} />
+      {#if !b.online && b.lastSeenAt !== null}<KeyValue label={s.lastSeenLabel} value={relativeTime(b.lastSeenAt, now, lang)} />{/if}
+      {#if b.uptime}<KeyValue label={s.since} value={b.uptime} />{/if}
+      {#if b.wifi?.rssiDbm != null}<KeyValue label={s.wifiSignal} value={`${b.wifi.rssiDbm} dBm`} />{/if}
+      {#if b.radios}<KeyValue label={s.radios} value={b.radios} />{/if}
+      <KeyValue label={s.firmware}><span style={b.updateAvailable ? 'color:var(--warn)' : undefined}>{b.updateAvailable ? s.updateAvailable : s.upToDate}</span></KeyValue>
     </div>
     <div class="panel">
       <h3>{s.comingSoon} <span class="ro">{s.readonly}</span></h3>

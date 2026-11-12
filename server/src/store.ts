@@ -26,6 +26,7 @@ export const countDevices = (a: string): Promise<number> => m().countDevices(a);
 export const listDevices = (a: string): Promise<Device[]> => m().listDevices(a);
 export const findDevice = (d: string, a: string): Promise<Device | null> => m().findDevice(d, a);
 export const addDevice = (d: Device): Promise<void> => m().addDevice(d);
+export const touchDevice = (d: string, at: number): Promise<void> => m().touchDevice(d, at);
 export const renameDevice = (d: string, a: string, name: string): Promise<void> => m().renameDevice(d, a, name);
 export const removeDevice = (d: string, a: string): Promise<void> => m().removeDevice(d, a);
 export const addPairing = (p: Pairing): Promise<void> => m().addPairing(p);

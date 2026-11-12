@@ -42,6 +42,8 @@ export type Boitier = {
   wifi?: { ssid: string; ip: string; rssiDbm: number | null };
   uptime?: string;
   radios?: string;       // ex. "868 · 433"
+  /** derniere activite vue par le relais (ms), null si jamais vu */
+  lastSeenAt: number | null;
 };
 
 /** Entitlement (plafond d'appareils), aligne sur entitlement.ts du backend. */

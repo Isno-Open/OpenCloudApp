@@ -5,6 +5,7 @@
 // TYPE, ce que le device DÉCLARE (type/positional/labels viennent de profiles.json côté firmware ;
 // le cloud ne recode rien, il reflète).
 import { DEVICE_ACTION } from "./plugin-contract.js";
+import { touchDevice } from "./store.js";
 import mqtt, { type MqttClient } from "mqtt";
 import { readFileSync } from "node:fs";
 import { PKI_FILES } from "./pki.js";
@@ -64,6 +65,24 @@ export function applyStatusMessage(map: Map<string, boolean>, topic: string, pay
   if (p === DEVICE_PRESENCE.online) map.set(m[1]!, true);
   else if (p === DEVICE_PRESENCE.offline) map.set(m[1]!, false);
 }
+/** Boitier auteur d'un message (openprofalux/<device>/...), ou null. */
+export const deviceOfTopic = (topic: string): string | null => /^openprofalux\/([^/]+)\//.exec(topic)?.[1] ?? null;
+
+/** Le message temoigne-t-il d'une activite du boitier MAINTENANT ? Un message retenu resservi par le
+ *  broker (au branchement du relais) ne dit rien du present, sauf l'annonce « online », qui n'est
+ *  retenue que tant que le boitier est connecte. Un « offline » recu en direct date sa disparition. */
+export function isLiveActivity(topic: string, payload: string, retained: boolean): boolean {
+  if (/^openprofalux\/[^/]+\/status$/.test(topic)) return payload.trim() === DEVICE_PRESENCE.online || !retained;
+  return !retained;
+}
+const SEEN_WRITE_MS = 60_000;   // au plus une ecriture par minute et par boitier
+const lastWrite = new Map<string, number>();
+function noteActivity(deviceId: string, now: number): void {
+  if ((lastWrite.get(deviceId) ?? 0) + SEEN_WRITE_MS > now) return;
+  lastWrite.set(deviceId, now);
+  touchDevice(deviceId, now).catch((e: unknown) => console.error("[mqtt relay] derniere activite :", e instanceof Error ? e.message : e));
+}
+
 /** Le boitier est-il connecte ? Faute d'annonce (jamais vu), non. */
 export const deviceOnline = (deviceId: string): boolean => presence.get(deviceId) === true;
 
@@ -77,10 +96,14 @@ function get(brokerUrl: string): MqttClient {
     rejectUnauthorized: true,
   });
   client.on("error", (e: Error) => console.error("[mqtt relay]", e.message));
-  client.on("message", (t: string, p: Buffer) => {
+  client.on("message", (t: string, p: Buffer, packet: { retain: boolean }) => {
     const payload = p.toString("utf8");
     applyCoverMessage(covers, t, payload);
     applyStatusMessage(presence, t, payload);
+    const dev = deviceOfTopic(t);
+    // une disparition annoncee (testament) n'efface pas la trace : la date reste celle du depart
+    if (dev && isLiveActivity(t, payload, packet.retain)) noteActivity(dev, Date.now());
+    if (dev && payload.trim() === DEVICE_PRESENCE.offline) lastWrite.delete(dev);
   });
   return client;
 }

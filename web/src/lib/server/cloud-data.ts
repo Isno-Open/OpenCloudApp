@@ -13,9 +13,9 @@ import { plugins } from '#lib/server/auth.ts';
 
 // online : ce que le boitier ANNONCE (openprofalux/<id>/status : online a sa connexion, offline par son
 // testament si il disparait), pas une deduction de ses appareils, dont les etats restent retenus.
-const boitierOf = (d: { deviceId: string; name: string; firmware: string }): Boitier => {
+const boitierOf = (d: { deviceId: string; name: string; firmware: string; lastSeenAt?: number | null }): Boitier => {
   const covers = coversOf(d.deviceId);
-  return { id: d.deviceId, name: d.name, firmware: d.firmware, online: deviceOnline(d.deviceId), updateAvailable: false, count: covers.length };
+  return { id: d.deviceId, name: d.name, firmware: d.firmware, online: deviceOnline(d.deviceId), updateAvailable: false, count: covers.length, lastSeenAt: d.lastSeenAt ?? null };
 };
 
 export async function getAccountInfo(accountId: string): Promise<Account> {

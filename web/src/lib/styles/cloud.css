@@ -276,3 +276,4 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.015em; margin: 0; }
 .panel.spaced { margin-top: .9rem; }
 .brand-logo { height: 26px; width: auto; max-width: 160px; object-fit: contain; display: block; }
 .login-mark .brand-logo { height: 34px; margin: 0 auto .4rem; }
+.grp-seen { font-size: .74rem; color: var(--text-faint); }

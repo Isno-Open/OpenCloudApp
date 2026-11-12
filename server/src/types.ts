@@ -8,7 +8,8 @@ export type Account = {
   failedCount: number; lockedUntil: number | null;
   totpSecret: string | null; totpEnabled: boolean; totpLastStep: number | null;
 };
-export type Device = { deviceId: string; accountId: string; name: string; firmware: string };
+/** lastSeenAt : derniere activite du boitier vue par le relais (ms), null si jamais vu. */
+export type Device = { deviceId: string; accountId: string; name: string; firmware: string; lastSeenAt?: number | null };
 export type Pairing = { code: string; accountId: string; deviceId: string; name: string };
 
 // État d'une demande d'autorisation d'appareil (RFC 8628). Énuméré : le code s'y réfère par son nom,

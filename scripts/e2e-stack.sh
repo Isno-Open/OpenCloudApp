@@ -126,6 +126,7 @@ docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "openprofalux/$ID/status" -m 'of
 sleep 3
 chk "presence : boitier hors ligne (testament), commandes coupees" "$(salon_disabled)" 1
 chk "presence : etat hors ligne affiche malgre les etats retenus de ses appareils" "$(curl -s -b "$J" "$B/" | grep -o 'class="grp-head"[^>]*>.\{0,40\}class="dot off"' | wc -l)" 1
+chk "derniere activite : un boitier hors ligne dit quand il a ete vu" "$(curl -s -b "$J" "$B/" | grep -o 'class="grp-seen">vu [^<]*' | wc -l)" 1
 docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "openprofalux/$ID/status" -m 'online'
 sleep 2
 

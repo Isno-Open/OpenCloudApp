@@ -17,5 +17,5 @@
     <span class="pill mono">{b.firmware}</span>
   </div>
   <p class="lead">{s.leadBoitier(b.id, b.count, b.uptime)}</p>
-  <BoxDetail boitier={b} lang={data.lang} />
+  <BoxDetail boitier={b} lang={data.lang} now={data.now} />
 </CloudLayout>
