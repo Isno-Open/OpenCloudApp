@@ -18,16 +18,16 @@ export async function init(): Promise<void> {
   await pairings().createIndex({ code: 1 }, { unique: true });
   await deviceAuth().createIndex({ deviceCode: 1 }, { unique: true });
   await deviceAuth().createIndex({ userCode: 1 }, { unique: true });
-  await accounts().updateOne({ id: "admin" }, { $setOnInsert: { id: "admin", deviceCap: 5, passHash: null, admin: true } }, { upsert: true });
 }
-const withAdmin = (a: Account | null): Account | null => (a ? { ...a, admin: a.admin ?? false } : null);
+const withAdmin = (a: Account | null): Account | null => (a ? { ...a, admin: a.admin ?? false, name: a.name ?? null } : null);
 export const getAccount = (id: string): Promise<Account | null> => accounts().findOne({ id }, { projection: { _id: 0 } }).then(withAdmin);
-export async function createAccount(id: string, passHash: string, cap: number, admin: boolean): Promise<void> {
-  await accounts().insertOne({ id, deviceCap: cap, passHash, admin });
+export async function createAccount(id: string, name: string, passHash: string, cap: number, admin: boolean): Promise<void> {
+  await accounts().insertOne({ id, name, deviceCap: cap, passHash, admin });
 }
+export async function setAccountAdmin(id: string, admin: boolean): Promise<void> { await accounts().updateOne({ id }, { $set: { admin } }); }
 export async function listAccounts(): Promise<Account[]> {
   const rows = await accounts().find({}, { projection: { _id: 0 } }).toArray();
-  return rows.map((a) => ({ ...a, admin: a.admin ?? false })).sort((x, y) => Number(y.admin) - Number(x.admin) || x.id.localeCompare(y.id));
+  return rows.map((a) => ({ ...a, admin: a.admin ?? false, name: a.name ?? null })).sort((x, y) => Number(y.admin) - Number(x.admin) || x.id.localeCompare(y.id));
 }
 export async function removeAccount(id: string): Promise<void> {
   await devices().deleteMany({ accountId: id });
@@ -46,7 +46,7 @@ export async function takePairing(code: string): Promise<Pairing | null> {
   return r ? { code: r.code, accountId: r.accountId, deviceId: r.deviceId, name: r.name } : null;
 }
 export async function ensureAccount(id: string, cap: number): Promise<void> {
-  await accounts().updateOne({ id }, { $setOnInsert: { id, deviceCap: cap, passHash: null } }, { upsert: true });
+  await accounts().updateOne({ id }, { $setOnInsert: { id, name: null, deviceCap: cap, passHash: null, admin: false } }, { upsert: true });
 }
 export async function claimDevice(deviceId: string, accountId: string, name: string, firmware: string): Promise<boolean> {
   const existing = await devices().findOne({ deviceId });

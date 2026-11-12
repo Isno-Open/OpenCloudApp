@@ -10,7 +10,7 @@ export const POST: APIRoute = async ({ request }) => {
   await boot();
   const b = await readBody(request);
   const lang: Lang = b.lang === LANG.en ? LANG.en : LANG.fr;
-  const a = await getAccount(String(b.user ?? ''));
+  const a = await getAccount(String(b.user ?? '').trim().toLowerCase());   // identifiant = e-mail
   if (!a || !a.passHash || !verifyPass(String(b.pass ?? ''), a.passHash)) {
     return new Response(null, { status: 303, headers: { Location: `${ROUTES.connexion[lang]}?local=1&e=1` } });
   }

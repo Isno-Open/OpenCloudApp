@@ -19,7 +19,7 @@ export async function getAccountInfo(accountId: string): Promise<Account> {
   const a = await getAccount(accountId);
   return {
     email: accountId,
-    via: accountId.includes('@') ? 'SSO isno.fr' : 'self-host',
+    name: a?.name ?? null,
     boitiers: await countDevices(accountId),
     cap: a?.deviceCap ?? 5,
   };

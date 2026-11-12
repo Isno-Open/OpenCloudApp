@@ -14,7 +14,8 @@ export const POST: APIRoute = async ({ request }) => {
   if (!accountId) {   // pas de session : chemin operateur par jeton admin
     if (!ADMIN_TOKEN || request.headers.get('authorization') !== `Bearer ${ADMIN_TOKEN}`)
       return json(401, { error: 'unauthorized' });
-    accountId = String(b.accountId ?? 'admin');
+    accountId = String(b.accountId ?? '').trim().toLowerCase();   // compte designe explicitement
+    if (!accountId) return json(400, { error: 'accountId requis' });
   }
   const deviceId = String(b.deviceId ?? ('opf-' + randomBytes(5).toString('hex')));
   const acc = await getAccount(accountId);

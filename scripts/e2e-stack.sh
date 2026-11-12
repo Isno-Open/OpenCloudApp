@@ -57,11 +57,13 @@ wait_ready /api/setup/broker; chk "broker installe et demarre" "$?" 0
 chk "cle de la CA absente du broker" "$(docker exec isno-mqtt ls /mosquitto/certs | grep -c ca.key)" 0
 sleep 2
 chk "noms d'hote verifies jusqu'a cette instance" "$(post /api/setup/check-hosts "{\"appHost\":\"$APP\",\"brokerHost\":\"$LAN\"}" | jget "['ok']")" True
-chk "enregistrement" "$(post /api/setup/save "{\"kind\":\"$KIND\",\"appHost\":\"$APP\",\"brokerHost\":\"$LAN\",\"adminPassword\":\"operateur-e2e\"}")" '{"ok":true}'
+chk "enregistrement" "$(post /api/setup/save "{\"kind\":\"$KIND\",\"appHost\":\"$APP\",\"brokerHost\":\"$LAN\",\"adminEmail\":\"Operateur@Exemple.fr\",\"adminName\":\"Opérateur E2E\",\"adminPassword\":\"operateur-e2e\"}")" '{"ok":true}'
 for _ in $(seq 1 60); do sleep 1; curl -s "$B/api/setup/status" 2>/dev/null | grep -q '"configured":true' && break; done
-J="$WORK/jar"; curl -s -o /dev/null -c "$J" -X POST -d 'user=admin&pass=operateur-e2e' "$B/api/login"
+J="$WORK/jar"; curl -s -o /dev/null -c "$J" -X POST -d 'user=operateur@exemple.fr&pass=operateur-e2e' "$B/api/login"
 sleep 6
 chk "setup ferme une fois configure" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' -d '{}' "$B/api/setup/save")" 409
+chk "connexion de l'operateur par e-mail (insensible a la casse)" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -d 'user=OPERATEUR@exemple.fr&pass=operateur-e2e' "$B/api/login")" 303
+chk "l'operateur voit Parametres et Utilisateurs" "$(curl -s -b "$J" "$B/" | grep -oE 'href="/(parametres|utilisateurs)"' | wc -l)" 2
 chk "relais connecte au broker" "$(docker logs isno-mqtt 2>&1 | grep -c "u'relay'" | awk '{print ($1>0)}')" 1
 
 echo "== boitier simule : device grant, mTLS, commande, isolation"
@@ -83,7 +85,7 @@ chk "isolation : un autre topic ne recoit rien" "$(docker run --rm -v "$WORK:/d:
 echo "== reconciliation : la config change de nom, le certificat suit"
 FP1=$(docker exec isno-cloud-server openssl x509 -in /broker-certs/server.crt -noout -fingerprint -sha256)
 docker exec isno-cloud-server sh -c "sed -i 's#mqtts://$LAN:18883#mqtts://localtest.me:18883#' /data/portal.config.json"
-docker restart isno-cloud-server >/dev/null; sleep 6; curl -s -o /dev/null -X POST -d 'user=admin&pass=operateur-e2e' "$B/api/login"; sleep 8
+docker restart isno-cloud-server >/dev/null; sleep 6; curl -s -o /dev/null -X POST -d 'user=operateur@exemple.fr&pass=operateur-e2e' "$B/api/login"; sleep 8
 FP2=$(docker exec isno-cloud-server openssl x509 -in /broker-certs/server.crt -noout -fingerprint -sha256)
 chk "certificat reemis au nouveau nom" "$([ "$FP1" != "$FP2" ] && docker exec isno-cloud-server openssl x509 -in /broker-certs/server.crt -noout -ext subjectAltName | tail -1 | grep -c localtest.me)" 1
 chk "le broker presente le nouveau certificat" "$(echo | openssl s_client -connect "$LAN:18883" 2>/dev/null | openssl x509 -noout -fingerprint -sha256)" "$FP2"

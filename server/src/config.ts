@@ -1,9 +1,10 @@
 // Configuration du portail, UN seul fichier (regle « une config, un seul fichier »). Ecrit par l'onboarding
 // web (/setup) ou seme depuis l'environnement pour le deploiement automatise ISNO. Lu par requete : aucune
 // valeur de deploiement n'est figee a l'import d'un module. Ce module ne charge AUCUN store (il sert aussi
-// a decider le mode setup sans base), donc il ne depend que de fs.
+// a decider le mode setup sans base), donc il ne depend que de fs (et du hachage des mots de passe).
 import { readFileSync, writeFileSync, existsSync, mkdirSync, chmodSync } from "node:fs";
 import { dirname } from "node:path";
+import { hashPass } from "./auth.js";
 
 // Choix de base : enumere, le code s'y refere par son nom.
 export const DB_KIND = { sqlite: "sqlite", mongoBundled: "mongo-bundled", mongoExternal: "mongo-external" } as const;
@@ -17,7 +18,8 @@ export type PortalConfig = {
   db: DbConfig;
   publicAppUrl: string;    // URL publique du portail (sert au QR d'enrolement)
   brokerPublicUrl: string; // URL publique du broker MQTT (donnee a la box enrolee)
-  adminPassHash: string | null;
+  // Premier operateur, cree au demarrage s'il n'existe pas encore (e-mail = identifiant de connexion).
+  operator: { email: string; name: string; passHash: string } | null;
 };
 
 const CONFIG_PATH = process.env.PORTAL_CONFIG ?? "/data/portal.config.json";
@@ -63,7 +65,9 @@ function seedFromEnv(): PortalConfig | null {
     db: mongo ? { kind: DB_KIND.mongoExternal, mongoUrl: mongo } : { kind: DB_KIND.sqlite, sqlitePath: process.env.DB_PATH },
     publicAppUrl: process.env.PUBLIC_APP_URL ?? "https://app.isno.fr",
     brokerPublicUrl: process.env.BROKER_URL_PUBLIC ?? "mqtts://mqtt.isno.fr:8883",
-    adminPassHash: null,
+    operator: process.env.ADMIN_EMAIL && process.env.ADMIN_PASS
+      ? { email: process.env.ADMIN_EMAIL.trim().toLowerCase(), name: process.env.ADMIN_NAME?.trim() || process.env.ADMIN_EMAIL.trim(), passHash: hashPass(process.env.ADMIN_PASS) }
+      : null,
   };
   mkdirSync(dirname(CONFIG_PATH), { recursive: true });
   writeFileSync(CONFIG_PATH, JSON.stringify(c, null, 2));

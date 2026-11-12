@@ -19,7 +19,7 @@ const s = t(lang);
   <form method="post" action="/api/login">
     <input type="hidden" name="lang" value={lang} />
     {error && <p class="err">{s.signInError}</p>}
-    <div class="field"><label for="u">{s.signInUser}</label><input id="u" name="user" type="text" autocomplete="username" autofocus required /></div>
+    <div class="field"><label for="u">{s.signInUser}</label><input id="u" name="user" type="email" autocomplete="username" autofocus required /></div>
     <div class="field"><label for="p">{s.signInPass}</label><input id="p" name="pass" type="password" autocomplete="current-password" required /></div>
     <button class="btn primary" type="submit" style="margin-top:.3rem">{s.signInBtn}</button>
   </form>

@@ -40,7 +40,7 @@ export type Boitier = {
 /** Entitlement (plafond d'appareils), aligne sur entitlement.ts du backend. */
 export type Account = {
   email: string;
-  via: string;           // ex. "SSO isno.fr"
+  name: string | null;
   boitiers: number;
   cap: number;
 };

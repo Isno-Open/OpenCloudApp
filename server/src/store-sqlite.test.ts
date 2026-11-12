@@ -7,9 +7,13 @@ process.env.DB_PATH = join(mkdtempSync(join(tmpdir(), "isno-store-")), "t.db");
 const s = await import("./store-sqlite.js");
 await s.init();
 
-test("le compte admin est semé avec un plafond de 5", async () => {
+test("aucun compte n'est cree tout seul (le premier operateur vient de l'installation)", async () => {
+  assert.equal((await s.listAccounts()).length, 0);
+});
+test("operateur : e-mail, nom, mot de passe, plafond", async () => {
+  await s.createAccount("admin", "Olivier", "SEL:H0", 5, true);
   const a = await s.getAccount("admin");
-  assert.equal(a?.deviceCap, 5);
+  assert.equal(a?.name, "Olivier"); assert.equal(a?.admin, true); assert.equal(a?.deviceCap, 5);
 });
 test("mot de passe : écriture puis relecture", async () => {
   await s.setAccountPass("admin", "SEL:HASH");
@@ -47,20 +51,27 @@ test("ensureAccount : provisionne au plafond donné, idempotent", async () => {
   await s.ensureAccount("sso-user", 99);   // ne réécrit pas un compte existant
   assert.equal((await s.getAccount("sso-user"))?.deviceCap, 5);
 });
-test("comptes : admin semé est opérateur ; createAccount crée un utilisateur simple", async () => {
-  assert.equal((await s.getAccount("admin"))?.admin, true);
-  await s.createAccount("alice", "SEL:H", 3, false);
-  const a = await s.getAccount("alice");
+test("comptes : createAccount crée un utilisateur simple avec son nom", async () => {
+  await s.createAccount("alice@exemple.fr", "Alice", "SEL:H", 3, false);
+  const a = await s.getAccount("alice@exemple.fr");
   assert.equal(a?.admin, false);
+  assert.equal(a?.name, "Alice");
   assert.equal(a?.deviceCap, 3);
 });
 test("comptes : listAccounts rend les comptes, opérateur en tête", async () => {
   const ids = (await s.listAccounts()).map((a) => a.id);
-  assert.ok(ids.includes("admin") && ids.includes("alice"));
+  assert.ok(ids.includes("admin") && ids.includes("alice@exemple.fr"));
   assert.equal((await s.listAccounts())[0]?.admin, true);
 });
+test("comptes : un compte existant peut etre promu operateur puis retire", async () => {
+  await s.createAccount("carol", "Carol", "SEL:H", 5, false);
+  await s.setAccountAdmin("carol", true);
+  assert.equal((await s.getAccount("carol"))?.admin, true);
+  await s.setAccountAdmin("carol", false);
+  assert.equal((await s.getAccount("carol"))?.admin, false);
+});
 test("comptes : removeAccount supprime le compte ET ses appareils", async () => {
-  await s.createAccount("bob", "SEL:H", 5, false);
+  await s.createAccount("bob", "Bob", "SEL:H", 5, false);
   await s.addDevice({ deviceId: "bob-dev", accountId: "bob", name: "V", firmware: "openprofalux" });
   assert.equal(await s.countDevices("bob"), 1);
   await s.removeAccount("bob");

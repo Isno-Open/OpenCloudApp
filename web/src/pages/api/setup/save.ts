@@ -5,6 +5,7 @@ import { isConfigured, setupWindowOpen, saveConfig, DB_KIND, type PortalConfig, 
 import { hashPass } from '@core/auth.js';
 import { DB_MODULE } from '@core/config.js';
 import { getModule } from '../../../server/supervisor.ts';
+import { normalizeEmail, normalizeName } from '../../../lib/validate.ts';
 import { checkHosts, normalizeHost, requestScheme, BROKER_PUBLIC_PORT } from '../../../server/hosts.ts';
 import { readBody, json } from '../../../server/http.ts';
 
@@ -17,8 +18,11 @@ export const POST: APIRoute = async ({ request }) => {
   const b = await readBody(request);
   const kind = String(b.kind ?? '') as DbKind;
   if (!KINDS.includes(kind)) return json(400, { error: 'base de données inconnue' });
+  const adminEmail = normalizeEmail(b.adminEmail), adminName = normalizeName(b.adminName);
   const adminPassword = String(b.adminPassword ?? '');
-  if (adminPassword.length < 8) return json(400, { error: 'mot de passe admin trop court (8 caractères minimum)' });
+  if (!adminEmail) return json(400, { error: "e-mail de l'opérateur invalide" });
+  if (!adminName) return json(400, { error: "nom de l'opérateur requis" });
+  if (adminPassword.length < 8) return json(400, { error: 'mot de passe trop court (8 caractères minimum)' });
   // Noms d'hote seulement ; verifies ici aussi (on ne contourne pas l'ecran en appelant l'API).
   const scheme = requestScheme(request);
   const hosts = await checkHosts(String(b.appHost ?? ''), String(b.brokerHost ?? ''), scheme);
@@ -40,7 +44,7 @@ export const POST: APIRoute = async ({ request }) => {
     db = { kind };
   }
 
-  const cfg: PortalConfig = { configured: true, db, publicAppUrl, brokerPublicUrl, adminPassHash: hashPass(adminPassword) };
+  const cfg: PortalConfig = { configured: true, db, publicAppUrl, brokerPublicUrl, operator: { email: adminEmail, name: adminName, passHash: hashPass(adminPassword) } };
   saveConfig(cfg);
   setTimeout(() => process.exit(0), 400);   // redemarrage pour appliquer le store choisi
   return json(200, { ok: true });

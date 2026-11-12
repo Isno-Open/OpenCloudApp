@@ -14,8 +14,9 @@ export async function init(): Promise<void> {
 }
 export const getAccount = (id: string): Promise<Account | null> => m().getAccount(id);
 export const setAccountPass = (id: string, h: string): Promise<void> => m().setAccountPass(id, h);
-export const createAccount = (id: string, passHash: string, cap: number, admin: boolean): Promise<void> => m().createAccount(id, passHash, cap, admin);
+export const createAccount = (id: string, name: string, passHash: string, cap: number, admin: boolean): Promise<void> => m().createAccount(id, name, passHash, cap, admin);
 export const listAccounts = (): Promise<Account[]> => m().listAccounts();
+export const setAccountAdmin = (id: string, admin: boolean): Promise<void> => m().setAccountAdmin(id, admin);
 export const removeAccount = (id: string): Promise<void> => m().removeAccount(id);
 export const countDevices = (a: string): Promise<number> => m().countDevices(a);
 export const listDevices = (a: string): Promise<Device[]> => m().listDevices(a);

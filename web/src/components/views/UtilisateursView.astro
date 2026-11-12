@@ -7,6 +7,7 @@ interface Props { lang: Lang; accountId: string; }
 const { lang, accountId } = Astro.props;
 const s = t(lang);
 const accounts = await listAccounts();
+const operators = accounts.filter((a) => a.admin).length;
 const counts = new Map<string, number>();
 for (const a of accounts) counts.set(a.id, await countDevices(a.id));
 ---
@@ -16,7 +17,8 @@ for (const a of accounts) counts.set(a.id, await countDevices(a.id));
 <form class="panel" id="userForm" style="margin-bottom:1rem">
   <h3>{s.userNewTitle}</h3>
   <div class="form-grid">
-    <div class="field"><label for="u-login">{s.userLogin}</label><input id="u-login" name="login" type="text" autocomplete="off" spellcheck="false" required /></div>
+    <div class="field"><label for="u-email">{s.userLogin}</label><input id="u-email" name="email" type="email" autocomplete="off" spellcheck="false" required /></div>
+    <div class="field"><label for="u-name">{s.userName}</label><input id="u-name" name="name" type="text" autocomplete="off" maxlength="80" required /></div>
     <div class="field"><label for="u-pass">{s.userPassword}</label><input id="u-pass" name="password" type="password" autocomplete="new-password" minlength="8" required /></div>
     <div class="field"><label for="u-cap">{s.userCap}</label><input id="u-cap" name="cap" type="number" min="1" value="5" required /></div>
   </div>
@@ -31,13 +33,16 @@ for (const a of accounts) counts.set(a.id, await countDevices(a.id));
     <div class="ut-head"><span>{s.colLogin}</span><span>{s.colRole}</span><span>{s.colCap}</span><span>{s.colDevices}</span><span></span></div>
     {accounts.map((a) => (
       <div class="ut-row">
-        <span class="mono">{a.id}{a.id === accountId && <span class="youtag">{s.youTag}</span>}</span>
+        <span class="who"><b>{a.name ?? a.id}</b>{a.id === accountId && <span class="youtag">{s.youTag}</span>}<span class="mono">{a.id}</span></span>
         <span><span class:list={['role', { op: a.admin }]}>{a.admin ? s.roleAdmin : s.roleUser}</span></span>
         <span>{a.deviceCap}</span>
         <span>{counts.get(a.id) ?? 0}</span>
         <span class="ut-act">
-          {a.id !== accountId && a.id !== 'admin' && (
-            <button class="btn danger sm" type="button" data-del={a.id}>{s.removeUser}</button>
+          {a.id !== accountId && !(a.admin && operators <= 1) && (
+            <>
+              <button class="btn ghost sm" type="button" data-role={a.id} data-admin={a.admin ? 'false' : 'true'}>{a.admin ? s.unmakeOperator : s.makeOperator}</button>
+              <button class="btn danger sm" type="button" data-del={a.id}>{s.removeUser}</button>
+            </>
           )}
         </span>
       </div>
@@ -45,14 +50,15 @@ for (const a of accounts) counts.set(a.id, await countDevices(a.id));
   </div>
 </div>
 
-<script is:inline define:vars={{ createErr: s.createUserError, removeErr: s.removeUserError, confirmTpl: s.confirmRemoveUser('__ID__') }}>
+<script is:inline define:vars={{ createErr: s.createUserError, removeErr: s.removeUserError, roleErr: s.roleError, confirmTpl: s.confirmRemoveUser('__ID__') }}>
   (function () {
     var form = document.getElementById('userForm');
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       var err = document.getElementById('userErr'); err.hidden = true;
       var payload = {
-        login: document.getElementById('u-login').value.trim(),
+        email: document.getElementById('u-email').value.trim(),
+        name: document.getElementById('u-name').value.trim(),
         password: document.getElementById('u-pass').value,
         cap: parseInt(document.getElementById('u-cap').value, 10) || 5,
         admin: document.getElementById('u-admin').checked,
@@ -60,6 +66,15 @@ for (const a of accounts) counts.set(a.id, await countDevices(a.id));
       fetch('/api/user/new', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
         .then(function (r) { if (r.ok) location.reload(); else { err.hidden = false; err.textContent = createErr; } })
         .catch(function () { err.hidden = false; err.textContent = createErr; });
+    });
+    document.querySelectorAll('[data-role]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        b.disabled = true;
+        fetch('/api/user/role', { method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ id: b.getAttribute('data-role'), admin: b.getAttribute('data-admin') === 'true' }) })
+          .then(function (r) { if (r.ok) location.reload(); else { alert(roleErr); b.disabled = false; } })
+          .catch(function () { alert(roleErr); b.disabled = false; });
+      });
     });
     document.querySelectorAll('[data-del]').forEach(function (b) {
       b.addEventListener('click', function () {

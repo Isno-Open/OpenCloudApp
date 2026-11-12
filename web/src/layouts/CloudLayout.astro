@@ -5,6 +5,7 @@ import '../styles/tokens.css';
 import '../styles/cloud.css';
 import { otherLang, navItems, adminNavItems, t, type Lang } from '../lib/i18n.ts';
 import { currentAccount } from '../server/auth.ts';
+import { SPONSOR } from '../lib/sponsor.ts';
 
 // Drapeaux du selecteur de langue, identiques au site isno.fr (BaseLayout).
 const FLAG: Record<Lang, string> = {
@@ -58,7 +59,6 @@ const nav = [...navItems(lang), ...(account?.admin ? adminNavItems(lang) : [])];
         {nav.map((n) => (
           <a class:list={['nav', { active: n.active(path) }]} href={n.href}>{n.label}</a>
         ))}
-        <a class="nav" href="https://www.isno.fr" target="_blank" rel="noopener">isno.fr</a>
         <div class="topbar-controls">
           <a class="lang-switch" href={altUrl} hreflang={other} aria-label={s.langSwitch}><span class="flag" set:html={FLAG[other]}></span>{s.langName}</a>
           <button class="theme-toggle" id="themeToggle" type="button" aria-label={s.themeToggle}>
@@ -72,7 +72,7 @@ const nav = [...navItems(lang), ...(account?.admin ? adminNavItems(lang) : [])];
 
   <main class="wrap">
     <slot />
-    <p class="foot">{s.footNote}</p>
+    <p class="foot">{s.footSponsor} <a href={SPONSOR.url} target="_blank" rel="noopener">{SPONSOR.name}</a></p>
   </main>
 
   <script is:inline>

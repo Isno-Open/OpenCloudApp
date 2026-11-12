@@ -1,7 +1,8 @@
 // Modèle de données, partagé par les implémentations de store (SQLite, Mongo).
-// admin = opérateur du portail (voit Paramètres + gestion des utilisateurs). Il reste un compte comme les
-// autres : il possède et pilote aussi ses propres appareils.
-export type Account = { id: string; deviceCap: number; passHash: string | null; admin: boolean };
+// Un compte = un e-mail (identifiant de connexion, en minuscules), un nom, un mot de passe. Valable pour
+// tous, operateur ou non. admin = operateur du portail (voit Parametres + Utilisateurs) ; il reste un
+// compte comme les autres et pilote aussi ses propres appareils.
+export type Account = { id: string; name: string | null; deviceCap: number; passHash: string | null; admin: boolean };
 export type Device = { deviceId: string; accountId: string; name: string; firmware: string };
 export type Pairing = { code: string; accountId: string; deviceId: string; name: string };
 

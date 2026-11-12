@@ -11,8 +11,8 @@ const account = await getAccountInfo(accountId);
 
 <div class="panel">
   <h3>{s.identity} <span class="ro">{s.readonly}</span></h3>
-  <div class="kv"><span class="k">{s.address}</span><span class="v">{account.email}</span></div>
-  <div class="kv"><span class="k">{s.connection}</span><span class="v">{account.via}</span></div>
+  {account.name && <div class="kv"><span class="k">{s.userName}</span><span class="v">{account.name}</span></div>}
+  <div class="kv"><span class="k">{s.userLogin}</span><span class="v">{account.email}</span></div>
   <div class="kv"><span class="k">{s.boxesWord}</span><span class="v">{account.boitiers} / {account.cap}</span></div>
 </div>
 

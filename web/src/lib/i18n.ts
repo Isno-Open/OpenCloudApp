@@ -15,7 +15,7 @@ interface S {
   // chrome
   brandAria: string; themeToggle: string; menu: string; langSwitch: string; langName: string;
   nav: { appareils: string; ajouter: string; compte: string };
-  footNote: string;
+  footSponsor: string;
   // vue appareils (accueil)
   appareilsTitle: string; noCovers: string;
   leadAppareils: (n: number) => string;
@@ -36,7 +36,7 @@ interface S {
   addTitle: string; addLead: string; getCodeTitle: string; getCodeNote: string; getCodeBtn: string;
   pairCode: (code: string) => string; errPrefix: (e: string) => string; netErr: string; howTitle: string; howText: string;
   // vue compte
-  accountTitle: string; accountLead: string; identity: string; address: string; connection: string;
+  accountTitle: string; accountLead: string; identity: string;
   boxesWord: string;
   logoutTitle: string; logoutNote: string; logoutBtn: string;
   // connexion
@@ -44,10 +44,10 @@ interface S {
   // nav admin (operateur)
   adminNav: { utilisateurs: string; parametres: string };
   // vue utilisateurs (admin)
-  usersTitle: string; usersLead: string; userNewTitle: string; userLogin: string; userPassword: string; userCap: string;
+  usersTitle: string; usersLead: string; userNewTitle: string; userLogin: string; userName: string; userPassword: string; userCap: string;
   userMakeAdmin: string; createUserBtn: string; usersListTitle: string; colLogin: string; colRole: string; colCap: string; colDevices: string;
   roleAdmin: string; roleUser: string; youTag: string; removeUser: string; confirmRemoveUser: (id: string) => string;
-  createUserError: string; removeUserError: string;
+  createUserError: string; removeUserError: string; makeOperator: string; unmakeOperator: string; roleError: string;
   // liaison d'un appareil (device grant) + onboarding utilisateur
   linkTitle: string; linkLead: string; linkCodeLabel: string; linkCodePh: string; linkContinue: string;
   linkConfirmTitle: string; linkIdWord: string; linkNameLabel: string; linkNamePh: string; linkConfirmBtn: string;
@@ -64,7 +64,7 @@ export const STRINGS = {
     brandAria: 'ISNO Cloud, accueil', themeToggle: 'Basculer le thème clair / sombre', menu: 'Menu',
     langSwitch: 'View this page in English', langName: 'EN',
     nav: { appareils: 'appareils', ajouter: 'ajouter', compte: 'compte' },
-    footNote: 'app.isno.fr',
+    footSponsor: 'Sponsorisé par',
     appareilsTitle: 'Mes appareils', noCovers: 'Aucun volet pour cet appareil.',
     leadAppareils: (n) => `${n} appareil${n > 1 ? 's' : ''}`,
     details: 'Détails', rename: 'Renommer', typeWord: 'Type', positional: 'positionnel', impulsional: 'impulsionnel',
@@ -87,18 +87,19 @@ export const STRINGS = {
     getCodeBtn: 'Obtenir un code', pairCode: (c) => `Code d’appairage : ${c}`, errPrefix: (e) => `Erreur : ${e}`, netErr: 'Erreur réseau, réessayez.',
     howTitle: 'Comment ça marche',
     howText: "Sur le boîtier (interface locale, onglet Cloud), lancez l'appairage : il affiche un QR code et un code court. Scannez le QR avec votre téléphone, ou saisissez le code ci-dessus, puis confirmez. Le boîtier récupère son certificat tout seul et apparaît dans « Appareils ». Le code expire après dix minutes.",
-    accountTitle: 'Compte', accountLead: 'Connecté via votre compte isno.fr', identity: 'Identité',
-    address: 'Adresse', connection: 'Connexion', boxesWord: 'Appareils',
+    accountTitle: 'Compte', accountLead: 'Votre compte sur ce portail.', identity: 'Identité',
+    boxesWord: 'Appareils',
     logoutTitle: 'Se déconnecter', logoutNote: 'Ferme la session sur cet appareil.', logoutBtn: 'Déconnexion',
-    signInTitle: 'Connexion', signInUser: 'Compte', signInPass: 'Mot de passe', signInBtn: 'Entrer', signInError: 'Identifiants invalides.',
+    signInTitle: 'Connexion', signInUser: 'E-mail', signInPass: 'Mot de passe', signInBtn: 'Entrer', signInError: 'Identifiants invalides.',
     adminNav: { utilisateurs: 'utilisateurs', parametres: 'paramètres' },
     usersTitle: 'Utilisateurs', usersLead: 'Créez et gérez les comptes qui pilotent des appareils sur ce portail.',
-    userNewTitle: 'Nouvel utilisateur', userLogin: 'Identifiant', userPassword: 'Mot de passe', userCap: "Plafond d'appareils",
+    userNewTitle: 'Nouvel utilisateur', userLogin: 'E-mail', userName: 'Nom', userPassword: 'Mot de passe', userCap: "Plafond d'appareils",
     userMakeAdmin: 'Opérateur (accès Paramètres et Utilisateurs)', createUserBtn: 'Créer', usersListTitle: 'Comptes',
-    colLogin: 'Identifiant', colRole: 'Rôle', colCap: 'Plafond', colDevices: 'Appareils',
+    colLogin: 'Compte', colRole: 'Rôle', colCap: 'Plafond', colDevices: 'Appareils',
     roleAdmin: 'opérateur', roleUser: 'utilisateur', youTag: 'vous', removeUser: 'Supprimer',
     confirmRemoveUser: (id) => `Supprimer le compte « ${id} » et ses appareils ?`,
-    createUserError: 'Création impossible (identifiant déjà pris ou champ invalide).', removeUserError: 'Suppression impossible.',
+    createUserError: 'Création impossible (e-mail déjà utilisé ou champ invalide).', removeUserError: 'Suppression impossible.',
+    makeOperator: 'Rendre opérateur', unmakeOperator: 'Retirer opérateur', roleError: 'Changement de rôle impossible.',
     linkTitle: 'Lier un appareil', linkLead: 'Saisissez le code affiché par votre boîtier, ou scannez son QR code.',
     linkCodeLabel: 'Code affiché par le boîtier', linkCodePh: 'XXXX-XXXX', linkContinue: 'Continuer',
     linkConfirmTitle: 'Ajouter cet appareil à votre compte ?', linkIdWord: 'Identifiant',
@@ -120,7 +121,7 @@ export const STRINGS = {
     brandAria: 'ISNO Cloud, home', themeToggle: 'Toggle light / dark theme', menu: 'Menu',
     langSwitch: 'Voir cette page en français', langName: 'FR',
     nav: { appareils: 'devices', ajouter: 'add', compte: 'account' },
-    footNote: 'app.isno.fr',
+    footSponsor: 'Sponsored by',
     appareilsTitle: 'My devices', noCovers: 'No shutter on this device.',
     leadAppareils: (n) => `${n} device${n === 1 ? '' : 's'}`,
     details: 'Details', rename: 'Rename', typeWord: 'Type', positional: 'positional', impulsional: 'pulsed',
@@ -143,18 +144,19 @@ export const STRINGS = {
     getCodeBtn: 'Get a code', pairCode: (c) => `Pairing code: ${c}`, errPrefix: (e) => `Error: ${e}`, netErr: 'Network error, try again.',
     howTitle: 'How it works',
     howText: 'On the device (local interface, Cloud tab), start pairing: it shows a QR code and a short code. Scan the QR with your phone, or enter the code above, then confirm. The device fetches its certificate on its own and appears under “Devices”. The code expires after ten minutes.',
-    accountTitle: 'Account', accountLead: 'Signed in with your isno.fr account', identity: 'Identity',
-    address: 'Address', connection: 'Sign-in', boxesWord: 'Devices',
+    accountTitle: 'Account', accountLead: 'Your account on this portal.', identity: 'Identity',
+    boxesWord: 'Devices',
     logoutTitle: 'Sign out', logoutNote: 'Closes the session on this device.', logoutBtn: 'Sign out',
-    signInTitle: 'Sign in', signInUser: 'Account', signInPass: 'Password', signInBtn: 'Enter', signInError: 'Invalid credentials.',
+    signInTitle: 'Sign in', signInUser: 'Email', signInPass: 'Password', signInBtn: 'Enter', signInError: 'Invalid credentials.',
     adminNav: { utilisateurs: 'users', parametres: 'settings' },
     usersTitle: 'Users', usersLead: 'Create and manage the accounts that control devices on this portal.',
-    userNewTitle: 'New user', userLogin: 'Login', userPassword: 'Password', userCap: 'Device limit',
+    userNewTitle: 'New user', userLogin: 'Email', userName: 'Name', userPassword: 'Password', userCap: 'Device limit',
     userMakeAdmin: 'Operator (access to Settings and Users)', createUserBtn: 'Create', usersListTitle: 'Accounts',
-    colLogin: 'Login', colRole: 'Role', colCap: 'Limit', colDevices: 'Devices',
+    colLogin: 'Account', colRole: 'Role', colCap: 'Limit', colDevices: 'Devices',
     roleAdmin: 'operator', roleUser: 'user', youTag: 'you', removeUser: 'Remove',
     confirmRemoveUser: (id) => `Delete account “${id}” and its devices?`,
-    createUserError: 'Could not create (login already taken or invalid field).', removeUserError: 'Could not remove.',
+    createUserError: 'Could not create (email already used or invalid field).', removeUserError: 'Could not remove.',
+    makeOperator: 'Make operator', unmakeOperator: 'Remove operator', roleError: 'Could not change role.',
     linkTitle: 'Link a device', linkLead: 'Enter the code shown by your device, or scan its QR code.',
     linkCodeLabel: 'Code shown by the device', linkCodePh: 'XXXX-XXXX', linkContinue: 'Continue',
     linkConfirmTitle: 'Add this device to your account?', linkIdWord: 'ID',

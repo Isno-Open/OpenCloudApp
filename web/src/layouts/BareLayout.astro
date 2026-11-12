@@ -2,7 +2,8 @@
 // Gabarit minimal (sans barre) pour la connexion : identite + theme, contenu centre.
 import '../styles/tokens.css';
 import '../styles/cloud.css';
-import type { Lang } from '../lib/i18n.ts';
+import { t, type Lang } from '../lib/i18n.ts';
+import { SPONSOR } from '../lib/sponsor.ts';
 interface Props { title?: string; lang: Lang; }
 const { title = 'ISNO Cloud', lang } = Astro.props;
 ---
@@ -21,5 +22,6 @@ const { title = 'ISNO Cloud', lang } = Astro.props;
 </head>
 <body>
   <main class="bare-wrap"><slot /></main>
+  <p class="foot">{t(lang).footSponsor} <a href={SPONSOR.url} target="_blank" rel="noopener">{SPONSOR.name}</a></p>
 </body>
 </html>
