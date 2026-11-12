@@ -1,0 +1,13 @@
+// Noms d'hote proposes a l'installation : le portail tel qu'on y accede, le broker tel que son
+// certificat le nomme (le seul nom que les boitiers accepteront).
+import type { APIRoute } from 'astro';
+import { isConfigured } from '@core/config.js';
+import { brokerCertNames, BROKER_PUBLIC_PORT } from '../../../server/hosts.ts';
+import { json } from '../../../server/http.ts';
+
+export const GET: APIRoute = ({ request }) => {
+  if (isConfigured()) return json(409, { error: 'instance déjà configurée' });
+  const appHost = (request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? '').split(',')[0]!.trim();
+  const names = brokerCertNames();
+  return json(200, { appHost, brokerHost: names[0] ?? '', brokerCertNames: names, brokerPort: BROKER_PUBLIC_PORT });
+};

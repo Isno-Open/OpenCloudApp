@@ -9,7 +9,7 @@ services:
     container_name: isno-mqtt
     restart: unless-stopped
     ports:
-      - "8883:8883"
+      - "${BROKER_PUBLIC_PORT:-8883}:8883"   # port public du broker (meme variable cote app)
     volumes:
       - ./config:/mosquitto/config
       - ./certs:/mosquitto/certs
@@ -68,6 +68,7 @@ services:
       - CERTS_DIR=/certs
       - BROKER_URL=mqtts://broker:8883
       - DB_PATH=/data/isno-cloud.db        # fichier SQLite si SQLite est choisi a l'installation
+      - BROKER_PUBLIC_PORT=${BROKER_PUBLIC_PORT:-8883}
       - SUPERVISOR_URL=http://supervisor:8090
       - SUPERVISOR_TOKEN_FILE=/control/token
     volumes:

@@ -55,8 +55,10 @@ const windowMin = Math.round(SETUP_WINDOW_S / 60);
         <!-- Etape 2 : socle -->
         <section class="step" data-step="2" hidden>
           <h3>Socle</h3>
-          <div class="field"><label for="publicAppUrl">URL publique du portail</label><input id="publicAppUrl" name="publicAppUrl" type="url" placeholder="https://cloud.exemple.fr" required /></div>
-          <div class="field"><label for="brokerPublicUrl">URL publique du broker MQTT</label><input id="brokerPublicUrl" name="brokerPublicUrl" type="text" placeholder="mqtts://mqtt.exemple.fr:8883" required /></div>
+          <div class="field"><label for="appHost">Nom d'hôte du portail</label><input id="appHost" name="appHost" type="text" placeholder="cloud.exemple.fr" spellcheck="false" autocapitalize="none" required /><span class="hint">L'adresse où vous êtes en ce moment.</span></div>
+          <div class="field"><label for="brokerHost">Nom d'hôte du broker MQTT</label><input id="brokerHost" name="brokerHost" type="text" placeholder="mqtt.exemple.fr" spellcheck="false" autocapitalize="none" required /><span class="hint" id="brokerHint">Celui inscrit dans le certificat du broker : les boîtiers n'en acceptent pas d'autre.</span></div>
+          <div class="testline"><button type="button" class="btn ghost" id="checkBtn">Vérifier les noms d'hôte</button></div>
+          <ul class="checks" id="checks" hidden></ul>
           <div class="field"><label for="adminPassword">Mot de passe administrateur</label><input id="adminPassword" name="adminPassword" type="password" autocomplete="new-password" minlength="8" required /><span class="hint">8 caractères minimum. Compte <code>admin</code>, pour la connexion opérateur.</span></div>
           <div class="row"><button type="button" class="btn ghost" data-prev="2">Retour</button><button type="submit" class="btn primary" id="finishBtn">Terminer et démarrer</button></div>
           <p class="formerr" id="formErr" hidden></p>
@@ -103,6 +105,8 @@ const windowMin = Math.round(SETUP_WINDOW_S / 60);
     .testmsg { font-size: .82rem; }
     .testmsg.ok { color: var(--ok); } .testmsg.err { color: var(--danger); }
     code { font-family: var(--font-mono); font-size: .85em; color: var(--accent2); }
+    .checks { list-style: none; margin: .3rem 0 .4rem; padding: 0; display: flex; flex-direction: column; gap: .25rem; font-size: .82rem; }
+    .checks li.ok { color: var(--ok); } .checks li.ko { color: var(--danger); }
     .spinner { width: 26px; height: 26px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; margin: 1rem auto 0; animation: sp 1s linear infinite; }
     @keyframes sp { to { transform: rotate(360deg); } }
   </style>
@@ -184,21 +188,43 @@ const windowMin = Math.round(SETUP_WINDOW_S / 60);
           .catch(function () { msg.className = 'testmsg err'; msg.textContent = '✗ erreur réseau'; });
       });
 
+      // Noms d'hote : pre-remplis (portail = ou l'on est ; broker = son certificat), puis verifies.
+      var LABEL = { appFormat: 'Portail : format', appDns: 'Portail : DNS', appReach: 'Portail : joignable', brokerFormat: 'Broker : format', brokerCert: 'Broker : certificat', brokerDns: 'Broker : DNS', brokerPort: 'Broker : joignable' };
+      var checksEl = document.getElementById('checks');
+      function renderChecks(list) {
+        checksEl.hidden = false; checksEl.textContent = '';
+        list.forEach(function (c) { var li = document.createElement('li'); li.className = c.ok ? 'ok' : 'ko'; li.textContent = (c.ok ? '✓ ' : '✗ ') + (LABEL[c.check] || c.check) + ' : ' + c.detail; checksEl.appendChild(li); });
+      }
+      fetch('/api/setup/defaults').then(function (r) { return r.json(); }).then(function (d) {
+        if (d.appHost && !document.getElementById('appHost').value) document.getElementById('appHost').value = d.appHost;
+        if (d.brokerHost && !document.getElementById('brokerHost').value) document.getElementById('brokerHost').value = d.brokerHost;
+        if (d.brokerCertNames && d.brokerCertNames.length) document.getElementById('brokerHint').textContent = 'Détecté dans le certificat du broker (port ' + d.brokerPort + ') : les boîtiers n\'acceptent pas d\'autre nom.';
+      }).catch(function () {});
+      document.getElementById('checkBtn').addEventListener('click', function () {
+        var b = this; b.disabled = true; checksEl.hidden = false; checksEl.textContent = 'Vérification…';
+        fetch('/api/setup/check-hosts', { method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ appHost: document.getElementById('appHost').value, brokerHost: document.getElementById('brokerHost').value }) })
+          .then(function (r) { return r.json(); })
+          .then(function (d) { if (d.checks) renderChecks(d.checks); else checksEl.textContent = '✗ ' + (d.error || 'échec'); })
+          .catch(function () { checksEl.textContent = '✗ erreur réseau'; })
+          .finally(function () { b.disabled = false; });
+      });
+
       form.addEventListener('submit', function (e) {
         e.preventDefault();
         var err = document.getElementById('formErr'); err.hidden = true;
         var db = dbPayload();
         var payload = {
           kind: db.kind, mongoUrl: db.mongoUrl,
-          publicAppUrl: document.getElementById('publicAppUrl').value.trim(),
-          brokerPublicUrl: document.getElementById('brokerPublicUrl').value.trim(),
+          appHost: document.getElementById('appHost').value.trim(),
+          brokerHost: document.getElementById('brokerHost').value.trim(),
           adminPassword: document.getElementById('adminPassword').value,
         };
         document.getElementById('finishBtn').disabled = true;
         fetch('/api/setup/save', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
           .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
           .then(function (res) {
-            if (!res.ok) { err.hidden = false; err.textContent = res.d.error || 'Échec'; document.getElementById('finishBtn').disabled = false; return; }
+            if (!res.ok) { if (res.d.checks) renderChecks(res.d.checks); err.hidden = false; err.textContent = res.d.error || 'Échec'; document.getElementById('finishBtn').disabled = false; return; }
             done = true; clearInterval(tick); document.getElementById('windowBar').hidden = true;
             show(3);
             var tries = 0;
