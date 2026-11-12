@@ -47,3 +47,31 @@ test("ensureAccount : provisionne au plafond donné, idempotent", async () => {
   await s.ensureAccount("sso-user", 99);   // ne réécrit pas un compte existant
   assert.equal((await s.getAccount("sso-user"))?.deviceCap, 5);
 });
+test("claimDevice : ré-enrôlement du même compte OK, autre compte refusé", async () => {
+  assert.equal(await s.claimDevice("dev-claim", "admin", "N1", "openprofalux"), true);
+  assert.equal(await s.claimDevice("dev-claim", "admin", "N2", "openprofalux"), true);   // ré-enrôlement : met à jour
+  assert.equal((await s.findDevice("dev-claim", "admin"))?.name, "N2");
+  assert.equal(await s.claimDevice("dev-claim", "autre", "Pirate", "openprofalux"), false); // autre compte : refus
+  assert.equal((await s.findDevice("dev-claim", "admin"))?.name, "N2");
+});
+test("device-auth : pending -> approved -> consumed, une seule fois", async () => {
+  const future = Date.now() + 60000;
+  await s.startDeviceAuth({ deviceCode: "DC1", userCode: "UC1", deviceId: "m5-1", firmware: "openprofalux", state: "pending", accountId: null, name: null, expiresAt: future });
+  assert.equal((await s.pollDeviceAuth("DC1"))?.state, "pending");
+  assert.equal((await s.getDeviceAuthByUserCode("UC1"))?.deviceId, "m5-1");
+  assert.equal((await s.approveDeviceAuth("UC1", "admin", "Maison", Date.now()))?.state, "approved");
+  assert.equal(await s.approveDeviceAuth("UC1", "admin", "Maison", Date.now()), null); // déjà approuvé
+  const taken = await s.consumeDeviceAuth("DC1", Date.now());
+  assert.equal(taken?.accountId, "admin");
+  assert.equal(taken?.name, "Maison");
+  assert.equal(await s.consumeDeviceAuth("DC1", Date.now()), null); // déjà consommé
+});
+test("device-auth : nom vide retombe sur le deviceId", async () => {
+  const future = Date.now() + 60000;
+  await s.startDeviceAuth({ deviceCode: "DC2", userCode: "UC2", deviceId: "m5-2", firmware: "openprofalux", state: "pending", accountId: null, name: null, expiresAt: future });
+  assert.equal((await s.approveDeviceAuth("UC2", "admin", "  ", Date.now()))?.name, "m5-2");
+});
+test("device-auth : une demande expirée n'est pas approuvable", async () => {
+  await s.startDeviceAuth({ deviceCode: "DC3", userCode: "UC3", deviceId: "m5-3", firmware: "openprofalux", state: "pending", accountId: null, name: null, expiresAt: Date.now() - 1 });
+  assert.equal(await s.approveDeviceAuth("UC3", "admin", "X", Date.now()), null);
+});

@@ -1,14 +1,13 @@
 ---
 import BareLayout from '../layouts/BareLayout.astro';
 import LoginView from '../components/views/LoginView.astro';
-import { resolveAccountId } from '../server/auth.ts';
+import { resolveAccountId, loginRedirect } from '../server/auth.ts';
 import { LANG, ROUTES, t } from '../lib/i18n.ts';
 const lang = LANG.fr;
 // deja connecte -> on renvoie vers l'app
 if (await resolveAccountId(Astro.request)) return Astro.redirect(ROUTES.appareils[lang]);
-// heberge (compte commun) : renvoyer vers la connexion isno.fr qui pose le cookie sso partage.
-// Self-host : CLOUD_LOGIN_URL non defini -> formulaire local (admin).
-const ext = import.meta.env.CLOUD_LOGIN_URL ?? process.env.CLOUD_LOGIN_URL;
+// un provider SSO (ex. harnais isno.fr) fournit une URL de connexion externe ; sinon formulaire local.
+const ext = await loginRedirect();
 if (ext) return Astro.redirect(ext);
 const error = Astro.url.searchParams.get('e') === '1';
 ---

@@ -1,7 +1,7 @@
 // Frontière DB unique. Le serveur n'importe QUE ce module. Implémentation choisie au démarrage :
 // MONGO_URL défini -> MongoDB (ISNO) ; sinon -> SQLite (défaut self-host). Pluggable, pas de JSON.
-import type { Account, Device, Pairing } from "./types.js";
-export type { Account, Device, Pairing };
+import type { Account, Device, Pairing, DeviceAuth } from "./types.js";
+export type { Account, Device, Pairing, DeviceAuth };
 
 type Impl = typeof import("./store-sqlite.js");
 let impl: Impl | null = null;
@@ -23,3 +23,9 @@ export const removeDevice = (d: string, a: string): Promise<void> => m().removeD
 export const addPairing = (p: Pairing): Promise<void> => m().addPairing(p);
 export const takePairing = (c: string): Promise<Pairing | null> => m().takePairing(c);
 export const ensureAccount = (id: string, cap: number): Promise<void> => m().ensureAccount(id, cap);
+export const claimDevice = (d: string, a: string, name: string, fw: string): Promise<boolean> => m().claimDevice(d, a, name, fw);
+export const startDeviceAuth = (d: DeviceAuth): Promise<void> => m().startDeviceAuth(d);
+export const getDeviceAuthByUserCode = (userCode: string): Promise<DeviceAuth | null> => m().getDeviceAuthByUserCode(userCode);
+export const pollDeviceAuth = (deviceCode: string): Promise<DeviceAuth | null> => m().pollDeviceAuth(deviceCode);
+export const approveDeviceAuth = (userCode: string, accountId: string, name: string, now: number): Promise<DeviceAuth | null> => m().approveDeviceAuth(userCode, accountId, name, now);
+export const consumeDeviceAuth = (deviceCode: string, now: number): Promise<DeviceAuth | null> => m().consumeDeviceAuth(deviceCode, now);

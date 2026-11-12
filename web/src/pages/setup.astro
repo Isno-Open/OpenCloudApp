@@ -1,0 +1,160 @@
+---
+// Onboarding du portail (auto-hebergement). Affiche tant que l'instance n'est pas configuree ; la garde
+// (middleware) y renvoie toute page. 3 etapes : jeton -> base de donnees -> socle (URLs + admin), puis
+// ecriture de la config et redemarrage. Les valeurs de base viennent de l'enum DB_KIND (pas de litteral).
+import BareLayout from '../layouts/BareLayout.astro';
+import { LANG } from '../lib/i18n.ts';
+import { DB_KIND, isConfigured } from '@core/config.js';
+if (isConfigured()) return Astro.redirect('/');
+---
+<BareLayout title="Configuration · ISNO Cloud" lang={LANG.fr}>
+  <div class="setup">
+    <div class="setup-head">
+      <span class="eyebrow">// onboarding</span>
+      <h1>Configuration du portail</h1>
+      <p class="sub">Première installation. Trois étapes, puis le portail redémarre configuré.</p>
+      <div class="steps">
+        <span class="st active" data-dot="1">1 · Jeton</span>
+        <span class="st" data-dot="2">2 · Base de données</span>
+        <span class="st" data-dot="3">3 · Socle</span>
+      </div>
+    </div>
+
+    <form id="setupForm" class="setup-card">
+      <!-- Etape 1 : jeton -->
+      <section class="step" data-step="1">
+        <h3>Jeton d'installation</h3>
+        <p class="note">Il est imprimé dans les journaux du conteneur au démarrage : <code>docker compose logs server</code>, ligne <code>[setup] … Jeton …</code>.</p>
+        <div class="field"><label for="token">Jeton</label><input id="token" name="token" type="text" autocomplete="off" spellcheck="false" required /></div>
+        <div class="row end"><button type="button" class="btn primary" data-next="1">Continuer</button></div>
+      </section>
+
+      <!-- Etape 2 : base de donnees -->
+      <section class="step" data-step="2" hidden>
+        <h3>Base de données</h3>
+        <label class="opt"><input type="radio" name="kind" value="" data-k="sqlite" checked /><span><b>SQLite</b> (embarqué, recommandé). Rien à installer, un fichier sur le volume. Idéal pour un parc modeste.</span></label>
+        <label class="opt"><input type="radio" name="kind" value="" data-k="mongoBundled" /><span><b>MongoDB fourni</b>. Un conteneur Mongo dans la pile (profil <code>mongo</code>). Pour grandir.</span></label>
+        <label class="opt"><input type="radio" name="kind" value="" data-k="mongoExternal" /><span><b>MongoDB externe</b>. Votre propre serveur Mongo.</span></label>
+        <div class="field" id="mongoUrlField" hidden><label for="mongoUrl">URL Mongo</label><input id="mongoUrl" name="mongoUrl" type="text" placeholder="mongodb://utilisateur:motdepasse@hote:27017/isno_cloud" spellcheck="false" /></div>
+        <div class="testline"><button type="button" class="btn ghost" id="testBtn">Tester la connexion</button><span class="testmsg" id="testMsg"></span></div>
+        <div class="row"><button type="button" class="btn ghost" data-prev="2">Retour</button><button type="button" class="btn primary" data-next="2">Continuer</button></div>
+      </section>
+
+      <!-- Etape 3 : socle -->
+      <section class="step" data-step="3" hidden>
+        <h3>Socle</h3>
+        <div class="field"><label for="publicAppUrl">URL publique du portail</label><input id="publicAppUrl" name="publicAppUrl" type="url" placeholder="https://cloud.exemple.fr" required /></div>
+        <div class="field"><label for="brokerPublicUrl">URL publique du broker MQTT</label><input id="brokerPublicUrl" name="brokerPublicUrl" type="text" placeholder="mqtts://mqtt.exemple.fr:8883" required /></div>
+        <div class="field"><label for="adminPassword">Mot de passe administrateur</label><input id="adminPassword" name="adminPassword" type="password" autocomplete="new-password" minlength="8" required /><span class="hint">8 caractères minimum. Compte <code>admin</code>, pour la connexion locale.</span></div>
+        <div class="row"><button type="button" class="btn ghost" data-prev="3">Retour</button><button type="submit" class="btn primary" id="finishBtn">Terminer et démarrer</button></div>
+        <p class="formerr" id="formErr" hidden></p>
+      </section>
+
+      <!-- Etape 4 : redemarrage -->
+      <section class="step done" data-step="4" hidden>
+        <h3>Démarrage…</h3>
+        <p class="note">Configuration enregistrée. Le portail redémarre avec la base choisie. Cette page s'ouvrira automatiquement.</p>
+        <div class="spinner" aria-hidden="true"></div>
+      </section>
+    </form>
+  </div>
+
+  <style>
+    .setup { max-width: 540px; margin: 0 auto; width: 100%; }
+    .setup-head { margin-bottom: 1.1rem; }
+    .setup-head .eyebrow { font-family: var(--font-mono); font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; color: var(--accent2); }
+    .setup-head h1 { font-family: var(--font-sans); font-weight: 800; font-size: 1.7rem; letter-spacing: -.02em; margin: .3rem 0 .2rem; }
+    .setup-head .sub { color: var(--text-muted); font-size: .92rem; }
+    .steps { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .9rem; }
+    .steps .st { font-family: var(--font-mono); font-size: .72rem; color: var(--text-faint); border: 1px solid var(--border); border-radius: 999px; padding: .2rem .6rem; }
+    .steps .st.active { color: var(--accent); border-color: var(--accent-line); background: var(--accent-weak); }
+    .setup-card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.3rem; box-shadow: var(--shadow); }
+    .step h3 { font-size: 1.05rem; margin: 0 0 .5rem; }
+    .field { display: flex; flex-direction: column; gap: .3rem; margin: .7rem 0; }
+    .field label { font-size: .82rem; color: var(--text-muted); }
+    .field input { font: inherit; font-size: .95rem; padding: .55rem .7rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-2); color: var(--text); }
+    .field input:focus { outline: none; border-color: var(--accent); }
+    .field .hint { font-size: .76rem; color: var(--text-faint); }
+    .opt { display: flex; gap: .6rem; align-items: start; padding: .6rem .7rem; border: 1px solid var(--border); border-radius: var(--radius-sm); margin: .5rem 0; cursor: pointer; font-size: .88rem; color: var(--text-muted); }
+    .opt input { margin-top: .2rem; accent-color: var(--accent); }
+    .opt b { color: var(--text); font-weight: 650; }
+    .testline { display: flex; align-items: center; gap: .7rem; margin: .4rem 0 .2rem; flex-wrap: wrap; }
+    .testmsg { font-size: .82rem; }
+    .testmsg.ok { color: var(--ok); } .testmsg.err { color: var(--danger); }
+    .row { display: flex; justify-content: space-between; gap: .6rem; margin-top: 1rem; }
+    .row.end { justify-content: flex-end; }
+    .formerr { color: var(--danger); font-size: .84rem; margin: .7rem 0 0; }
+    code { font-family: var(--font-mono); font-size: .85em; color: var(--accent2); }
+    .spinner { width: 26px; height: 26px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; margin: 1rem auto 0; animation: sp 1s linear infinite; }
+    @keyframes sp { to { transform: rotate(360deg); } }
+  </style>
+
+  <script is:inline define:vars={{ KIND: DB_KIND }}>
+    (function () {
+      var form = document.getElementById('setupForm');
+      function show(n) {
+        form.querySelectorAll('.step').forEach(function (s) { s.hidden = s.getAttribute('data-step') !== String(n); });
+        document.querySelectorAll('.steps .st').forEach(function (d) { d.classList.toggle('active', d.getAttribute('data-dot') === String(Math.min(n, 3))); });
+      }
+      function kind() { var r = form.querySelector('input[name=kind]:checked'); return r ? r.getAttribute('data-k') : 'sqlite'; }
+      function dbPayload() {
+        var k = kind();
+        return { kind: KIND[k], mongoUrl: (document.getElementById('mongoUrl') || {}).value || '' };
+      }
+      // Etape 2 : afficher le champ URL seulement pour Mongo externe.
+      form.querySelectorAll('input[name=kind]').forEach(function (r) {
+        r.addEventListener('change', function () {
+          document.getElementById('mongoUrlField').hidden = (kind() !== 'mongoExternal');
+          document.getElementById('testMsg').textContent = '';
+        });
+      });
+      form.querySelector('[data-next="1"]').addEventListener('click', function () {
+        if (!document.getElementById('token').value.trim()) return;
+        show(2);
+      });
+      form.querySelector('[data-prev="2"]').addEventListener('click', function () { show(1); });
+      form.querySelector('[data-next="2"]').addEventListener('click', function () { show(3); });
+      form.querySelector('[data-prev="3"]').addEventListener('click', function () { show(2); });
+
+      document.getElementById('testBtn').addEventListener('click', function () {
+        var msg = document.getElementById('testMsg'); msg.className = 'testmsg'; msg.textContent = 'Test…';
+        var p = dbPayload(); p.token = document.getElementById('token').value.trim();
+        fetch('/api/setup/test-db', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(p) })
+          .then(function (r) { return r.json(); })
+          .then(function (d) { msg.className = 'testmsg ' + (d.ok ? 'ok' : 'err'); msg.textContent = d.ok ? '✓ connexion OK' : ('✗ ' + (d.error || 'échec')); })
+          .catch(function () { msg.className = 'testmsg err'; msg.textContent = '✗ erreur réseau'; });
+      });
+
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var err = document.getElementById('formErr'); err.hidden = true;
+        var db = dbPayload();
+        var payload = {
+          token: document.getElementById('token').value.trim(),
+          kind: db.kind, mongoUrl: db.mongoUrl,
+          publicAppUrl: document.getElementById('publicAppUrl').value.trim(),
+          brokerPublicUrl: document.getElementById('brokerPublicUrl').value.trim(),
+          adminPassword: document.getElementById('adminPassword').value,
+        };
+        document.getElementById('finishBtn').disabled = true;
+        fetch('/api/setup/save', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+          .then(function (res) {
+            if (!res.ok) { err.hidden = false; err.textContent = res.d.error || 'Échec'; document.getElementById('finishBtn').disabled = false; return; }
+            show(4);
+            var tries = 0;
+            var iv = setInterval(function () {
+              tries++;
+              fetch('/api/setup/status').then(function (r) { return r.json(); }).then(function (d) {
+                if (d.configured) { clearInterval(iv); location.href = '/'; }
+              }).catch(function () {});
+              if (tries > 40) { clearInterval(iv); location.href = '/'; }
+            }, 1500);
+          })
+          .catch(function () { err.hidden = false; err.textContent = 'Erreur réseau'; document.getElementById('finishBtn').disabled = false; });
+      });
+
+      show(1);
+    })();
+  </script>
+</BareLayout>
