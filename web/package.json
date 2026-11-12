@@ -6,23 +6,26 @@
     "dev": "astro dev --host 0.0.0.0",
     "build": "astro build",
     "preview": "astro preview",
-    "check": "astro check",
+    "check": "astro check && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
     "types": "node node_modules/@typescript/native/bin/tsc --noEmit"
   },
   "dependencies": {
     "@astrojs/node": "11.1.12",
+    "@astrojs/svelte": "9.1.5",
     "astro": "7.4.11",
     "better-sqlite3": "13.1.1",
-    "mongodb": "7.8.0",
+    "mongodb": "7.9.0",
     "mqtt": "5.16.1",
     "nodemailer": "10.5.0",
-    "qrcode": "1.5.4"
+    "qrcode": "1.5.4",
+    "svelte": "5.57.3"
   },
   "devDependencies": {
     "@astrojs/check": "0.9.12",
     "@types/better-sqlite3": "9.6.0",
     "@types/qrcode": "1.5.6",
     "@typescript/native": "npm:typescript@7.0.2",
+    "svelte-check": "4.7.8",
     "typescript": "6.0.3"
   }
 }

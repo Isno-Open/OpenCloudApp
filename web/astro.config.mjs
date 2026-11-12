@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import node from '@astrojs/node';
+import svelte from '@astrojs/svelte';
 import { fileURLToPath } from 'node:url';
 
 // App cloud ISNO (app.isno.fr), SSR comme le site isno.fr (Astro 5 + adaptateur node).
@@ -11,6 +12,8 @@ const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 export default defineConfig({
   output: 'server',
   adapter: node({ mode: 'standalone' }),
+  // Ecrans interactifs en composants Svelte (TypeScript strict), rendus d'abord par le serveur.
+  integrations: [svelte()],
   // CSRF assuree par le cookie de session SameSite=Lax (non envoye sur un POST cross-site) ; le
   // checkOrigin d'Astro casse derriere le reverse-proxy (origine derivee != hote reel).
   security: { checkOrigin: false },
