@@ -4,6 +4,7 @@
   import KeyValue from '#lib/components/ui/KeyValue.svelte';
   import Field from '#lib/components/ui/Field.svelte';
   import ErrorText from '#lib/components/ui/ErrorText.svelte';
+  import SubTabs from '#lib/components/ui/SubTabs.svelte';
   import { t, ROUTES, type Lang } from '#lib/i18n.ts';
   import { postJson, ignoreBody } from '#lib/api.ts';
   import type { Boitier } from '#lib/types.ts';
@@ -14,8 +15,7 @@
   const s = $derived(t(lang));
 
   const TAB = { cfg: 'cfg', manage: 'manage' } as const;
-  type Tab = (typeof TAB)[keyof typeof TAB];
-  let tab = $state<Tab>(TAB.cfg);
+  let tab = $state<string>(TAB.cfg);
   const initialName = (): string => b.name;
   let name = $state(initialName());
   let confirming = $state(false);
@@ -36,10 +36,7 @@
   }
 </script>
 
-<div class="subtabs" role="tablist">
-  <button class={['subtab', { active: tab === TAB.cfg }]} type="button" data-sub={TAB.cfg} onclick={() => { tab = TAB.cfg; }}>{s.tabConfig}</button>
-  <button class={['subtab', { active: tab === TAB.manage }]} type="button" data-sub={TAB.manage} onclick={() => { tab = TAB.manage; }}>{s.tabManage}</button>
-</div>
+<SubTabs label={s.tabConfig} bind:current={tab} items={[{ id: TAB.cfg, label: s.tabConfig }, { id: TAB.manage, label: s.tabManage }]} />
 
 <div class="subpanel" data-panel={TAB.cfg} hidden={tab !== TAB.cfg}>
   <div class="cfg-grid">

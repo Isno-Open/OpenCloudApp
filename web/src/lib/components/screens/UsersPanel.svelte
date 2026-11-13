@@ -5,6 +5,8 @@
   import ConfirmButton from '#lib/components/ui/ConfirmButton.svelte';
   import Field from '#lib/components/ui/Field.svelte';
   import ErrorText from '#lib/components/ui/ErrorText.svelte';
+  import SubTabs from '#lib/components/ui/SubTabs.svelte';
+  import { pageWithoutTab } from '#lib/components/ui/subtabs.ts';
   import { t, type Lang } from '#lib/i18n.ts';
   import { postJson, ignoreBody } from '#lib/api.ts';
   import type { UserRow } from '#lib/users-view.ts';
@@ -17,6 +19,10 @@
   const BAD_GATEWAY = 502;   // compte cree mais invitation non partie : on recharge pour le montrer
   const RELOAD_AFTER_PARTIAL_MS = 2500;
 
+  // deux onglets : la liste, et la creation (a part, pour que la liste vienne d'abord)
+  const TAB = { list: 'list', create: 'new' } as const;
+  let tab = $state<string>(TAB.list);
+
   let nu = $state({ email: '', name: '', password: '', cap: DEFAULT_CAP, admin: false });
   let createError = $state<string | null>(null);
   let rowError = $state<string | null>(null);
@@ -28,7 +34,7 @@
     const r = await postJson('/api/user/new', {
       email: nu.email.trim(), name: nu.name.trim(), password: nu.password, cap: Number(nu.cap) || DEFAULT_CAP, admin: nu.admin, lang,
     }, s.createUserError, ignoreBody);
-    if (r.ok) { location.reload(); return; }
+    if (r.ok) { location.assign(pageWithoutTab()); return; }   // retour a la liste, qui le montre
     createError = r.error;
     if (r.status === BAD_GATEWAY) setTimeout(() => location.reload(), RELOAD_AFTER_PARTIAL_MS);
   }
@@ -43,7 +49,13 @@
   }
 </script>
 
-<form class="panel" id="userForm" style="margin-bottom:1rem" onsubmit={create}>
+<SubTabs label={s.usersTitle} bind:current={tab} items={[
+  { id: TAB.list, label: s.usersListTitle, count: rows.length },
+  { id: TAB.create, label: s.userNewTitle },
+]} />
+
+<div class="tab-panel" hidden={tab !== TAB.create} data-panel={TAB.create}>
+<form class="panel" id="userForm" onsubmit={create}>
   <h3>{s.userNewTitle}</h3>
   <div class="form-grid">
     <Field label={s.userLogin} forId="u-email"><input id="u-email" name="email" type="email" autocomplete="off" spellcheck="false" required bind:value={nu.email} /></Field>
@@ -55,9 +67,9 @@
   <div class="row end" style="margin-top:.7rem"><button class="btn primary" type="submit">{s.createUserBtn}</button></div>
   <ErrorText error={createError} id="userErr" />
 </form>
+</div>
 
-<div class="panel">
-  <h3>{s.usersListTitle}</h3>
+<div class="tab-panel panel" hidden={tab !== TAB.list} data-panel={TAB.list}>
   <ErrorText error={rowError} />
   <div class="utable">
     <div class="ut-head"><span>{s.colLogin}</span><span>{s.colRole}</span><span>{s.colCap}</span><span>{s.colDevices}</span><span></span></div>

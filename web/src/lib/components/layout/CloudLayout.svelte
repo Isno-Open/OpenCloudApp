@@ -67,8 +67,8 @@
 
 <main class="wrap">
   {@render children()}
-  <p class="foot">{s.footSponsor} <a href={SPONSOR.url} target="_blank" rel="noopener">{SPONSOR.name}</a></p>
 </main>
+<footer class="page-foot">{s.footSponsor} <a href={SPONSOR.url} target="_blank" rel="noopener">{SPONSOR.name}</a></footer>
 
 <!-- mobile : barre d'onglets en bas -->
 <nav class="tabbar" aria-label={s.navMain}>

@@ -1,22 +1,24 @@
 <script lang="ts">
-  // Ecran operateur : plugins. Installes (reglages par l'ecrou, retrait), catalogue (integres et
-  // sources), sources ajoutees. Rendu d'abord par le serveur (memes donnees, meme balisage), puis
+  // Ecran operateur : plugins, en cartes. Actifs d'abord (reglages par l'ecrou, retrait, mise a jour),
+  // puis ceux qu'on peut ajouter (integres et catalogues), enfin les sources du catalogue. Rendu d'abord par le serveur (memes donnees, meme balisage), puis
   // anime ici. Activer, retirer, installer ou mettre a jour redemarre le portail.
-  import GearIcon from '#lib/components/ui/GearIcon.svelte';
+  import SubTabs from '#lib/components/ui/SubTabs.svelte';
+  import PluginCard from '#lib/components/plugins/PluginCard.svelte';
   import Field from '#lib/components/ui/Field.svelte';
   import ErrorText from '#lib/components/ui/ErrorText.svelte';
-  import { t, pluginHref, type Lang } from '#lib/i18n.ts';
+  import { t, type Lang } from '#lib/i18n.ts';
   import { postJson, getJson, ignoreBody, field, reloadAfterRestart, type Parse } from '#lib/api.ts';
-  import type { InstalledRow, CatalogEntry, SourceRow } from '#lib/plugins-view.ts';
+  import { PLUGIN_STATE, PLUGIN_ACTION, type PluginCardData, type PluginAction, type SourceRow } from '#lib/plugins-view.ts';
 
   interface Props {
     lang: Lang;
-    installed: InstalledRow[];
-    entries: CatalogEntry[];
+    cards: PluginCardData[];
     sources: SourceRow[];
     catalogError: string | null;
   }
-  const { lang, installed, entries, sources, catalogError }: Props = $props();
+  const { lang, cards, sources, catalogError }: Props = $props();
+  const active = $derived(cards.filter((c) => c.state !== PLUGIN_STATE.available));
+  const available = $derived(cards.filter((c) => c.state === PLUGIN_STATE.available));
   const s = $derived(t(lang));
 
   const INSTALL_POLL_MS = 700;
@@ -65,6 +67,16 @@
     await act(API.enable, id);
   }
 
+  // deux onglets : les plugins, et les sources du catalogue (a part : on y vient rarement)
+  const TAB = { plugins: 'plugins', sources: 'sources' } as const;
+  let tab = $state<string>(TAB.plugins);
+  const sourcesFaulty = $derived(catalogError !== null || sources.some((x) => !!x.error));
+
+  function onaction(a: PluginAction, id: string): void {
+    if (a === PLUGIN_ACTION.install) void install(id);
+    else void act(a === PLUGIN_ACTION.enable ? API.enable : API.disable, id);
+  }
+
   async function changeSources(body: { add: string } | { remove: string }): Promise<void> {
     sourceError = null;
     const r = await postJson(API.sources, body, s.saveError, ignoreBody);
@@ -72,54 +84,34 @@
   }
 </script>
 
-<div class="panel">
-  <h3>{s.pluginsInstalled}</h3>
-  {#if installed.length === 0}<p class="hint" style="margin:0">{s.pluginsNoneInstalled}</p>{/if}
-  {#each installed as p (p.id)}
-    <div class="plugin-row">
-      <div class="plugin-main">
-        <span class="k">{p.title} <span class="ro">{p.builtin ? s.pluginBuiltin : s.pluginExternal}</span></span>
-        {#if p.description}<span class="hint">{p.description[lang]}</span>{/if}
-      </div>
-      <div class="plugin-act">
-        {#if p.configurable}
-          <a class="gear" href={pluginHref(p.id, lang)} title={s.pluginSettings} aria-label={`${s.pluginSettings} : ${p.title}`}>
-            <GearIcon strokeWidth={1.8} />
-          </a>
-        {/if}
-        {#if p.enabled}
-          <button class="btn ghost sm" type="button" data-disable={p.id} disabled={busy} onclick={() => act(API.disable, p.id)}>{p.builtin ? s.pluginDisable : s.pluginRemove}</button>
-        {/if}
-      </div>
-    </div>
-  {/each}
+<SubTabs label={s.pluginsTitle} bind:current={tab} items={[
+  { id: TAB.plugins, label: s.pluginsTitle, count: cards.length },
+  { id: TAB.sources, label: s.pluginSourcesTab, count: sources.length + 1, alert: sourcesFaulty ? s.pluginSourcesFaulty : undefined },
+]} />
+
+<div hidden={tab !== TAB.plugins} data-panel={TAB.plugins}>
+<section class="plugin-section">
+  <h2>{s.pluginsActiveTitle} <span class="count">{active.length}</span></h2>
+  <div class="plugin-grid">
+    {#each active as c (c.id)}<PluginCard {lang} card={c} {busy} progress={progress[c.id]} {onaction} />{/each}
+  </div>
+</section>
+
+<section class="plugin-section">
+  <h2>{s.pluginsAvailableTitle} <span class="count">{available.length}</span></h2>
+  {#if catalogError !== null}<p class="formerr">{s.pluginsCatalogDown} ({catalogError})</p>{/if}
+  {#if available.length === 0}<p class="hint">{s.pluginsNoneAvailable}</p>{/if}
+  <div class="plugin-grid">
+    {#each available as c (c.id)}<PluginCard {lang} card={c} {busy} progress={progress[c.id]} {onaction} />{/each}
+  </div>
+</section>
+<ErrorText error={error} id="pluginsErr" />
+<p class="savemsg" id="pluginsMsg">{message}</p>
 </div>
 
-<div class="panel" style="margin-top:.9rem">
-  <h3>{s.pluginsCatalogTitle}</h3>
-  {#if catalogError !== null}<p class="formerr" style="margin:0 0 .5rem">{s.pluginsCatalogDown} ({catalogError})</p>{/if}
-  {#each entries as p (p.id)}
-    <div class="plugin-row">
-      <div class="plugin-main"><span class="k">{p.title} <span class="ro">{p.origin}</span>{#if p.version}<span class="ro">{p.version}</span>{/if}</span>{#if p.description}<span class="hint">{p.description[lang]}</span>{/if}
-        {#if !p.builtin}<div class="bar" hidden={progress[p.id] === undefined} data-bar={p.id}><span style={`width:${progress[p.id] ?? 0}%`}></span></div>{/if}</div>
-      <div class="plugin-act">
-        {#if p.enabled && p.updateAvailable}
-          <button class="btn primary sm" type="button" data-install={p.id} disabled={busy} onclick={() => install(p.id)}>{s.pluginUpdate(p.installedVersion ?? '?', p.version ?? '?')}</button>
-        {:else if p.enabled}
-          <span class="tag-ok">✓ {s.pluginIsInstalled}</span>
-        {:else if p.builtin}
-          <button class="btn primary sm" type="button" data-enable={p.id} disabled={busy} onclick={() => act(API.enable, p.id)}>{s.pluginEnable}</button>
-        {:else}
-          <button class="btn primary sm" type="button" data-install={p.id} disabled={busy} onclick={() => install(p.id)}>{s.pluginInstall}</button>
-        {/if}
-      </div>
-    </div>
-  {/each}
-  <ErrorText error={error} id="pluginsErr" />
-  <p class="savemsg" id="pluginsMsg">{message}</p>
-</div>
-
-<form class="panel" id="sourcesForm" style="margin-top:.9rem" onsubmit={(e) => { e.preventDefault(); void changeSources({ add: sourceUrl.trim() }); }}>
+<div hidden={tab !== TAB.sources} data-panel={TAB.sources}>
+<p class="lead">{s.pluginSourcesLead}</p>
+<form class="panel" id="sourcesForm" onsubmit={(e) => { e.preventDefault(); void changeSources({ add: sourceUrl.trim() }); }}>
   <h3>{s.pluginSourcesTitle}</h3>
   <div class="plugin-row"><div class="plugin-main"><span class="k">{s.pluginCatalog}</span><span class="hint">{s.pluginSourceIsno}</span></div></div>
   {#each sources as src (src.url)}
@@ -133,3 +125,4 @@
   </Field>
   <ErrorText error={sourceError} id="srcErr" />
 </form>
+</div>

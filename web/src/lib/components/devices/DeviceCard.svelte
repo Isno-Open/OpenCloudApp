@@ -53,7 +53,6 @@
   {/snippet}
   {#snippet details()}
     <div class="hw-det" hidden={!showDetails}>
-      <div class="mini-field"><input type="text" value={a.name} aria-label={s.nameLabel} /><button class="btn sm primary" type="button">{s.rename}</button></div>
       <KeyValue label={s.typeWord} value={`${a.kind.label[lang]} · ${a.positional ? s.positional : s.impulsional}`} />
       {#if showPos}<KeyValue label={s.posWord} value={`${a.position} %`} />{/if}
       {#if a.rssiDbm != null}<KeyValue label={s.wifiSignal} value={s.radioState(a.rssiDbm)} />{/if}

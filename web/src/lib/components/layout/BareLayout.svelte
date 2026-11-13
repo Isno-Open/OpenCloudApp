@@ -15,4 +15,4 @@
 <AppHead {app} />
 <svelte:head><title>{title ? `${title} · ${portalName}` : portalName}</title></svelte:head>
 <main class="bare-wrap">{@render children()}</main>
-<p class="foot">{t(lang).footSponsor} <a href={SPONSOR.url} target="_blank" rel="noopener">{SPONSOR.name}</a></p>
+<footer class="page-foot">{t(lang).footSponsor} <a href={SPONSOR.url} target="_blank" rel="noopener">{SPONSOR.name}</a></footer>

@@ -25,4 +25,4 @@ teardown() {
 trap teardown EXIT
 "${C[@]}" up -d --build >/dev/null 2>&1 || { echo "echec du build/demarrage"; exit 1; }
 for _ in $(seq 1 60); do curl -s -o /dev/null "http://$LAN:18080/api/setup/status" && break; sleep 1; done
-python3 scripts/e2e-ui.py "$LAN"
+python3 scripts/e2e-ui.py "$LAN" ${E2E_UI_SHOTS:+"$E2E_UI_SHOTS"}

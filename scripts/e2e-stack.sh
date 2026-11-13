@@ -235,7 +235,7 @@ wait_restart() { sleep 2; for _ in $(seq 1 60); do curl -s -o /dev/null "$B/api/
 PL=$(curl -s -b "$J" "$B/plugins")
 chk "Plugins : « Gestion des comptes » installee, avec son ecrou" "$(echo "$PL" | grep -c 'href="/plugins/local-accounts"')" 1
 chk "Plugins : elle se retire (la connexion est native)" "$(echo "$PL" | grep -c 'data-disable="local-accounts"')" 1
-chk "catalogue jamais vide : la gestion des comptes y figure, marquee installee" "$(echo "$PL" | grep -c '✓ installé')" 1
+chk "cartes : la gestion des comptes parmi les actifs" "$(echo "$PL" | grep -o 'data-plugin="local-accounts" data-state="active"' | wc -l)" 1
 chk "Plugins : l'exemple du catalogue est propose" "$(echo "$PL" | grep -c 'data-install="example"')" 1
 chk "source http refusee" "$(apiJ /api/plugins/sources '{"add":"http://exemple.fr/plugins.json"}')" 400
 chk "source https injoignable refusee (rien n'est garde)" "$(apiJ /api/plugins/sources '{"add":"https://nexiste-pas.invalid/plugins.json"}')" 400
@@ -281,10 +281,12 @@ chk "theme du plugin propose dans Parametres" "$(curl -s -b "$J" "$B/parametres"
 chk "theme inconnu refuse" "$(apiJ /api/settings/general '{"theme":"nexiste-pas"}')" 400
 chk "theme choisi" "$(apiJ /api/settings/general '{"theme":"example"}')" 200
 TP=$(curl -s -b "$J" "$B/")
-chk "theme applique : couleur d'accent" "$(echo "$TP" | grep -c '<style id="portal-theme">:root{--accent:#ff7a1a;')" 1
+chk "theme applique : couleur d'accent" "$(echo "$TP" | grep -cF '<style id="portal-theme">:root:not([data-theme="light"]){--accent:#ff7a1a;')" 1
 chk "theme applique : logo dans la barre" "$(echo "$TP" | grep -o '<img class="brand-logo" src="data:image/png;base64,' | wc -l)" 1
-chk "theme applique : le pied « powered by » est toujours la" "$(echo "$TP" | grep -o 'class="foot">.\{0,120\}href="https://www.isno.fr"' | wc -l)" 1
+chk "theme applique : le pied « powered by » est toujours la" "$(echo "$TP" | grep -o 'class="page-foot">.\{0,120\}href="https://www.isno.fr"' | wc -l)" 1
 chk "theme applique aussi a la connexion" "$(curl -s "$B/connexion?local=1" | grep -c 'id="portal-theme"')" 1
+chk "theme reglable : couleur enregistree dans l'ecrou du plugin" "$(apiJ /api/settings/plugin '{"id":"example","values":{"greet":true,"times":1,"accent":"#3366CC"}}')" 200
+chk "theme reglable : la page suit, sans redemarrer" "$(curl -s -b "$J" "$B/" | grep -cF '<style id="portal-theme">:root:not([data-theme="light"]){--accent:#3366cc;')" 1
 chk "desinstallation (le portail redemarre)" "$(apiJ /api/plugins/disable '{"id":"example"}')" 200
 wait_restart
 chk "apres desinstallation : de nouveau propose" "$(curl -s -b "$J" "$B/plugins" | grep -c 'data-install="example"')" 1
@@ -301,6 +303,7 @@ chk "reglages enregistres" "$(apiJ /api/settings/plugin '{"id":"external-auth","
 chk "annuaire refuse sans signature (le site externe exige l'en-tete)" "$(docker exec isno-cloud-server node -e "fetch('https://isno-e2e-catalog/directory').then(r=>console.log(r.status)).catch(e=>console.log('erreur',e.cause?.code||e.message))")" 401
 UL=$(curl -s -b "$J" "$B/utilisateurs")
 chk "annuaire : compte du site externe cree d'avance, avec son nom" "$(echo "$UL" | grep -o '<b>Annie Annuaire</b>' | wc -l)" 1
+chk "Utilisateurs : par ordre alphabetique" "$(echo "$UL" | grep -o '<b>[^<]*</b>' | sed 's/<[^>]*>//g' | python3 -c "import sys;l=[x.strip() for x in sys.stdin if x.strip()];print(len(l)>2 and l==sorted(l,key=str.casefold))")" True
 chk "annuaire : entree sans e-mail valide ignoree" "$(echo "$UL" | grep -o 'class="mono">pas-un-email<' | wc -l)" 0
 # secret partage : cree par le plugin a sa premiere activation (pas de SSO_SECRET dans cet environnement)
 SEC=$(docker exec isno-cloud-server node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync("/data/plugin-secrets.json","utf8"))["external-auth"]||"")')
@@ -335,6 +338,36 @@ chk "page hors ligne servie" "$(curl -s "$B/pwa/offline.html" | grep -c 'Portail
 chk "icone 512 servie" "$(curl -s -o /dev/null -w '%{http_code} %{content_type}' "$B/pwa/icon-512.png")" "200 image/png"
 chk "nom sous l'icone regle (12 caracteres au plus)" "$(apiJ /api/settings/plugin '{"id":"installable-app","values":{"shortName":"Maison Durand 2026"}}')" 200
 chk "manifeste : nom court borne" "$(curl -s "$B/manifest.webmanifest" | python3 -c "import sys,json;print(json.load(sys.stdin)['short_name'])")" "Maison Duran"
+echo "== theme de base toujours actif ; theme personnalise : couleur et icone reglees depuis l'ecrou"
+PL=$(curl -s -b "$J" "$B/plugins")
+chk "theme ISNO : marque toujours actif, sans bouton de desactivation" "$(echo "$PL" | grep -c 'data-required="theme-isno"') $(echo "$PL" | grep -c 'data-disable="theme-isno"')" "1 0"
+chk "theme ISNO : desactivation refusee" "$(apiJ /api/plugins/disable '{"id":"theme-isno"}')" 409
+chk "icone d'onglet : celle d'ISNO par defaut" "$(curl -s -b "$J" "$B/" | grep -c 'rel="icon" href="/pwa/icon.svg"')" 1
+chk "activation du theme personnalise (le portail redemarre)" "$(apiJ /api/plugins/enable '{"id":"theme-custom"}')" 200
+wait_restart
+chk "theme personnalise : applique des son activation" "$(docker exec isno-cloud-server node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync("/data/portal.config.json","utf8")).theme)')" custom
+png_url() { python3 -c "
+import base64,struct,zlib,sys
+w,h=int(sys.argv[1]),int(sys.argv[2])
+c=lambda t,d:struct.pack('>I',len(d))+t+d+struct.pack('>I',zlib.crc32(t+d))
+raw=b''.join(b'\0'+b'\xc0\x39\x2b'*w for _ in range(h))
+print('data:image/png;base64,'+base64.b64encode(b'\x89PNG\r\n\x1a\n'+c(b'IHDR',struct.pack('>IIBBBBB',w,h,8,2,0,0,0))+c(b'IDAT',zlib.compress(raw,9))+c(b'IEND',b'')).decode())" "$1" "$2"; }
+ICON=$(png_url 512 512)
+chk "theme personnalise : couleur et icone enregistrees" "$(apiJ /api/settings/plugin "{\"id\":\"theme-custom\",\"values\":{\"name\":\"Maison\",\"accent\":\"#C0392B\",\"logo\":\"\",\"icon\":\"$ICON\"}}")" 200
+CP=$(curl -s -b "$J" "$B/")
+chk "theme personnalise : couleur appliquee sans redemarrer" "$(echo "$CP" | grep -cF '<style id="portal-theme">:root:not([data-theme="light"]){--accent:#c0392b;')" 1
+FAV=$(echo "$CP" | grep -o 'rel="icon" href="/pwa/theme-icon?v=[0-9a-f]*"' | head -1 | sed 's/.*href="//;s/"$//')
+chk "icone d'onglet : celle du theme, adresse versionnee" "$(echo -n "$FAV" | grep -c '^/pwa/theme-icon?v=')" 1
+chk "icone du theme servie" "$(curl -s -o /dev/null -w '%{http_code} %{content_type}' "$B$FAV")" "200 image/png"
+chk "manifeste : l'icone du theme seule, a sa taille" "$(curl -s "$B/manifest.webmanifest" | python3 -c "import sys,json;print(' '.join(i['sizes']+' '+i['src'] for i in json.load(sys.stdin)['icons']))")" "512x512 $FAV"
+chk "icone iOS : celle du theme (PNG)" "$(echo "$CP" | grep -cF "rel=\"apple-touch-icon\" href=\"$FAV\"")" 1
+chk "theme personnalise : nom propose dans Parametres" "$(curl -s -b "$J" "$B/parametres" | grep -c '<option value="custom"[^>]*>Maison</option>')" 1
+WIDE=$(png_url 300 100)
+chk "icone non carree : refusee" "$(apiJ /api/settings/plugin "{\"id\":\"theme-custom\",\"values\":{\"accent\":\"#c0392b\",\"icon\":\"$WIDE\"}}")" 200
+chk "icone refusee : retour a celle d'ISNO" "$(curl -s -b "$J" "$B/" | grep -c 'rel="icon" href="/pwa/icon.svg"')" 1
+chk "desactivation du theme personnalise (le portail redemarre)" "$(apiJ /api/plugins/disable '{"id":"theme-custom"}')" 200
+wait_restart
+chk "theme personnalise retire : retour au theme ISNO" "$(curl -s -b "$J" "$B/" | grep -c 'id="portal-theme"')" 0
 chk "desactivation (le portail redemarre)" "$(apiJ /api/plugins/disable '{"id":"installable-app"}')" 200
 wait_restart
 chk "desactive : plus de manifeste" "$(curl -s -o /dev/null -w '%{http_code}' "$B/manifest.webmanifest")" 404

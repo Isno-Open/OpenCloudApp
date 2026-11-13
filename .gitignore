@@ -20,3 +20,4 @@ supervisor/node_modules
 supervisor/dist
 supervisor/dist-test
 web/dist
+plugins/*/dist

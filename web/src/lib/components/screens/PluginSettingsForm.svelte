@@ -5,7 +5,9 @@
   import Button from '#lib/components/ui/Button.svelte';
   import SaveMessage from '#lib/components/ui/SaveMessage.svelte';
   import Field from '#lib/components/ui/Field.svelte';
-  import { SETTING_KIND, TEXT_FORMAT, type SettingField, type SettingValue } from '@opencloudapp/core/plugin-contract.js';
+  import { onMount } from 'svelte';
+  import { invalidateAll } from '$app/navigation';
+  import { SETTING_KIND, TEXT_FORMAT, IMAGE_TYPES, IMAGE_MAX_CHARS, ICON_MIN_PX, type SettingField, type SettingValue } from '@opencloudapp/core/plugin-contract.js';
   import { t, type Lang } from '#lib/i18n.ts';
   import { postJson, ignoreBody } from '#lib/api.ts';
 
@@ -35,6 +37,47 @@
     }
     const r = await postJson('/api/settings/plugin', { id: pluginId, values: out }, s.saveError, ignoreBody);
     status = r.ok ? SAVE.ok : SAVE.err;
+    if (r.ok) await invalidateAll();   // un reglage peut changer le gabarit (theme) : relu sans recharger
+  }
+
+  // couleur non reglee : le selecteur montre l'accent en vigueur, sans l'enregistrer
+  let shownColor = $state<Record<string, string>>({});
+  onMount(() => {
+    const current = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+    for (const f of fields) if (f.kind === SETTING_KIND.color) shownColor[f.key] = String(form[f.key] || current);
+  });
+
+  // image : lue dans le navigateur en data: URL, verifiee comme le fera le serveur (type, taille, et
+  // pour une icone : carree et assez grande)
+  let imageError = $state<Record<string, boolean>>({});
+  const isImageType = (t: string): boolean => IMAGE_TYPES.some((x) => x === t);
+  const readDataUrl = (file: File): Promise<string> => new Promise((done, fail) => {
+    const r = new FileReader();
+    r.onload = () => { if (typeof r.result === 'string') done(r.result); else fail(new Error('lecture')); };
+    r.onerror = () => fail(r.error ?? new Error('lecture'));
+    r.readAsDataURL(file);
+  });
+  const imageSize = (src: string): Promise<{ w: number; h: number }> => new Promise((done, fail) => {
+    const img = new Image();
+    img.onload = () => done({ w: img.naturalWidth, h: img.naturalHeight });
+    img.onerror = () => fail(new Error('image'));
+    img.src = src;
+  });
+  async function pickImage(f: SettingField & { kind: typeof SETTING_KIND.image }, input: HTMLInputElement): Promise<void> {
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    imageError[f.key] = false;
+    try {
+      if (!isImageType(file.type)) throw new Error('type');
+      const src = await readDataUrl(file);
+      if (src.length > IMAGE_MAX_CHARS) throw new Error('taille');
+      if (f.square && file.type !== 'image/svg+xml') {
+        const { w, h } = await imageSize(src);
+        if (w !== h || w < ICON_MIN_PX) throw new Error('forme');
+      }
+      form[f.key] = src;
+    } catch { imageError[f.key] = true; }
   }
 
   async function copy(f: SettingField): Promise<void> {
@@ -67,6 +110,23 @@
           <div class="row"><input id={id(f)} data-secret type={revealed[f.key] ? 'text' : 'password'} readonly spellcheck="false" style="flex:1" value={String(form[f.key] ?? '')} />
             <button class="btn ghost sm" type="button" data-reveal={id(f)} onclick={() => { revealed[f.key] = !revealed[f.key]; }}>{revealed[f.key] ? s.secretHide : s.secretShow}</button>
             <button class="btn ghost sm" type="button" data-copy={id(f)} onclick={() => copy(f)}>{copied[f.key] ? s.secretCopied : s.secretCopy}</button></div>
+        </Field>
+      {:else if f.kind === SETTING_KIND.color}
+        <Field label={f.label[lang]} forId={id(f)} hint={f.hint?.[lang]}>
+          <div class="row"><input id={id(f)} data-key={f.key} data-kind={f.kind} type="color" class="color" disabled={blocked(f)}
+            value={String(form[f.key] || shownColor[f.key] || '')} oninput={(e) => { form[f.key] = e.currentTarget.value; }} />
+            <code class="color-val">{form[f.key] || s.colorDefault}</code>
+            {#if form[f.key]}<button class="btn ghost sm" type="button" data-reset={id(f)} onclick={() => { form[f.key] = ''; }}>{s.imageRemove}</button>{/if}</div>
+        </Field>
+      {:else if f.kind === SETTING_KIND.image}
+        <Field label={f.label[lang]} forId={id(f)} hint={f.hint?.[lang]}>
+          <div class="row image-pick">
+            {#if form[f.key]}<img class={['preview', { square: !!f.square }]} src={String(form[f.key])} alt="" />{:else}<span class="hint">{s.imageNone}</span>{/if}
+            <label class="btn ghost sm">{form[f.key] ? s.imageReplace : s.imageChoose}<input id={id(f)} data-key={f.key} data-kind={f.kind} type="file"
+              accept={IMAGE_TYPES.join(',')} hidden disabled={blocked(f)} onchange={(e) => pickImage(f, e.currentTarget)} /></label>
+            {#if form[f.key]}<button class="btn ghost sm" type="button" data-remove={id(f)} onclick={() => { form[f.key] = ''; }}>{s.imageRemove}</button>{/if}
+          </div>
+          {#if imageError[f.key]}<span class="formerr" data-image-error={f.key}>{s.imageRefused}</span>{/if}
         </Field>
       {/if}
       {#if f.kind === SETTING_KIND.toggle && f.hint}<span class="hint">{f.hint[lang]}</span>{/if}

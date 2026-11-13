@@ -67,17 +67,21 @@ Compte, et échoue à la moindre erreur JavaScript.
 
 ## Plugins
 Ce que le portail sait faire en plus de son cœur vient de **plugins**, page **Plugins** de
-l'opérateur. Un plugin a un seul contrat, `register(api)` (`server/src/plugin-types.ts`), et peut :
+l'opérateur. **Écrire le sien : [docs/PLUGINS.md](docs/PLUGINS.md)**, avec le plugin d'exemple
+`plugins/example`. Un plugin a un seul contrat, `register(api)` (`server/src/plugin-types.ts`), et peut :
 - apporter un mode de **connexion** (`registerAuthProvider`) ;
 - apporter un **type d'appareil** (`registerDeviceType`) : identifiant tel que le boîtier le publie,
   nom, icône (un caractère ou un tracé SVG), libellés FR/EN des trois commandes. Le cœur dessine la
   carte ; rien de ce qu'un plugin déclare n'est du HTML ;
 - apporter un **thème** (`registerTheme`) : couleurs (sombre et clair) parmi les jetons de
-  `plugin-contract.ts` (`THEME_TOKENS`), polices (familles Google Fonts), logo (image PNG, WebP ou SVG
-  en data: URL, 100 Ko au plus). Tout est vérifié : jamais de CSS ni de balisage libres. Le thème se
-  choisit dans Paramètres ; **le pied de page « powered by » n'est pas thématisable** ;
-- **déclarer ses réglages** (`settings`) : interrupteur, nombre, choix, texte ou adresse, secret.
-  Le cœur dessine l'écran (l'écrou du plugin), le plugin valide les valeurs.
+  `plugin-contract.ts` (`THEME_TOKENS`), polices (familles Google Fonts), logo et icône de
+  l'application (image PNG, WebP ou SVG en data: URL, 100 Ko au plus ; l'icône est carrée, un PNG de
+  512 px conseillé). Tout est vérifié : jamais de CSS ni de balisage libres. Le thème se choisit dans
+  Paramètres ; un plugin qui déclare `appliesTheme` le rend actif dès son activation. Un thème peut
+  être une **fonction** : il se relit alors à chaque page, et un réglage enregistré s'applique sans
+  redémarrer. **Le pied de page « powered by » n'est pas thématisable** ;
+- **déclarer ses réglages** (`settings`) : interrupteur, nombre, choix, texte ou adresse, secret,
+  couleur, image téléversée. Le cœur dessine l'écran (l'écrou du plugin), le plugin valide les valeurs.
 
 Plugins **intégrés** (livrés avec le portail) :
 
@@ -86,7 +90,8 @@ Plugins **intégrés** (livrés avec le portail) :
 | `local-accounts` | Gestion des comptes : écran Utilisateurs, invitations, sécurité (captcha, blocage, double authentification, longueur du mot de passe) | actif |
 | `external-auth` | Connexion par un site externe (connexion unique, voir plus bas) | inactif |
 | `device-volet`, `device-portail` | Types d'appareils volet et portail | actifs d'office, même sur une instance déjà configurée |
-| `theme-isno` | Thème ISNO (sombre par défaut, clair au choix) | actif d'office |
+| `theme-isno` | Thème ISNO (sombre par défaut, clair au choix), le thème de base | toujours actif, ne se désactive pas |
+| `theme-custom` | Thème personnalisé : nom, couleur d'accent (les nuances en sont tirées), logo et icône, réglés depuis l'écrou | inactif ; activé, il devient le thème du portail |
 | `installable-app` | Application installable (PWA) : manifeste, icône, service worker | inactif |
 
 Un type publié par un boîtier qu'aucun plugin ne déclare s'affiche comme **appareil inconnu**, sans
@@ -110,7 +115,8 @@ Exemple de plugin à copier : `plugins/example`.
 Plugin `installable-app` (inactif par défaut). Actif, le portail s'installe comme une application :
 manifeste (`/manifest.webmanifest` : nom du portail, nom court réglable, plein écran), icônes, et
 service worker minimal qui affiche une page « portail injoignable » hors connexion **sans garder la
-moindre donnée en cache**. L'icône est le logo du thème s'il en a un, sinon l'icône ISNO, dessinée une
+moindre donnée en cache**. L'icône est celle du thème s'il en déclare une (elle sert aussi d'icône
+d'onglet, plugin actif ou non, à une adresse qui change avec l'image), sinon l'icône ISNO, dessinée une
 fois dans `web/static/pwa/icon.svg` (PNG produits par `scripts/make-pwa-icons.py`). Un service worker
 ne s'enregistre que sur une origine sûre (https, ou `localhost`).
 

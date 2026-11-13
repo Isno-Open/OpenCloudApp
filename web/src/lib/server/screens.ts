@@ -24,7 +24,7 @@ import { LANG, ROUTES, t, type Lang } from '#lib/i18n.ts';
 import { LINK_VIEW, LINK_COOKIE, type LinkView } from '#lib/link.ts';
 import { parseLoginError, LOGIN_INFO } from '#lib/login.ts';
 import { PASSWORD_MODE, type PasswordMode } from '#lib/password-view.ts';
-import type { InstalledRow, CatalogEntry, SourceRow } from '#lib/plugins-view.ts';
+import { PLUGIN_STATE, type PluginCardData, type SourceRow } from '#lib/plugins-view.ts';
 import type { UserRow } from '#lib/users-view.ts';
 
 const LINK_COOKIE_MAX_AGE_S = 600;   // le code scanne attend 10 minutes pendant un detour par la connexion
@@ -93,6 +93,8 @@ export async function usersScreen(lang: Lang, request: Request) {
     cap: a.deviceCap, devices: await countDevices(a.id),
     isSelf: a.id === self, canChange: a.id !== self && !(a.admin && operators <= 1),
   })));
+  // par ordre alphabetique du nom (l'e-mail a defaut), comme la liste des clients de la boutique
+  rows.sort((x, y) => x.name.localeCompare(y.name, lang, { sensitivity: 'base' }));
   // messagerie configuree : le mot de passe devient facultatif (invitation)
   return { rows, minPass: localAccountsSettings().passwordMinLength, canInvite: mailEnabled() };
 }
@@ -127,21 +129,27 @@ export async function pluginsScreen(lang: Lang, request: Request) {
   const enabled = enabledPlugins();
   const sourceUrls = loadConfig()?.pluginSources ?? [];
   const catalog = await listCatalogPlugins(sourceUrls);
-  const installed: InstalledRow[] = installedPlugins().map((p) => ({ ...p, enabled: enabled.includes(p.id) }));
-  // catalogue : les plugins integres puis ceux des sources ; jamais vide, il dit ce qui est en place
-  const entries: CatalogEntry[] = [
-    ...Object.values(BUILTIN_PLUGINS).map((p) => ({ id: p.id, title: p.title, description: p.description, origin: s.pluginBuiltin, builtin: true, enabled: enabled.includes(p.id) })),
-    ...(catalog.ok ? catalog.plugins.map((p) => ({
+  // une carte par plugin : les integres, puis ceux des catalogues ; l'etat vient de la config (actif ou
+  // non) et de ce qui est charge (reglages, toujours actif)
+  const loaded = new Map(installedPlugins().map((p) => [p.id, p]));
+  const state = (id: string): PluginCardData['state'] =>
+    loaded.get(id)?.required ? PLUGIN_STATE.required : enabled.includes(id) ? PLUGIN_STATE.active : PLUGIN_STATE.available;
+  const card = (p: Omit<PluginCardData, 'state' | 'configurable'>): PluginCardData => ({ ...p, state: state(p.id), configurable: !!loaded.get(p.id)?.configurable });
+  const cards: PluginCardData[] = [
+    ...Object.values(BUILTIN_PLUGINS).map((p) => card({ id: p.id, title: p.title, description: p.description, origin: s.pluginBuiltin, builtin: true })),
+    ...(catalog.ok ? catalog.plugins.map((p) => card({
       id: p.id, title: p.title, description: p.description, origin: p.official ? s.pluginCatalog : p.local ? s.pluginLocal : new URL(p.source).host,
-      builtin: false, enabled: enabled.includes(p.id), version: p.version, installedVersion: p.installedVersion, updateAvailable: p.updateAvailable,
+      builtin: false, version: p.version, installedVersion: p.installedVersion, updateAvailable: p.updateAvailable,
     })) : []),
   ];
+  // charges sans figurer dans un catalogue (developpement : HARNESS_MODULE)
+  for (const p of loaded.values()) if (!cards.some((c) => c.id === p.id)) cards.push(card({ id: p.id, title: p.title, description: p.description, origin: s.pluginExternal, builtin: false }));
   const errors = catalog.ok ? catalog.errors : [];
   const sources: SourceRow[] = sourceUrls.map((url) => {
     const err = errors.find((e) => e.source === url);
     return err ? { url, error: err.error } : { url };
   });
-  return { installed, entries, sources, catalogError: catalog.ok ? null : catalog.error };
+  return { cards, sources, catalogError: catalog.ok ? null : catalog.error };
 }
 
 export async function pluginSettingsScreen(lang: Lang, request: Request, id: string) {

@@ -6,7 +6,7 @@
 export type LocalizedText = { fr: string; en: string };
 
 /** Nature d'un reglage, donc du controle dessine par le coeur. */
-export const SETTING_KIND = { toggle: "toggle", number: "number", choice: "choice", text: "text", secret: "secret" } as const;
+export const SETTING_KIND = { toggle: "toggle", number: "number", choice: "choice", text: "text", secret: "secret", color: "color", image: "image" } as const;
 export type SettingKind = (typeof SETTING_KIND)[keyof typeof SETTING_KIND];
 /** Forme d'un reglage texte : libre, ou adresse web (le navigateur aide a la saisie ; le plugin valide). */
 export const TEXT_FORMAT = { plain: "plain", url: "url" } as const;
@@ -18,8 +18,19 @@ export type SettingField =
   | (FieldBase & { kind: typeof SETTING_KIND.choice; options: readonly { value: string; label: LocalizedText }[] })
   | (FieldBase & { kind: typeof SETTING_KIND.text; format: TextFormat; maxLength: number; placeholder?: string })
   // secret : valeur cree et gardee par le plugin, MONTREE (masquee, a copier) mais jamais saisie ni renvoyee
-  | (FieldBase & { kind: typeof SETTING_KIND.secret });
+  | (FieldBase & { kind: typeof SETTING_KIND.secret })
+  // couleur : « #rrggbb » (selecteur du navigateur) ; image : fichier televerse, rendu en data: URL
+  // (PNG, WebP ou SVG, IMAGE_MAX_CHARS au plus), vide si aucune ; square : une icone (carree, voir
+  // themes.ts iconProblem). Le plugin revalide les deux.
+  | (FieldBase & { kind: typeof SETTING_KIND.color })
+  | (FieldBase & { kind: typeof SETTING_KIND.image; square?: boolean });
 export type SettingValue = boolean | number | string;
+/** Taille maximale d'une image (logo, icone) en data: URL : ~100 Ko de fichier. */
+export const IMAGE_MAX_CHARS = 140_000;
+/** Types d'image acceptes, dans un champ image comme dans un theme. */
+export const IMAGE_TYPES = ["image/png", "image/webp", "image/svg+xml"] as const;
+/** Plus petite icone acceptee (cote, en pixels) : en dessous, floue sur un ecran d'accueil. */
+export const ICON_MIN_PX = 48;
 
 /** Reglages d'un plugin : il les DECLARE, le coeur dessine l'ecran (meme cadre pour tous) et le plugin
  *  valide. Un plugin externe n'a donc pas a livrer d'interface. */
@@ -69,4 +80,7 @@ export type ThemeDecl = {
   light?: ThemePalette;
   fonts?: { sans?: string; mono?: string };
   logo?: { src: string; alt?: LocalizedText };
+  // icone de l'application : onglet du navigateur, ecran d'accueil (PWA). Carree ; PNG de 512 px
+  // conseille (un PNG non carre est refuse), ou SVG.
+  icon?: { src: string };
 };

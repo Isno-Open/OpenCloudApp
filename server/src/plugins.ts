@@ -11,6 +11,7 @@ import { registerDeviceType } from "./device-types.js";
 import { registerTheme } from "./themes.js";
 import { isnoThemePlugin } from "./plugins/theme-isno.js";
 import { installableAppPlugin } from "./plugins/installable-app.js";
+import { customThemePlugin } from "./plugins/theme-custom.js";
 import type { PortalConfig } from "./config.js";
 import { registerAuthProvider, localProvider } from "./auth-provider.js";
 import { ensureAccount } from "./store.js";
@@ -26,13 +27,17 @@ export { CAPABILITY, type Capability, type Plugin, type PluginApi, type PluginIn
 export const BUILTIN_PLUGINS: Record<string, Plugin> = {
   [localAccountsPlugin.id]: localAccountsPlugin, [externalAuthPlugin.id]: externalAuthPlugin,
   [shutterTypePlugin.id]: shutterTypePlugin, [gateTypePlugin.id]: gateTypePlugin, [isnoThemePlugin.id]: isnoThemePlugin,
-  [installableAppPlugin.id]: installableAppPlugin,
+  [installableAppPlugin.id]: installableAppPlugin, [customThemePlugin.id]: customThemePlugin,
 };
 /** Actives quand la config n'en dit rien. */
 export const DEFAULT_PLUGINS: readonly string[] = [localAccountsPlugin.id];
 /** Integres actives D'OFFICE, meme sur une instance deja configuree (sa liste ne les nomme pas) :
  *  seul un retrait explicite (pluginsOff) les eteint. Ce sont les types d'appareils de base. */
 export const ALWAYS_ON_PLUGINS: readonly string[] = [shutterTypePlugin.id, gateTypePlugin.id, isnoThemePlugin.id];
+/** Integres qui ne se desactivent PAS : le theme de base, sur lequel le portail retombe quand le theme
+ *  choisi disparait. Un pluginsOff qui les nommerait est ignore. */
+export const REQUIRED_PLUGINS: readonly string[] = [isnoThemePlugin.id];
+export const isRequiredPlugin = (id: string): boolean => REQUIRED_PLUGINS.includes(id);
 
 const installed: PluginInfo[] = [];
 const settingsById = new Map<string, PluginSettings>();
@@ -54,9 +59,10 @@ async function registerOne(p: Plugin, builtin: boolean): Promise<void> {
     defaultCap: DEFAULT_CAP,
     registerDeviceType,
     registerTheme,
+    settings: () => loadConfig()?.pluginSettings?.[p.id],
   };
   await p.register(api);
-  installed.push({ id: p.id, title: p.title, description: p.description, builtin, configurable: !!p.settings });
+  installed.push({ id: p.id, title: p.title, description: p.description, builtin, configurable: !!p.settings, required: isRequiredPlugin(p.id) });
   if (p.settings) settingsById.set(p.id, p.settings);
 }
 
@@ -75,8 +81,24 @@ function asPlugin(m: Record<string, unknown>, fallbackId: string): Plugin {
     title: typeof c.title === "string" ? c.title : fallbackId,
     description: isText(c.description) ? c.description : undefined,
     settings: isSettings(c.settings) ? c.settings : undefined,
+    appliesTheme: typeof c.appliesTheme === "string" ? c.appliesTheme : undefined,
     register: (api: PluginApi) => register.call(c, api),
   };
+}
+
+/** Plugin copie depuis le catalogue dans PLUGINS_DIR/<id>/index.js, verifie. */
+async function importCatalogPlugin(id: string): Promise<Plugin> {
+  return asPlugin((await import(/* @vite-ignore */ pathToFileURL(join(PLUGINS_DIR, id, "index.js")).href)) as Record<string, unknown>, id);
+}
+
+/** Theme a appliquer a l'activation d'un plugin (integre, ou deja copie depuis le catalogue), ou null.
+ *  Lu dans la declaration du plugin, sans l'enregistrer : il ne sera charge qu'au redemarrage. */
+export async function pluginAppliedTheme(id: string): Promise<string | null> {
+  const builtin = BUILTIN_PLUGINS[id];
+  if (builtin) return builtin.appliesTheme ?? null;
+  if (!PLUGIN_ID_RE.test(id)) return null;
+  try { return (await importCatalogPlugin(id)).appliesTheme ?? null; }
+  catch { return null; }
 }
 
 export const hasCapability = (c: Capability): boolean => capabilities.has(c);
@@ -104,7 +126,7 @@ export function loadPlugins(enabled: readonly string[] = DEFAULT_PLUGINS): Promi
         const builtin = BUILTIN_PLUGINS[id];
         if (builtin) { await registerOne(builtin, true); continue; }
         if (!PLUGIN_ID_RE.test(id)) throw new Error("identifiant invalide");
-        const p = asPlugin((await import(/* @vite-ignore */ pathToFileURL(join(PLUGINS_DIR, id, "index.js")).href)) as Record<string, unknown>, id);
+        const p = await importCatalogPlugin(id);
         if (p.id !== id) throw new Error(`le module se declare « ${p.id} »`);
         await registerOne(p, false);
       } catch (e) {
@@ -123,7 +145,7 @@ export function loadPlugins(enabled: readonly string[] = DEFAULT_PLUGINS): Promi
  *  qu'elle n'a pas eteints. */
 export function enabledIn(cfg: Pick<PortalConfig, "plugins" | "pluginsOff"> | null): readonly string[] {
   const list = cfg?.plugins ?? DEFAULT_PLUGINS;
-  const off = cfg?.pluginsOff ?? [];
+  const off = (cfg?.pluginsOff ?? []).filter((id) => !isRequiredPlugin(id));
   return [...list, ...ALWAYS_ON_PLUGINS.filter((id) => !list.includes(id) && !off.includes(id))];
 }
 /** Plugins actives par la config (ceux qui seront charges au prochain demarrage). */
@@ -138,6 +160,7 @@ export function withPluginOn<C extends Pick<PortalConfig, "plugins" | "pluginsOf
 }
 /** Config avec `id` desactive : retire de la liste ; un integre actif d'office est note comme eteint. */
 export function withPluginOff<C extends Pick<PortalConfig, "plugins" | "pluginsOff">>(cfg: C, id: string): C {
+  if (isRequiredPlugin(id)) return cfg;
   const off = cfg.pluginsOff ?? [];
   return {
     ...cfg,

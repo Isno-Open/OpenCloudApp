@@ -9,10 +9,10 @@ import { currentAccount, plugins } from '#lib/server/auth.ts';
 import { portalName, portalNameIsCustom } from '#lib/server/portal.ts';
 import { navItems, adminNavItems } from '#lib/i18n.ts';
 import type { Shell, ShellTheme, ShellApp } from '#lib/shell.ts';
-import { installableEnabled, themeIcon, MANIFEST_PATH, THEME_ICON_PATH, DEFAULT_APPLE_ICON } from '#lib/server/pwa.ts';
+import { installableEnabled, favicon, appleIcon, MANIFEST_PATH, DEFAULT_FAVICON } from '#lib/server/pwa.ts';
 import type { Lang } from '#lib/i18n.ts';
 
-const NO_THEME: ShellTheme = { css: '', fontsHref: null, logo: null };
+const NO_THEME: ShellTheme = { css: '', fontsHref: null, logo: null, icon: DEFAULT_FAVICON };
 
 /** Theme choisi dans Parametres (sinon ISNO), pret a appliquer. Avant l'installation : aucun. */
 async function shellTheme(lang: Lang): Promise<ShellTheme> {
@@ -20,13 +20,13 @@ async function shellTheme(lang: Lang): Promise<ShellTheme> {
   await plugins();
   const t = theme(loadConfig()?.theme ?? DEFAULT_THEME_ID) ?? theme(DEFAULT_THEME_ID);
   if (!t) return NO_THEME;
-  return { css: themeCss(t), fontsHref: themeFontsHref(t), logo: t.logo ? { src: t.logo.src, alt: t.logo.alt?.[lang] ?? '' } : null };
+  return { css: themeCss(t), fontsHref: themeFontsHref(t), logo: t.logo ? { src: t.logo.src, alt: t.logo.alt?.[lang] ?? '' } : null, icon: favicon() };
 }
 
 /** Application installable (plugin) : manifeste et icone iOS, ou rien. */
 async function shellApp(): Promise<ShellApp> {
   if (!isConfigured() || !(await installableEnabled())) return null;
-  return { manifest: MANIFEST_PATH, appleIcon: themeIcon()?.type === 'image/png' ? THEME_ICON_PATH : DEFAULT_APPLE_ICON };
+  return { manifest: MANIFEST_PATH, appleIcon: appleIcon() };
 }
 
 export const load: LayoutServerLoad = async ({ request, locals }) => {
