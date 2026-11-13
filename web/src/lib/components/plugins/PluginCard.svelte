@@ -3,6 +3,7 @@
   // l'etat et l'action. Seul le contenu change d'une carte a l'autre ; le pied est colle en bas, les
   // cartes d'une meme rangee ont donc leurs actions alignees.
   import GearIcon from '#lib/components/ui/GearIcon.svelte';
+  import IconMark from '#lib/components/ui/IconMark.svelte';
   import { t, pluginHref, type Lang } from '#lib/i18n.ts';
   import { PLUGIN_STATE, PLUGIN_ACTION, type PluginCardData, type PluginAction } from '#lib/plugins-view.ts';
 
@@ -15,7 +16,7 @@
 
 <article class={['plugin-card', { on }]} data-plugin={card.id} data-state={card.state}>
   <header class="plugin-card-head">
-    <span class="plugin-mark" aria-hidden="true">{mark}</span>
+    <span class="plugin-mark">{#if card.icon}<IconMark icon={card.icon} label={card.title} />{:else}<span aria-hidden="true">{mark}</span>{/if}</span>
     <div class="plugin-card-title">
       <h3>{card.title}</h3>
       <div class="plugin-tags"><span class="ro">{card.origin}</span>{#if card.version}<span class="ro">{card.version}</span>{/if}</div>

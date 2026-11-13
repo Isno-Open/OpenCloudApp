@@ -236,6 +236,7 @@ PL=$(curl -s -b "$J" "$B/plugins")
 chk "Plugins : « Connexion par mot de passe » active, avec son ecrou" "$(echo "$PL" | grep -c 'href="/plugins/local-accounts"')" 1
 chk "Plugins : elle se retire (la connexion est native)" "$(echo "$PL" | grep -c 'data-disable="local-accounts"')" 1
 chk "cartes : la connexion par mot de passe, active, dans Connexion" "$(echo "$PL" | grep -o 'data-plugin="local-accounts" data-state="active"' | wc -l)" 1
+chk "cartes : chaque plugin integre porte son logo (et le theme de base)" "$(echo "$PL" | grep -o '<svg class="icon-mark"' | wc -l | awk '{print ($1>=7)}')" 1
 chk "Plugins : l'exemple du catalogue est propose" "$(echo "$PL" | grep -c 'data-install="example"')" 1
 chk "source http refusee" "$(apiJ /api/plugins/sources '{"add":"http://exemple.fr/plugins.json"}')" 400
 chk "source https injoignable refusee (rien n'est garde)" "$(apiJ /api/plugins/sources '{"add":"https://nexiste-pas.invalid/plugins.json"}')" 400

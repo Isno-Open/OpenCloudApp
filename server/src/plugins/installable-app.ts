@@ -30,6 +30,7 @@ const settings: PluginSettings = {
 export const installableAppPlugin: Plugin = {
   id: INSTALLABLE_APP_ID,
   title: { fr: "Application installable", en: "Installable app" },
+  icon: { path: "M7 2h10v20H7zM11 18h2M12 6v6M9.5 9.5L12 12l2.5-2.5" },
   category: PLUGIN_CATEGORY.app,
   description: {
     fr: "Le portail s'installe sur un téléphone ou un ordinateur comme une application. Son icône est celle du thème en cours (Apparence).",

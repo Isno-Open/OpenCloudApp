@@ -13,6 +13,7 @@ import { signingKey } from '@opencloudapp/core/session.js';
 import { mailEnabled, smtpConfig, SMTP_SECURITY } from '@opencloudapp/core/mail.js';
 import { resolveAccountId, requireAdmin, accountCreationEnabled, loginRedirect, localLoginEnabled, plugins } from '#lib/server/auth.ts';
 import { theme, activeTheme, BASE_THEME } from '@opencloudapp/core/themes.js';
+import type { Icon } from '@opencloudapp/core/plugin-contract.js';
 import { PLUGIN_CATEGORY } from '@opencloudapp/core/plugin-contract.js';
 import { syncExternalDirectory } from '@opencloudapp/core/plugins/external-auth.js';
 import { getAccountInfo, listBoitiers, listAppareils, getBoitier } from '#lib/server/cloud-data.ts';
@@ -26,6 +27,9 @@ import { parseLoginError, LOGIN_INFO } from '#lib/login.ts';
 import { PASSWORD_MODE, type PasswordMode } from '#lib/password-view.ts';
 import { PLUGIN_STATE, type PluginCardData, type SourceRow } from '#lib/plugins-view.ts';
 import type { UserRow } from '#lib/users-view.ts';
+
+/** Logo de la carte du theme de base : les ondes ISNO (comme la marque, au trait). */
+const BASE_THEME_ICON: Icon = { path: 'M6 14h.01M11 8a8 8 0 0 1 0 12M15.5 5a12.5 12.5 0 0 1 0 18M20 2.5a16.5 16.5 0 0 1 0 23' };
 
 const LINK_COOKIE_MAX_AGE_S = 600;   // le code scanne attend 10 minutes pendant un detour par la connexion
 
@@ -139,8 +143,10 @@ export async function pluginsScreen(lang: Lang, request: Request) {
     const st = state(p.id);
     const applies = info?.appliesTheme ?? BUILTIN_PLUGINS[p.id]?.appliesTheme;
     const th = applies && st !== PLUGIN_STATE.available ? theme(applies) : null;
+    const icon = info?.icon ?? builtinInfo(p.id)?.icon;
     return {
       ...p, state: st, configurable: !!info?.configurable || !!BUILTIN_PLUGINS[p.id]?.settings,
+      ...(icon ? { icon } : {}),
       category: info?.category ?? BUILTIN_PLUGINS[p.id]?.category ?? PLUGIN_CATEGORY.other,
       ...(th ? { theme: { id: th.id, label: th.label[lang], inUse: th.id === currentTheme?.id } } : {}),
     };
@@ -155,6 +161,7 @@ export async function pluginsScreen(lang: Lang, request: Request) {
   // le theme de base, au coeur : une carte sans activation (rien a desactiver), pour y revenir
   if (BASE_THEME) cards.unshift({
     id: BASE_THEME.id, title: s.baseThemeTitle, description: s.baseThemeDescription, origin: s.pluginCore, builtin: true,
+    icon: BASE_THEME_ICON,
     state: PLUGIN_STATE.core, configurable: false, category: PLUGIN_CATEGORY.appearance,
     theme: { id: BASE_THEME.id, label: BASE_THEME.label[lang], inUse: BASE_THEME.id === currentTheme?.id },
   });

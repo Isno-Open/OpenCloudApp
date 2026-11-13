@@ -1,7 +1,7 @@
 // Donnees de l'ecran Plugins, preparees par le serveur (screens.ts) et passees aux composants
 // (PluginsPanel, PluginCard). Des valeurs simples : elles traversent vers le navigateur.
 
-import type { PluginCategory } from '@opencloudapp/core/plugin-contract.js';
+import type { PluginCategory, Icon } from '@opencloudapp/core/plugin-contract.js';
 
 type Localized = { fr: string; en: string };
 
@@ -21,6 +21,7 @@ export type PluginAction = (typeof PLUGIN_ACTION)[keyof typeof PLUGIN_ACTION];
  *  updateAvailable viennent du superviseur. */
 export type PluginCardData = {
   id: string; title: string; description?: Localized; origin: string; builtin: boolean;
+  icon?: Icon;   // logo de la carte (verifie par le coeur) ; sans lui, l'initiale du nom
   state: PluginState; configurable: boolean;
   category: PluginCategory;
   // plugin de theme actif : son theme, et s'il est celui du portail (un seul a la fois)

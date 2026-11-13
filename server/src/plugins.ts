@@ -9,6 +9,7 @@ import { externalAuthPlugin } from "./plugins/external-auth.js";
 import { shutterTypePlugin, gateTypePlugin } from "./plugins/device-types.js";
 import { registerDeviceType } from "./device-types.js";
 import { registerTheme, BASE_THEME, asTheme } from "./themes.js";
+import { asIcon } from "./icons.js";
 import { installableAppPlugin } from "./plugins/installable-app.js";
 import { customThemePlugin } from "./plugins/theme-custom.js";
 import type { PortalConfig } from "./config.js";
@@ -68,7 +69,8 @@ async function registerOne(p: Plugin, builtin: boolean): Promise<void> {
     settings: () => loadConfig()?.pluginSettings?.[p.id],
   };
   await p.register(api);
-  installed.push({ id: p.id, title: p.title, description: p.description, category: p.category ?? PLUGIN_CATEGORY.other, builtin, configurable: !!p.settings, ...(p.appliesTheme ? { appliesTheme: p.appliesTheme } : {}) });
+  const icon = asIcon(p.icon);
+  installed.push({ id: p.id, title: p.title, description: p.description, ...(icon ? { icon } : {}), category: p.category ?? PLUGIN_CATEGORY.other, builtin, configurable: !!p.settings, ...(p.appliesTheme ? { appliesTheme: p.appliesTheme } : {}) });
   if (p.settings) settingsById.set(p.id, p.settings);
   if (p.accountSource) sourceLabels.set(p.id, p.accountSource);
 }
@@ -91,6 +93,7 @@ function asPlugin(m: Record<string, unknown>, fallbackId: string): Plugin {
     settings: isSettings(c.settings) ? c.settings : undefined,
     appliesTheme: typeof c.appliesTheme === "string" ? c.appliesTheme : undefined,
     category: isPluginCategory(c.category) ? c.category : undefined,
+    icon: asIcon(c.icon) ?? undefined,
     register: (api: PluginApi) => register.call(c, api),
   };
 }
@@ -144,7 +147,8 @@ const settingsOf = (id: string): PluginSettings | undefined => settingsById.get(
 /** Fiche d'un integre, charge ou non (ecran de reglages d'un integre inactif). */
 export function builtinInfo(id: string): PluginInfo | null {
   const p = BUILTIN_PLUGINS[id];
-  return p ? { id: p.id, title: p.title, description: p.description, category: p.category ?? PLUGIN_CATEGORY.other, builtin: true, configurable: !!p.settings, ...(p.appliesTheme ? { appliesTheme: p.appliesTheme } : {}) } : null;
+  const icon = p ? asIcon(p.icon) : null;
+  return p ? { id: p.id, title: p.title, description: p.description, ...(icon ? { icon } : {}), category: p.category ?? PLUGIN_CATEGORY.other, builtin: true, configurable: !!p.settings, ...(p.appliesTheme ? { appliesTheme: p.appliesTheme } : {}) } : null;
 }
 export function pluginSettingsForm(id: string): { fields: PluginSettings["fields"]; values: Record<string, SettingValue>; previewable: boolean } | null {
   const s = settingsOf(id);

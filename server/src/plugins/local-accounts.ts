@@ -9,6 +9,7 @@ import { LOCAL_ACCOUNTS_SETTINGS, PLUGIN_ID } from "./local-accounts-settings.js
 export const localAccountsPlugin: Plugin = {
   id: PLUGIN_ID,
   title: { fr: "Connexion par mot de passe", en: "Password sign-in" },
+  icon: { path: "M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5zM12 15v2" },
   description: { fr: "Les comptes se créent dans le portail : création, invitation par e-mail, mot de passe oublié, et règles de sécurité (captcha, blocage, double authentification).", en: "Accounts are created in the portal: creation, email invitation, forgotten password, and security rules (captcha, lockout, two-factor)." },
   category: PLUGIN_CATEGORY.login,
   settings: LOCAL_ACCOUNTS_SETTINGS,

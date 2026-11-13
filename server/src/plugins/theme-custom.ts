@@ -159,6 +159,7 @@ const settings: PluginSettings = {
 export const customThemePlugin: Plugin = {
   id: CUSTOM_THEME_PLUGIN_ID,
   title: { fr: "Thème personnalisé", en: "Custom theme" },
+  icon: { path: "M12 3a9 9 0 1 0 0 18c1 0 1.5-.8 1.5-1.6c0-1.4 1-2.4 2.4-2.4H18a3 3 0 0 0 3-3a9 9 0 0 0-9-9M7.5 11.5h.01M10 7.5h.01M15 7.5h.01" },
   category: PLUGIN_CATEGORY.appearance,
   description: {
     fr: "Votre nom, vos couleurs, votre fond, votre police, vos logos et votre icône, réglés depuis l'écrou avec un aperçu en direct. Le pied « Sponsorisé par » reste.",

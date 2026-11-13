@@ -59,7 +59,8 @@ export type DeviceAction = (typeof DEVICE_ACTION)[keyof typeof DEVICE_ACTION];
 
 /** Icone d'un type d'appareil : un caractere (emoji) ou un trace SVG (attribut d d'un path, 24x24,
  *  dessine au trait par le coeur). Jamais de balisage : un plugin ne peut pas injecter de HTML. */
-export type DeviceIcon = { glyph: string } | { path: string };
+export type Icon = { glyph: string } | { path: string } | { src: string };
+export type DeviceIcon = Icon;
 
 /** Type d'appareil DECLARE par un plugin. `id` est le type tel que le boitier le publie (attrs.type) ;
  *  le coeur dessine la carte (icone, nom, trois commandes UP/STOP/DOWN) avec ces libelles. Ce qui est

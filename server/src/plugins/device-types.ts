@@ -6,6 +6,7 @@ import { PLUGIN_CATEGORY, type Plugin } from "../plugin-types.js";
 export const shutterTypePlugin: Plugin = {
   id: "device-volet",
   title: { fr: "Type d'appareil : volet", en: "Device type: shutter" },
+  icon: { path: "M4 4h16v16H4zM4 8h16M4 12h16M4 16h16" },
   category: PLUGIN_CATEGORY.devices,
   description: { fr: "Volets roulants : montée, stop, descente, et position quand le volet la donne.", en: "Roller shutters: up, stop, down, and position when the shutter reports it." },
   register(api) {
@@ -21,6 +22,7 @@ export const shutterTypePlugin: Plugin = {
 export const gateTypePlugin: Plugin = {
   id: "device-portail",
   title: { fr: "Type d'appareil : portail", en: "Device type: gate" },
+  icon: { path: "M4 8h12v12H4M4 11h12M4 14h12M4 17h12M1 20h22M18 14h4M20 12l2 2-2 2" },
   category: PLUGIN_CATEGORY.devices,
   description: { fr: "Portails : ouvrir, stop, fermer.", en: "Gates: open, stop, close." },
   register(api) {

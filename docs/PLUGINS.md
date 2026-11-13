@@ -14,6 +14,7 @@ Un plugin est un **module ES** dont l'export par défaut suit le contrat `Plugin
 |---|---|
 | `id` | identifiant, **égal au nom de son dossier** : `^[a-z0-9][a-z0-9-]{1,40}$` |
 | `title` | nom affiché sur sa carte, `{ fr, en }` |
+| `icon` | facultatif : le logo de sa carte, un caractère (`{ glyph: "★" }`), un tracé SVG 24×24 dessiné au trait (`{ path: "M4 4h16…" }`) ou une petite image (`{ src: "data:image/png;base64,…" }`). Vérifié par le cœur ; sans lui, l'initiale du nom |
 | `category` | facultatif : sa catégorie sur la page Plugins (`PLUGIN_CATEGORY` : `login`, `appearance`, `devices`, `app`, `other` par défaut). `login` est **à choix unique** : activer un plugin de connexion désactive les autres |
 | `accountSource` | facultatif, pour un plugin de connexion : nom court de l'origine des comptes qu'il crée (ex. « www.isno.fr »), montré dans Utilisateurs |
 | `description` | une phrase, `{ fr, en }` |

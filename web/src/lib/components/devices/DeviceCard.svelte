@@ -8,6 +8,7 @@
   import type { KnownAppareil } from '#lib/types.ts';
   import DeviceFrame from './DeviceFrame.svelte';
   import KeyValue from '#lib/components/ui/KeyValue.svelte';
+  import IconMark from '#lib/components/ui/IconMark.svelte';
   import GearIcon from '#lib/components/ui/GearIcon.svelte';
 
   interface Props { appareil: KnownAppareil; boitierName: string; lang: Lang; grouped?: boolean; }
@@ -33,11 +34,7 @@
 
 <DeviceFrame {lang} name={a.name} boxId={a.boitierId} boxName={boitierName} online={a.online} {grouped}>
   {#snippet icon()}
-    {#if 'path' in a.kind.icon}
-      <svg viewBox="0 0 24 24" width="1.05em" height="1.05em" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px" aria-label={a.kind.label[lang]}><path d={a.kind.icon.path}></path></svg>
-    {:else}
-      <span aria-label={a.kind.label[lang]}>{a.kind.icon.glyph}</span>
-    {/if}
+    <IconMark icon={a.kind.icon} label={a.kind.label[lang]} />
   {/snippet}
   {#snippet badge()}{#if showPos}<span class="pct">{a.position} %</span>{/if}{/snippet}
   <div class="dpad" data-device={a.boitierId} data-slug={a.slug}>

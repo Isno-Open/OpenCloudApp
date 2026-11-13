@@ -123,6 +123,7 @@ export async function readDirectory(api: Pick<PluginApi, "ensureAccount" | "reco
 export const externalAuthPlugin: Plugin = {
   id: EXTERNAL_AUTH_ID,
   title: { fr: "Connexion par un site externe", en: "Sign-in through an external site" },
+  icon: { path: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" },
   description: {
     fr: "Connexion unique : un visiteur connecté à un site externe (ex. une boutique) arrive connecté sur le portail, son compte est créé à sa première visite.",
     en: "Single sign-on: a visitor signed in to an external site (e.g. a shop) arrives signed in on the portal, the account is created on first visit.",

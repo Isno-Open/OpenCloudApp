@@ -37,3 +37,15 @@ test("actives d'office : presents sans etre listes, eteints seulement par un ret
   assert.deepEqual(on.plugins, ["local-accounts"], "jamais ecrit dans la liste");
   assert.deepEqual(withPluginOff({ plugins: ["local-accounts", "x"] }, "x").plugins, ["local-accounts"]);
 });
+
+test("icone : une seule verification pour les types et les plugins (caractere, trace, image)", async () => {
+  const { asIcon } = await import("./icons.js");
+  assert.deepEqual(asIcon({ glyph: "★" }), { glyph: "★" });
+  assert.deepEqual(asIcon({ path: "M4 4h16" }), { path: "M4 4h16" });
+  assert.deepEqual(asIcon({ src: "data:image/png;base64,AA==" }), { src: "data:image/png;base64,AA==" });
+  assert.equal(asIcon({ path: "M4 4\"/><script>" }), null, "trace : rien qui sorte de l'attribut");
+  assert.equal(asIcon({ src: "javascript:alert(1)" }), null);
+  assert.equal(asIcon({ glyph: "trop long" }), null);
+  const { BUILTIN_PLUGINS } = await import("./plugins.js");
+  for (const p of Object.values(BUILTIN_PLUGINS)) assert.ok(asIcon(p.icon), `plugin ${p.id} : logo valable`);
+});
