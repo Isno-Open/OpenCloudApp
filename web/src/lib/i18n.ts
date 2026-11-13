@@ -14,7 +14,7 @@ export const langOfPath = (path: string): Lang => (path === '/en' || path.starts
 /** Forme des textes : chaque cle existe dans les deux langues (verifie par `satisfies`). */
 interface S {
   // chrome
-  brandAria: string; themeToggle: string; menu: string; langSwitch: string; langName: string;
+  brandAria: string; themeToggle: string; menu: string; navMore: string; navMain: string; langSwitch: string; langName: string;
   nav: { appareils: string; ajouter: string; compte: string };
   footSponsor: string;
   // vue appareils (accueil)
@@ -85,7 +85,7 @@ interface S {
 
 export const STRINGS = {
   [LANG.fr]: {
-    brandAria: 'ISNO Cloud, accueil', themeToggle: 'Basculer le thème clair / sombre', menu: 'Menu',
+    brandAria: 'ISNO Cloud, accueil', themeToggle: 'Basculer le thème clair / sombre', menu: 'Menu', navMore: 'Plus', navMain: 'Navigation principale',
     langSwitch: 'View this page in English', langName: 'EN',
     nav: { appareils: 'appareils', ajouter: 'ajouter', compte: 'compte' },
     footSponsor: 'Sponsorisé par',
@@ -183,7 +183,7 @@ export const STRINGS = {
     saveBtn: 'Enregistrer', savedMsg: 'Enregistré.', saveError: 'Enregistrement impossible.',
   },
   [LANG.en]: {
-    brandAria: 'ISNO Cloud, home', themeToggle: 'Toggle light / dark theme', menu: 'Menu',
+    brandAria: 'ISNO Cloud, home', themeToggle: 'Toggle light / dark theme', menu: 'Menu', navMore: 'More', navMain: 'Main navigation',
     langSwitch: 'Voir cette page en français', langName: 'FR',
     nav: { appareils: 'devices', ajouter: 'add', compte: 'account' },
     footSponsor: 'Sponsored by',
@@ -304,16 +304,19 @@ export const appareilHref = (id: string, lang: Lang): string => (lang === LANG.e
 
 /** Item de navigation : des donnees simples (elles vont au navigateur). Actif sur son adresse exacte,
  *  ou sous `prefix` quand il couvre des sous-pages. */
-export type NavItem = { href: string; label: string; prefix: string | null };
+/** Pictogramme d'une entree de navigation (dessine par NavIcon.svelte). */
+export const NAV_ICON = { devices: 'devices', add: 'add', account: 'account', users: 'users', plugins: 'plugins', settings: 'settings', more: 'more' } as const;
+export type NavIcon = (typeof NAV_ICON)[keyof typeof NAV_ICON];
+export type NavItem = { href: string; label: string; prefix: string | null; icon: NavIcon };
 export const navActive = (n: NavItem, path: string): boolean => path === n.href || (n.prefix !== null && path.startsWith(n.prefix));
 
 /** Items de nav pour une langue. */
 export function navItems(lang: Lang): NavItem[] {
   const s = t(lang);
   return [
-    { href: ROUTES.appareils[lang], label: s.nav.appareils, prefix: appareilHref('', lang) },
-    { href: ROUTES.ajouter[lang], label: s.nav.ajouter, prefix: null },
-    { href: ROUTES.compte[lang], label: s.nav.compte, prefix: null },
+    { href: ROUTES.appareils[lang], label: s.nav.appareils, prefix: appareilHref('', lang), icon: NAV_ICON.devices },
+    { href: ROUTES.ajouter[lang], label: s.nav.ajouter, prefix: null, icon: NAV_ICON.add },
+    { href: ROUTES.compte[lang], label: s.nav.compte, prefix: null, icon: NAV_ICON.account },
   ];
 }
 
@@ -321,8 +324,8 @@ export function navItems(lang: Lang): NavItem[] {
 export function adminNavItems(lang: Lang, opts: { userAdmin: boolean }): NavItem[] {
   const s = t(lang);
   return [
-    ...(opts.userAdmin ? [{ href: ROUTES.utilisateurs[lang], label: s.adminNav.utilisateurs, prefix: null }] : []),
-    { href: ROUTES.plugins[lang], label: s.adminNav.plugins, prefix: `${ROUTES.plugins[lang]}/` },
-    { href: ROUTES.parametres[lang], label: s.adminNav.parametres, prefix: null },
+    ...(opts.userAdmin ? [{ href: ROUTES.utilisateurs[lang], label: s.adminNav.utilisateurs, prefix: null, icon: NAV_ICON.users }] : []),
+    { href: ROUTES.plugins[lang], label: s.adminNav.plugins, prefix: `${ROUTES.plugins[lang]}/`, icon: NAV_ICON.plugins },
+    { href: ROUTES.parametres[lang], label: s.adminNav.parametres, prefix: null, icon: NAV_ICON.settings },
   ];
 }

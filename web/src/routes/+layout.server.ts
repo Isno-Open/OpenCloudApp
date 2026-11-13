@@ -34,7 +34,8 @@ export const load: LayoutServerLoad = async ({ request, locals }) => {
   const account = isConfigured() ? await currentAccount(request) : null;
   const shell: Shell = {
     portalName: portalName(), portalNameIsCustom: portalNameIsCustom(),
-    nav: [...navItems(lang), ...(account?.admin ? adminNavItems(lang, { userAdmin: hasCapability(CAPABILITY.userAdmin) }) : [])],
+    nav: navItems(lang),
+    adminNav: account?.admin ? adminNavItems(lang, { userAdmin: hasCapability(CAPABILITY.userAdmin) }) : [],
     theme: await shellTheme(lang),
     app: await shellApp(),
   };
