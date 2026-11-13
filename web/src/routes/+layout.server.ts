@@ -2,8 +2,7 @@
 // courant l'est) et theme choisi. Tant que l'instance n'est pas configuree, rien a lire (pas de base).
 import type { LayoutServerLoad } from './$types';
 import { isConfigured, loadConfig } from '@opencloudapp/core/config.js';
-import { theme, themeCss, themeFontsHref } from '@opencloudapp/core/themes.js';
-import { DEFAULT_THEME_ID } from '@opencloudapp/core/plugins/theme-isno.js';
+import { theme, themeCss, themeFontsHref, activeTheme } from '@opencloudapp/core/themes.js';
 import { hasCapability, CAPABILITY } from '@opencloudapp/core/plugins.js';
 import { currentAccount, plugins } from '#lib/server/auth.ts';
 import { portalName, portalNameIsCustom } from '#lib/server/portal.ts';
@@ -18,7 +17,7 @@ const NO_THEME: ShellTheme = { css: '', fontsHref: null, logo: null, icon: DEFAU
 async function shellTheme(lang: Lang): Promise<ShellTheme> {
   if (!isConfigured()) return NO_THEME;
   await plugins();
-  const t = theme(loadConfig()?.theme ?? DEFAULT_THEME_ID) ?? theme(DEFAULT_THEME_ID);
+  const t = activeTheme(loadConfig()?.theme);
   if (!t) return NO_THEME;
   return { css: themeCss(t), fontsHref: themeFontsHref(t), logo: t.logo ? { src: t.logo.src, alt: t.logo.alt?.[lang] ?? '' } : null, icon: favicon() };
 }
@@ -35,7 +34,7 @@ export const load: LayoutServerLoad = async ({ request, locals }) => {
   const shell: Shell = {
     portalName: portalName(), portalNameIsCustom: portalNameIsCustom(),
     nav: navItems(lang),
-    adminNav: account?.admin ? adminNavItems(lang, { userAdmin: hasCapability(CAPABILITY.userAdmin) }) : [],
+    adminNav: account?.admin ? adminNavItems(lang) : [],
     theme: await shellTheme(lang),
     app: await shellApp(),
   };

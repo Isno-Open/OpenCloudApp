@@ -3,7 +3,7 @@
 // operateur) et les renvois vivent ici, une fois.
 import { redirect, type Cookies } from '@sveltejs/kit';
 import { isConfigured, loadConfig, setupWindowRemaining, SETUP_WINDOW_S, DB_KIND } from '@opencloudapp/core/config.js';
-import { installedPlugins, BUILTIN_PLUGINS, enabledPlugins, pluginSettingsForm } from '@opencloudapp/core/plugins.js';
+import { installedPlugins, BUILTIN_PLUGINS, enabledPlugins, pluginSettingsForm, accountSourceLabel, builtinInfo } from '@opencloudapp/core/plugins.js';
 import { listAccounts, countDevices, getDeviceAuthByUserCode } from '@opencloudapp/core/store.js';
 import { DEVICE_AUTH_STATE } from '@opencloudapp/core/types.js';
 import { normalizeUserCode, displayUserCode } from '@opencloudapp/core/device-code.js';
@@ -11,10 +11,10 @@ import { localAccountsSettings, totpAllowed, totpRequiredFor } from '@openclouda
 import { newChallenge, captchaSvg } from '@opencloudapp/core/captcha.js';
 import { signingKey } from '@opencloudapp/core/session.js';
 import { mailEnabled, smtpConfig, SMTP_SECURITY } from '@opencloudapp/core/mail.js';
-import { resolveAccountId, requireAdmin, requireUserAdmin, loginRedirect, localLoginEnabled, plugins } from '#lib/server/auth.ts';
-import { listThemes } from '@opencloudapp/core/themes.js';
+import { resolveAccountId, requireAdmin, accountCreationEnabled, loginRedirect, localLoginEnabled, plugins } from '#lib/server/auth.ts';
+import { theme, activeTheme, BASE_THEME } from '@opencloudapp/core/themes.js';
+import { PLUGIN_CATEGORY } from '@opencloudapp/core/plugin-contract.js';
 import { syncExternalDirectory } from '@opencloudapp/core/plugins/external-auth.js';
-import { DEFAULT_THEME_ID } from '@opencloudapp/core/plugins/theme-isno.js';
 import { getAccountInfo, listBoitiers, listAppareils, getBoitier } from '#lib/server/cloud-data.ts';
 import { listCatalogPlugins } from '#lib/server/supervisor.ts';
 import { accountFromLink } from '#lib/server/password.ts';
@@ -81,35 +81,34 @@ export async function loginScreen(lang: Lang, request: Request, url: URL) {
 }
 
 export async function usersScreen(lang: Lang, request: Request) {
-  const self = await requireUserAdmin(request);
+  const self = await requireAdmin(request);
   if (!self) redirect(302, ROUTES.appareils[lang]);
+  const canCreate = await accountCreationEnabled();
   await syncExternalDirectory();   // comptes du site externe crees d'avance (au plus une lecture par minute)
   const accounts = await listAccounts();
   const operators = accounts.filter((a) => a.admin).length;
   const now = Date.now();
   const rows: UserRow[] = await Promise.all(accounts.map(async (a) => ({
     id: a.id, name: a.name ?? a.id, admin: a.admin, totpEnabled: !!a.totpEnabled,
-    locked: !!a.lockedUntil && a.lockedUntil > now, invited: !a.passHash,
+    locked: !!a.lockedUntil && a.lockedUntil > now, invited: !a.passHash && a.source === null,
     cap: a.deviceCap, devices: await countDevices(a.id),
     isSelf: a.id === self, canChange: a.id !== self && !(a.admin && operators <= 1),
+    source: a.source ? accountSourceLabel(a.source, lang) : null, missing: a.missingSince !== null,
   })));
   // par ordre alphabetique du nom (l'e-mail a defaut), comme la liste des clients de la boutique
   rows.sort((x, y) => x.name.localeCompare(y.name, lang, { sensitivity: 'base' }));
   // messagerie configuree : le mot de passe devient facultatif (invitation)
-  return { rows, minPass: localAccountsSettings().passwordMinLength, canInvite: mailEnabled() };
+  return { rows, minPass: localAccountsSettings().passwordMinLength, canInvite: mailEnabled(), canCreate };
 }
 
 export async function settingsScreen(lang: Lang, request: Request) {
   await requireOperator(request, lang);
-  await plugins();   // les themes viennent des plugins
   const s = t(lang);
   const cfg = loadConfig();
   const smtp = smtpConfig();
   const secLabel = { [SMTP_SECURITY.starttls]: 'STARTTLS', [SMTP_SECURITY.tls]: 'TLS', [SMTP_SECURITY.none]: s.smtpSecNone };
   return {
     appName: cfg?.appName ?? '',
-    theme: cfg?.theme ?? DEFAULT_THEME_ID,
-    themeOptions: listThemes().map((th) => ({ value: th.id, label: th.label[lang] })),
     // valeurs initiales de la messagerie ; le mot de passe n'est jamais renvoye au navigateur
     smtp: {
       host: smtp?.host ?? '', port: smtp?.port ?? 587, security: smtp?.security ?? SMTP_SECURITY.starttls, user: smtp?.user ?? '',
@@ -125,25 +124,42 @@ export async function settingsScreen(lang: Lang, request: Request) {
 
 export async function pluginsScreen(lang: Lang, request: Request) {
   await requireOperator(request, lang);
+  await plugins();   // themes et categories viennent des plugins charges
   const s = t(lang);
   const enabled = enabledPlugins();
   const sourceUrls = loadConfig()?.pluginSources ?? [];
   const catalog = await listCatalogPlugins(sourceUrls);
   // une carte par plugin : les integres, puis ceux des catalogues ; l'etat vient de la config (actif ou
-  // non) et de ce qui est charge (reglages, toujours actif)
+  // non) et de ce qui est charge. Un integre se regle meme inactif (ses reglages sont declares).
   const loaded = new Map(installedPlugins().map((p) => [p.id, p]));
-  const state = (id: string): PluginCardData['state'] =>
-    loaded.get(id)?.required ? PLUGIN_STATE.required : enabled.includes(id) ? PLUGIN_STATE.active : PLUGIN_STATE.available;
-  const card = (p: Omit<PluginCardData, 'state' | 'configurable'>): PluginCardData => ({ ...p, state: state(p.id), configurable: !!loaded.get(p.id)?.configurable });
+  const state = (id: string): PluginCardData['state'] => (enabled.includes(id) ? PLUGIN_STATE.active : PLUGIN_STATE.available);
+  const currentTheme = activeTheme(loadConfig()?.theme);
+  const card = (p: Omit<PluginCardData, 'state' | 'configurable' | 'category'>): PluginCardData => {
+    const info = loaded.get(p.id);
+    const st = state(p.id);
+    const applies = info?.appliesTheme ?? BUILTIN_PLUGINS[p.id]?.appliesTheme;
+    const th = applies && st !== PLUGIN_STATE.available ? theme(applies) : null;
+    return {
+      ...p, state: st, configurable: !!info?.configurable || !!BUILTIN_PLUGINS[p.id]?.settings,
+      category: info?.category ?? BUILTIN_PLUGINS[p.id]?.category ?? PLUGIN_CATEGORY.other,
+      ...(th ? { theme: { id: th.id, label: th.label[lang], inUse: th.id === currentTheme?.id } } : {}),
+    };
+  };
   const cards: PluginCardData[] = [
-    ...Object.values(BUILTIN_PLUGINS).map((p) => card({ id: p.id, title: p.title, description: p.description, origin: s.pluginBuiltin, builtin: true })),
+    ...Object.values(BUILTIN_PLUGINS).map((p) => card({ id: p.id, title: p.title[lang], description: p.description, origin: s.pluginBuiltin, builtin: true })),
     ...(catalog.ok ? catalog.plugins.map((p) => card({
       id: p.id, title: p.title, description: p.description, origin: p.official ? s.pluginCatalog : p.local ? s.pluginLocal : new URL(p.source).host,
       builtin: false, version: p.version, installedVersion: p.installedVersion, updateAvailable: p.updateAvailable,
     })) : []),
   ];
+  // le theme de base, au coeur : une carte sans activation (rien a desactiver), pour y revenir
+  if (BASE_THEME) cards.unshift({
+    id: BASE_THEME.id, title: s.baseThemeTitle, description: s.baseThemeDescription, origin: s.pluginCore, builtin: true,
+    state: PLUGIN_STATE.core, configurable: false, category: PLUGIN_CATEGORY.appearance,
+    theme: { id: BASE_THEME.id, label: BASE_THEME.label[lang], inUse: BASE_THEME.id === currentTheme?.id },
+  });
   // charges sans figurer dans un catalogue (developpement : HARNESS_MODULE)
-  for (const p of loaded.values()) if (!cards.some((c) => c.id === p.id)) cards.push(card({ id: p.id, title: p.title, description: p.description, origin: s.pluginExternal, builtin: false }));
+  for (const p of loaded.values()) if (!cards.some((c) => c.id === p.id)) cards.push(card({ id: p.id, title: p.title[lang], description: p.description, origin: s.pluginExternal, builtin: false }));
   const errors = catalog.ok ? catalog.errors : [];
   const sources: SourceRow[] = sourceUrls.map((url) => {
     const err = errors.find((e) => e.source === url);
@@ -154,7 +170,8 @@ export async function pluginsScreen(lang: Lang, request: Request) {
 
 export async function pluginSettingsScreen(lang: Lang, request: Request, id: string) {
   await requireOperator(request, lang);
-  const plugin = installedPlugins().find((p) => p.id === id);
+  // charge, ou integre inactif (ses reglages se preparent avant de l'activer)
+  const plugin = installedPlugins().find((p) => p.id === id) ?? builtinInfo(id);
   const form = plugin ? pluginSettingsForm(id) : null;
   if (!plugin || !form) redirect(302, ROUTES.plugins[lang]);
   return { plugin, fields: form.fields, values: form.values };

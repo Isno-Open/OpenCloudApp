@@ -48,7 +48,8 @@ const exampleTheme = (v: ExampleSettings): ThemeDecl => ({
 
 const plugin: Plugin = {
   id: "example",
-  title: "Exemple",
+  title: { fr: "Exemple", en: "Example" },
+  appliesTheme: "example",   // son theme devient celui du portail a l'activation (on revient a ISNO depuis Plugins)
   description: { fr: "Plugin de référence pour écrire les vôtres : des réglages déclarés, un thème réglable, et un message au démarrage.", en: "Reference plugin to write your own: declared settings, an adjustable theme, and a message at startup." },
   settings: {
     fields: [

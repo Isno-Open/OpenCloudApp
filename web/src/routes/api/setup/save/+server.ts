@@ -21,8 +21,8 @@ export const POST: RequestHandler = async ({ request }) => {
   if (!KINDS.includes(kind)) return json(400, { error: 'base de données inconnue' });
   const adminEmail = normalizeEmail(b.adminEmail), adminName = normalizeName(b.adminName);
   const adminPassword = String(b.adminPassword ?? '');
-  if (!adminEmail) return json(400, { error: "e-mail de l'opérateur invalide" });
-  if (!adminName) return json(400, { error: "nom de l'opérateur requis" });
+  if (!adminEmail) return json(400, { error: "e-mail de l'admin invalide" });
+  if (!adminName) return json(400, { error: "nom de l'admin requis" });
   if (adminPassword.length < 8) return json(400, { error: 'mot de passe trop court (8 caractères minimum)' });
   // Noms d'hote seulement ; verifies ici aussi (on ne contourne pas l'ecran en appelant l'API).
   const scheme = requestScheme(request);

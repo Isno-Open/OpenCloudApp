@@ -13,7 +13,9 @@ Un plugin est un **module ES** dont l'export par défaut suit le contrat `Plugin
 | Champ | Rôle |
 |---|---|
 | `id` | identifiant, **égal au nom de son dossier** : `^[a-z0-9][a-z0-9-]{1,40}$` |
-| `title` | nom affiché sur sa carte, page Plugins |
+| `title` | nom affiché sur sa carte, `{ fr, en }` |
+| `category` | facultatif : sa catégorie sur la page Plugins (`PLUGIN_CATEGORY` : `login`, `appearance`, `devices`, `app`, `other` par défaut). `login` est **à choix unique** : activer un plugin de connexion désactive les autres |
+| `accountSource` | facultatif, pour un plugin de connexion : nom court de l'origine des comptes qu'il crée (ex. « www.isno.fr »), montré dans Utilisateurs |
 | `description` | une phrase, `{ fr, en }` |
 | `settings` | facultatif : ses réglages, **déclarés** (voir plus bas) ; le portail dessine l'écran de l'écrou |
 | `appliesTheme` | facultatif : identifiant d'un thème qu'il apporte et qui devient celui du portail à son activation |
@@ -21,7 +23,7 @@ Un plugin est un **module ES** dont l'export par défaut suit le contrat `Plugin
 
 Le portail charge les plugins actifs au démarrage. Activer, retirer ou mettre à jour un plugin
 **redémarre le portail** (quelques secondes). Un plugin qui échoue au chargement est écarté et
-journalisé ; il ne bloque jamais le portail, et la connexion de l'opérateur reste toujours possible.
+journalisé ; il ne bloque jamais le portail, et la connexion de l'admin reste toujours possible.
 
 **Un plugin n'importe pas le cœur.** Il reçoit ce dont il a besoin par `api`, et n'importe à
 l'exécution qu'un seul fichier, `plugin-contract.js` : le vocabulaire des réglages, sans aucune
@@ -35,7 +37,7 @@ import type { Plugin } from "../../server/src/plugin-types.js";
 
 const plugin: Plugin = {
   id: "bonjour",
-  title: "Bonjour",
+  title: { fr: "Bonjour", en: "Hello" },
   description: { fr: "Dit bonjour au démarrage.", en: "Says hello at startup." },
   register() {
     console.log("[plugin bonjour] chargé");
@@ -51,8 +53,9 @@ export default plugin;
 | `registerTheme(decl)` | un **thème** : couleurs, polices, logo, icône (voir plus bas) |
 | `registerDeviceType(decl)` | un **type d'appareil** : nom, icône, libellés des trois commandes. Provisoire : ce rôle passe aux plugins de famille de boîtiers (voir « À venir ») |
 | `registerAuthProvider(p)` | un **mode de connexion** (`server/src/auth-provider.ts`) : reconnaître un compte depuis un cookie, adresse de connexion et de déconnexion, cookies à effacer |
-| `provideCapability(c)` | une **capacité** que l'app consulte pour montrer un écran (`CAPABILITY` : `userAdmin`, `installableApp`) |
-| `ensureAccount(id, cap, name?)` | **crée un compte** s'il n'existe pas (première visite, annuaire) sans jamais écraser un nom déjà choisi |
+| `provideCapability(c)` | une **capacité** que l'app consulte (`CAPABILITY` : `accountCreation` pour créer des comptes dans le portail, `installableApp`) |
+| `ensureAccount(id, cap, name?)` | **crée un compte** s'il n'existe pas (première visite, annuaire) sans jamais écraser un nom déjà choisi ; le plugin en devient l'origine |
+| `reconcileAccounts(ids)` | ses comptes **absents** de cette liste sont marqués, ceux qui y reviennent démarqués ; rien n'est jamais supprimé |
 | `defaultCap` | nombre d'appareils par défaut d'un compte |
 | `settings()` | **ses propres réglages**, tels que rangés, relus à chaque appel : à repasser par sa fonction de lecture |
 
@@ -129,9 +132,10 @@ api.registerTheme({
 - **Un thème réglable** se déclare par une **fonction** : `api.registerTheme(() => monTheme(reglages()))`.
   Il est relu (et revérifié) à chaque page, donc un réglage enregistré s'applique sans redémarrer.
   C'est ainsi qu'est fait le thème personnalisé intégré (`server/src/plugins/theme-custom.ts`).
-- `appliesTheme: "maison"` rend le thème actif dès l'activation du plugin. Sans lui, l'opérateur le
-  choisit dans Paramètres.
-- Le thème ISNO est toujours là : si le thème choisi disparaît (plugin retiré), le portail y revient.
+- `appliesTheme: "maison"` rend le thème actif dès l'activation du plugin. Sans lui, l'admin le
+  choisit depuis la carte du plugin (page Plugins, catégorie Apparence).
+- Le thème ISNO n'est pas un plugin : c'est le thème de base, au cœur. Si le thème choisi disparaît
+  (plugin retiré), le portail y revient ; l'admin le reprend aussi depuis sa carte.
 
 ## Essayer en local
 
@@ -177,7 +181,7 @@ Trois catalogues, par ordre de priorité (un identifiant déjà pris n'est jamai
 suivant) :
 1. le catalogue ISNO, livré avec le superviseur (`supervisor/plugins.json`) ;
 2. le catalogue local de l'instance (`PLUGIN_LOCAL_CATALOG_PATH`), relu à chaque demande ;
-3. les sources https que l'opérateur ajoute, onglet **Sources** de la page Plugins. Une source
+3. les sources https que l'admin ajoute, onglet **Sources** de la page Plugins. Une source
    injoignable ou mal formée est refusée à l'ajout.
 
 ## Installation, mise à jour, retrait

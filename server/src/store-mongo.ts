@@ -21,10 +21,11 @@ export async function init(): Promise<void> {
 }
 const withAdmin = (a: Account | null): Account | null => (a ? {
   ...a, admin: a.admin ?? false, name: a.name ?? null, failedCount: a.failedCount ?? 0, lockedUntil: a.lockedUntil ?? null,
-  totpSecret: a.totpSecret ?? null, totpEnabled: a.totpEnabled ?? false, totpLastStep: a.totpLastStep ?? null } : null);
+  totpSecret: a.totpSecret ?? null, totpEnabled: a.totpEnabled ?? false, totpLastStep: a.totpLastStep ?? null,
+  source: a.source ?? null, missingSince: a.missingSince ?? null } : null);
 export const getAccount = (id: string): Promise<Account | null> => accounts().findOne({ id }, { projection: { _id: 0 } }).then(withAdmin);
 export async function createAccount(id: string, name: string, passHash: string | null, cap: number, admin: boolean): Promise<void> {
-  await accounts().insertOne({ id, name, deviceCap: cap, passHash, admin, failedCount: 0, lockedUntil: null, totpSecret: null, totpEnabled: false, totpLastStep: null });
+  await accounts().insertOne({ id, name, deviceCap: cap, passHash, admin, failedCount: 0, lockedUntil: null, totpSecret: null, totpEnabled: false, totpLastStep: null, source: null, missingSince: null });
 }
 export async function recordLoginFailure(id: string, maxFailures: number, minutes: number, now: number): Promise<number | null> {
   const a = await accounts().findOneAndUpdate({ id }, { $inc: { failedCount: 1 } }, { returnDocument: "after" });
@@ -62,8 +63,10 @@ export async function takePairing(code: string): Promise<Pairing | null> {
   const r = await pairings().findOneAndUpdate({ code, used: false }, { $set: { used: true } }, { projection: { _id: 0, used: 0 } });
   return r ? { code: r.code, accountId: r.accountId, deviceId: r.deviceId, name: r.name } : null;
 }
-export async function ensureAccount(id: string, cap: number, name?: string): Promise<void> {
-  await accounts().updateOne({ id }, { $setOnInsert: { id, name: null, deviceCap: cap, passHash: null, admin: false, failedCount: 0, lockedUntil: null, totpSecret: null, totpEnabled: false, totpLastStep: null } }, { upsert: true });
+export async function ensureAccount(id: string, cap: number, name?: string, source?: string): Promise<void> {
+  await accounts().updateOne({ id }, { $setOnInsert: { id, name: null, deviceCap: cap, passHash: null, admin: false, failedCount: 0, lockedUntil: null, totpSecret: null, totpEnabled: false, totpLastStep: null, source: source ?? null, missingSince: null } }, { upsert: true });
+  // compte cree par cette source avant que l'origine soit notee : sans origine ni mot de passe, il la prend
+  if (source) await accounts().updateOne({ id, source: null, passHash: null }, { $set: { source } });
   // nom connu (annuaire d'un site externe) : pose s'il manque, jamais par-dessus un nom choisi
   if (name) await accounts().updateOne({ id, name: null }, { $set: { name } });
 }
@@ -98,4 +101,11 @@ export async function consumeDeviceAuth(deviceCode: string, now: number): Promis
     { $set: { state: DEVICE_AUTH_STATE.consumed } },
     { returnDocument: "after", projection: { _id: 0 } });
   return r ?? null;
+}
+
+/** Rapproche les comptes d'une source de sa liste (voir store-sqlite.ts). */
+export async function markMissingAccounts(source: string, present: readonly string[], now: number): Promise<number> {
+  await accounts().updateMany({ source, id: { $in: [...present] }, missingSince: { $ne: null } }, { $set: { missingSince: null } });
+  await accounts().updateMany({ source, id: { $nin: [...present] }, missingSince: null }, { $set: { missingSince: now } });
+  return accounts().countDocuments({ source, id: { $nin: [...present] } });
 }

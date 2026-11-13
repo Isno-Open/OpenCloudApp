@@ -25,7 +25,7 @@
     { id: SETTINGS_PART.instance, label: s.instanceTitle },
   ]} />
   <div hidden={part === SETTINGS_PART.instance}>
-  <GeneralSettings {part} lang={data.lang} appName={data.appName} theme={data.theme} themeOptions={data.themeOptions} smtp={data.smtp} smtpOn={data.smtpOn} securityOptions={data.securityOptions} />
+  <GeneralSettings {part} lang={data.lang} appName={data.appName} smtp={data.smtp} smtpOn={data.smtpOn} securityOptions={data.securityOptions} />
   </div>
   <div hidden={part !== SETTINGS_PART.instance} data-part={SETTINGS_PART.instance}>
   <Panel title={s.instanceTitle}>

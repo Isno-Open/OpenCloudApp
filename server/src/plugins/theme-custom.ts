@@ -4,7 +4,7 @@
 // Ce qui n'est pas regle reste celui du theme ISNO (couleurs de fond, polices, logo, icone).
 import { loadConfig } from "../config.js";
 import { iconProblem, isImageDataUrl } from "../themes.js";
-import { SETTING_KIND, TEXT_FORMAT, type Plugin, type PluginSettings, type ThemeDecl, type ThemePalette } from "../plugin-types.js";
+import { PLUGIN_CATEGORY, SETTING_KIND, TEXT_FORMAT, type Plugin, type PluginSettings, type ThemeDecl, type ThemePalette } from "../plugin-types.js";
 
 export const CUSTOM_THEME_PLUGIN_ID = "theme-custom";
 export const CUSTOM_THEME_ID = "custom";
@@ -75,7 +75,7 @@ const settings: PluginSettings = {
     { key: "logo", kind: SETTING_KIND.image, label: { fr: "Logo", en: "Logo" },
       hint: { fr: "En haut à gauche. PNG, WebP ou SVG, 100 Ko au plus.", en: "Top left. PNG, WebP or SVG, 100 KB at most." } },
     { key: "icon", kind: SETTING_KIND.image, square: true, label: { fr: "Icône de l'application", en: "App icon" },
-      hint: { fr: "Onglet du navigateur et écran d'accueil. Carrée : PNG de 512 px conseillé, ou SVG.", en: "Browser tab and home screen. Square: 512 px PNG recommended, or SVG." } },
+      hint: { fr: "Onglet du navigateur. Elle sert aussi d'icône à l'application installable : on ne la règle qu'ici. Carrée : PNG de 512 px conseillé, ou SVG.", en: "Browser tab. It is also the installable app's icon: it is set here only. Square: 512 px PNG recommended, or SVG." } },
   ],
   toForm: (stored) => ({ ...read(stored) }),
   fromForm: (input) => read(input),
@@ -83,7 +83,8 @@ const settings: PluginSettings = {
 
 export const customThemePlugin: Plugin = {
   id: CUSTOM_THEME_PLUGIN_ID,
-  title: "Thème personnalisé",
+  title: { fr: "Thème personnalisé", en: "Custom theme" },
+  category: PLUGIN_CATEGORY.appearance,
   description: {
     fr: "Votre nom, votre couleur, votre logo et votre icône, réglés depuis l'écrou. Le pied « powered by » reste.",
     en: "Your name, color, logo and icon, set from the gear. The “powered by” footer stays.",

@@ -4,7 +4,7 @@
 import type { RequestHandler } from './$types';
 import { createAccount, getAccount } from '@opencloudapp/core/store.js';
 import { hashPass } from '@opencloudapp/core/auth.js';
-import { requireUserAdmin } from '#lib/server/auth.ts';
+import { requireAccountCreator } from '#lib/server/auth.ts';
 import { readBody, json } from '#lib/server/http.ts';
 import { normalizeEmail, normalizeName } from '#lib/validate.ts';
 import { localAccountsSettings } from '@opencloudapp/core/plugins/local-accounts-settings.js';
@@ -14,7 +14,7 @@ import { LANG } from '#lib/i18n.ts';
 
 
 export const POST: RequestHandler = async ({ request }) => {
-  const me = await requireUserAdmin(request);
+  const me = await requireAccountCreator(request);
   if (!me) return json(403, { error: 'forbidden' });
   const b = await readBody(request);
   const login = normalizeEmail(b.email), name = normalizeName(b.name);

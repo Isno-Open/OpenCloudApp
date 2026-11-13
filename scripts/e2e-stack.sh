@@ -233,9 +233,9 @@ echo "== page Plugins : catalogue ISNO, installation par le superviseur, reglage
 # le portail redemarre de lui-meme apres activation ou retrait : on attend son retour, puis on se reconnecte
 wait_restart() { sleep 2; for _ in $(seq 1 60); do curl -s -o /dev/null "$B/api/setup/status" && break; sleep 1; done; sleep 1; curl -s -o /dev/null -c "$J" -X POST -d 'user=operateur@exemple.fr&pass=operateur-e2e' "$B/api/login"; }
 PL=$(curl -s -b "$J" "$B/plugins")
-chk "Plugins : « Gestion des comptes » installee, avec son ecrou" "$(echo "$PL" | grep -c 'href="/plugins/local-accounts"')" 1
+chk "Plugins : « Connexion par mot de passe » active, avec son ecrou" "$(echo "$PL" | grep -c 'href="/plugins/local-accounts"')" 1
 chk "Plugins : elle se retire (la connexion est native)" "$(echo "$PL" | grep -c 'data-disable="local-accounts"')" 1
-chk "cartes : la gestion des comptes parmi les actifs" "$(echo "$PL" | grep -o 'data-plugin="local-accounts" data-state="active"' | wc -l)" 1
+chk "cartes : la connexion par mot de passe, active, dans Connexion" "$(echo "$PL" | grep -o 'data-plugin="local-accounts" data-state="active"' | wc -l)" 1
 chk "Plugins : l'exemple du catalogue est propose" "$(echo "$PL" | grep -c 'data-install="example"')" 1
 chk "source http refusee" "$(apiJ /api/plugins/sources '{"add":"http://exemple.fr/plugins.json"}')" 400
 chk "source https injoignable refusee (rien n'est garde)" "$(apiJ /api/plugins/sources '{"add":"https://nexiste-pas.invalid/plugins.json"}')" 400
@@ -277,7 +277,7 @@ wait_restart
 chk "apres mise a jour : plus rien a mettre a jour" "$(curl -s -b "$J" "$B/plugins" | grep -c 'Mettre à jour')" 0
 chk "apres mise a jour : toujours installe" "$(curl -s -b "$J" "$B/plugins" | grep -c 'href="/plugins/example"')" 1
 echo "== themes : un plugin apporte couleurs et logo ; le pied « powered by » ne change pas"
-chk "theme du plugin propose dans Parametres" "$(curl -s -b "$J" "$B/parametres" | grep -c '<option value="example"')" 1
+chk "theme du plugin : en cours des son activation (page Plugins)" "$(curl -s -b "$J" "$B/plugins" | grep -o 'data-theme-in-use="example"' | wc -l)" 1
 chk "theme inconnu refuse" "$(apiJ /api/settings/general '{"theme":"nexiste-pas"}')" 400
 chk "theme choisi" "$(apiJ /api/settings/general '{"theme":"example"}')" 200
 TP=$(curl -s -b "$J" "$B/")
@@ -321,9 +321,15 @@ chk "cookie altere : pas connecte" "$(curl -s -o /dev/null -w '%{http_code}' -H 
 LOGOUT=$(curl -s -D - -X POST -H "cookie: $SSOC" "$B/api/logout")
 chk "deconnexion : renvoie vers l'adresse de deconnexion" "$(echo "$LOGOUT" | grep -c '"redirect":"https://boutique.exemple.fr/sortie"')" 1
 chk "deconnexion : cookie partage efface sur le domaine commun" "$(echo "$LOGOUT" | grep -ic '^set-cookie: isno_account=; Domain=.exemple.fr')" 1
-chk "desactivation (le portail redemarre)" "$(apiJ /api/plugins/disable '{"id":"external-auth"}')" 200
+chk "connexion a choix unique : le mot de passe a ete desactive" "$(docker exec isno-cloud-server node -e 'const c=JSON.parse(require("fs").readFileSync("/data/portal.config.json","utf8"));process.stdout.write(String(c.plugins.includes("local-accounts"))+" "+String(c.plugins.includes("external-auth")))')" "false true"
+chk "connexion par le site : pas d'onglet Nouvel utilisateur" "$(echo "$UL" | grep -c 'data-tab="new"')" 0
+chk "connexion par le site : creation de compte fermee" "$(apiJ /api/user/new '{"email":"x@exemple.fr","name":"X","password":"mot-de-passe-long","cap":5}')" 403
+UL2=$(curl -s -b "$J" "$B/utilisateurs")
+chk "comptes du site : marques de leur source (annuaire et premiere visite), pas « invites »" "$(echo "$UL2" | grep -o 'data-source="boutique.exemple.fr"' | wc -l) $(echo "$UL2" | grep -c 'class="role pending"')" "2 0"
+chk "retour au mot de passe : le site externe s'eteint (le portail redemarre)" "$(apiJ /api/plugins/enable '{"id":"local-accounts"}')" 200
 wait_restart
 chk "desactive : formulaire local de nouveau" "$(curl -s -o /dev/null -w '%{http_code}' "$B/connexion")" 200
+chk "desactive : comptes du site gardes, avec leur source" "$(curl -s -b "$J" "$B/utilisateurs" | grep -o '<b>Annie Annuaire</b>' | wc -l)" 1
 echo "== application installable (PWA) : un plugin, inactif par defaut"
 chk "sans le plugin : pas de manifeste" "$(curl -s -o /dev/null -w '%{http_code}' "$B/manifest.webmanifest")" 404
 chk "sans le plugin : la page ne declare pas de manifeste" "$(curl -s -b "$J" "$B/" | grep -c 'rel="manifest"')" 0
@@ -340,8 +346,8 @@ chk "nom sous l'icone regle (12 caracteres au plus)" "$(apiJ /api/settings/plugi
 chk "manifeste : nom court borne" "$(curl -s "$B/manifest.webmanifest" | python3 -c "import sys,json;print(json.load(sys.stdin)['short_name'])")" "Maison Duran"
 echo "== theme de base toujours actif ; theme personnalise : couleur et icone reglees depuis l'ecrou"
 PL=$(curl -s -b "$J" "$B/plugins")
-chk "theme ISNO : marque toujours actif, sans bouton de desactivation" "$(echo "$PL" | grep -c 'data-required="theme-isno"') $(echo "$PL" | grep -c 'data-disable="theme-isno"')" "1 0"
-chk "theme ISNO : desactivation refusee" "$(apiJ /api/plugins/disable '{"id":"theme-isno"}')" 409
+chk "theme ISNO : au coeur, une carte sans activation ni retrait" "$(echo "$PL" | grep -o 'data-plugin="isno" data-state="core"' | wc -l) $(echo "$PL" | grep -c 'data-disable="isno"')" "1 0"
+chk "theme ISNO : rien a desactiver" "$(apiJ /api/plugins/disable '{"id":"theme-isno"}')" 404
 chk "icone d'onglet : celle d'ISNO par defaut" "$(curl -s -b "$J" "$B/" | grep -c 'rel="icon" href="/pwa/icon.svg"')" 1
 chk "activation du theme personnalise (le portail redemarre)" "$(apiJ /api/plugins/enable '{"id":"theme-custom"}')" 200
 wait_restart
@@ -361,7 +367,8 @@ chk "icone d'onglet : celle du theme, adresse versionnee" "$(echo -n "$FAV" | gr
 chk "icone du theme servie" "$(curl -s -o /dev/null -w '%{http_code} %{content_type}' "$B$FAV")" "200 image/png"
 chk "manifeste : l'icone du theme seule, a sa taille" "$(curl -s "$B/manifest.webmanifest" | python3 -c "import sys,json;print(' '.join(i['sizes']+' '+i['src'] for i in json.load(sys.stdin)['icons']))")" "512x512 $FAV"
 chk "icone iOS : celle du theme (PNG)" "$(echo "$CP" | grep -cF "rel=\"apple-touch-icon\" href=\"$FAV\"")" 1
-chk "theme personnalise : nom propose dans Parametres" "$(curl -s -b "$J" "$B/parametres" | grep -c '<option value="custom"[^>]*>Maison</option>')" 1
+chk "theme personnalise : son nom sur sa carte, en cours" "$(curl -s -b "$J" "$B/plugins" | grep -c 'data-theme-in-use="custom">thème en cours : Maison<')" 1
+chk "theme ISNO : se reprend depuis sa carte" "$(curl -s -b "$J" "$B/plugins" | grep -o 'data-use-theme="isno"' | wc -l)" 1
 WIDE=$(png_url 300 100)
 chk "icone non carree : refusee" "$(apiJ /api/settings/plugin "{\"id\":\"theme-custom\",\"values\":{\"accent\":\"#c0392b\",\"icon\":\"$WIDE\"}}")" 200
 chk "icone refusee : retour a celle d'ISNO" "$(curl -s -b "$J" "$B/" | grep -c 'rel="icon" href="/pwa/icon.svg"')" 1
@@ -392,17 +399,18 @@ chk "adresse qui mene a ce portail : enregistree" "$(apiJ /api/settings/portal-h
 chk "adresse qui ne se resout pas : refusee" "$(apiJ /api/settings/portal-host '{"host":"nexiste-pas.invalid"}')" 400
 chk "adresse refusee : la config n'a pas change" "$(curl -s -b "$J" "$B/parametres" | grep -c "value=\"$APP\"")" 1
 
-echo "== compte unique : sans le plugin de gestion des comptes, la connexion reste native"
+echo "== sans mode de connexion par mot de passe : la connexion de l'admin reste native, Utilisateurs reste"
 chk "Parametres ne liste plus les plugins (page a part)" "$(curl -s -b "$J" "$B/parametres" | grep -c 'href="/plugins/local-accounts"')" 0
 chk "ecran du plugin : ses reglages declares" "$(curl -s -b "$J" "$B/plugins/local-accounts" | grep -c 'data-key="lockoutMaxFailures"')" 1
 chk "ecran du plugin : un seul bouton Enregistrer" "$(curl -s -b "$J" "$B/plugins/local-accounts" | grep -oE '<button[^>]*>(<!--[^>]*-->)*Enregistrer(<!--[^>]*-->)*</button>' | wc -l)" 1
 chk "Parametres : un seul bouton Enregistrer" "$(curl -s -b "$J" "$B/parametres" | grep -oE '<button[^>]*>(<!--[^>]*-->)*Enregistrer(<!--[^>]*-->)*</button>' | wc -l)" 1
 chk "plugin inconnu : reglages refuses" "$(apiJ /api/settings/plugin '{"id":"inconnu","values":{}}')" 404
-chk "retrait de la gestion des comptes (le portail redemarre)" "$(apiJ /api/plugins/disable '{"id":"local-accounts"}')" 200
+chk "retrait de la connexion par mot de passe (le portail redemarre)" "$(apiJ /api/plugins/disable '{"id":"local-accounts"}')" 200
 wait_restart
 chk "sans plugin : l'operateur se connecte toujours (connexion native)" "$(curl -s -o /dev/null -w '%{redirect_url}' -c "$J" -X POST -d 'user=operateur@exemple.fr&pass=operateur-e2e' "$B/api/login")" "$B/"
-chk "sans plugin : pas d'ecran Utilisateurs dans la barre" "$(curl -s -b "$J" "$B/" | grep -c 'href="/utilisateurs"')" 0
-chk "sans plugin : l'API des comptes est fermee" "$(apiJ /api/user/new '{"email":"x@exemple.fr","name":"X","password":"mot-de-passe-long","cap":5}')" 403
+chk "sans plugin : Utilisateurs reste (au coeur)" "$(curl -s -b "$J" "$B/" | grep -o 'href="/utilisateurs"' | wc -l)" 1
+chk "sans plugin : pas d'onglet Nouvel utilisateur" "$(curl -s -b "$J" "$B/utilisateurs" | grep -c 'data-tab="new"')" 0
+chk "sans plugin : la creation de comptes est fermee" "$(apiJ /api/user/new '{"email":"x@exemple.fr","name":"X","password":"mot-de-passe-long","cap":5}')" 403
 chk "sans plugin : la page Plugins propose de l'activer" "$(curl -s -b "$J" "$B/plugins" | grep -c 'data-enable="local-accounts"')" 1
 
 echo; echo "RESULTAT : $ok OK, $ko KO"; [ "$ko" = 0 ]

@@ -136,3 +136,30 @@ test("double authentification : secret, activation, dernier pas", async () => {
   await s.setTotp("dave@x.fr", null, false);
   assert.equal((await s.getAccount("dave@x.fr"))?.totpSecret, null);
 });
+
+test("origine : un compte cree par une source la garde ; un compte du portail n'en a pas", async () => {
+  await s.ensureAccount("client@site.fr", 5, "Client", "external-auth");
+  assert.equal((await s.getAccount("client@site.fr"))?.source, "external-auth");
+  assert.equal((await s.getAccount("admin"))?.source, null);
+});
+
+test("origine : un compte d'avant (sans origine ni mot de passe) la prend ; un compte avec mot de passe non", async () => {
+  await s.ensureAccount("ancien@site.fr", 5);                    // cree avant que l'origine soit notee
+  await s.ensureAccount("ancien@site.fr", 5, undefined, "external-auth");
+  assert.equal((await s.getAccount("ancien@site.fr"))?.source, "external-auth");
+  await s.ensureAccount("admin", 5, undefined, "external-auth"); // l'admin de l'installation, aussi sur le site
+  assert.equal((await s.getAccount("admin"))?.source, null);
+});
+
+test("rapprochement : absent marque (date gardee), revenu demarque, autres sources intouchees", async () => {
+  await s.ensureAccount("autre@ailleurs.fr", 5, undefined, "autre-source");
+  assert.equal(await s.markMissingAccounts("external-auth", ["ancien@site.fr"], 1000), 1);
+  assert.equal((await s.getAccount("client@site.fr"))?.missingSince, 1000);
+  assert.equal((await s.getAccount("ancien@site.fr"))?.missingSince, null);
+  await s.markMissingAccounts("external-auth", ["ancien@site.fr"], 2000);
+  assert.equal((await s.getAccount("client@site.fr"))?.missingSince, 1000, "premiere date gardee");
+  await s.markMissingAccounts("external-auth", ["ancien@site.fr", "client@site.fr"], 3000);
+  assert.equal((await s.getAccount("client@site.fr"))?.missingSince, null, "revenu : demarque");
+  assert.equal((await s.getAccount("autre@ailleurs.fr"))?.missingSince, null, "autre source : intouchee");
+  assert.ok(await s.getAccount("client@site.fr"), "jamais supprime");
+});

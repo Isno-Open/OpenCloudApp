@@ -91,6 +91,16 @@ export function asTheme(v: unknown): ThemeDecl {
 // personnalise) se relit alors a chaque page, et un reglage enregistre s'applique sans redemarrer.
 // La declaration est reverifiee a chaque lecture : ce qu'une fonction rend n'est pas pris sur parole.
 const themes = new Map<string, () => unknown>();
+
+/** Theme de BASE, au coeur (pas un plugin : il ne se desactive jamais) : l'identite ISNO, valeurs de
+ *  tokens.css, donc rien a redefinir. Le portail y retombe quand le theme choisi n'existe pas ou plus. */
+export const BASE_THEME_ID = "isno";
+export const BASE_THEME: ThemeDecl = { id: BASE_THEME_ID, label: { fr: "ISNO", en: "ISNO" } };
+/** Theme en cours : celui choisi s'il existe, sinon le theme de base. Une seule definition, lue par le
+ *  gabarit, l'application installable et la page Plugins. */
+export function activeTheme(chosen: string | undefined): ThemeDecl | null {
+  return theme(chosen ?? BASE_THEME_ID) ?? theme(BASE_THEME_ID);
+}
 export function registerTheme(v: unknown): void {
   let source = (): unknown => v;
   if (typeof v === "function") { const fn: Function = v; source = (): unknown => fn(); }

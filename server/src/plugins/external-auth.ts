@@ -8,7 +8,7 @@
 // meme desactive ; l'ecrou le montre pour qu'on le donne au site externe. SSO_SECRET dans
 // l'environnement, s'il est pose (installation existante), a priorite.
 import { loadConfig } from "../config.js";
-import { SETTING_KIND, TEXT_FORMAT, type Plugin, type PluginSettings } from "../plugin-types.js";
+import { PLUGIN_CATEGORY, SETTING_KIND, TEXT_FORMAT, type Plugin, type PluginSettings } from "../plugin-types.js";
 import { cookieValue, readSignedSession } from "../signed-cookie.js";
 import { ensurePluginSecret, storedPluginSecret } from "../plugin-secrets.js";
 import { signDirectory, DIRECTORY_HEADER } from "../directory-auth.js";
@@ -103,12 +103,16 @@ export function syncExternalDirectory(now: number = Date.now()): Promise<number 
   return inflight;
 }
 
-async function readDirectory(api: PluginApi, url: string, key: string, now: number): Promise<number | null> {
+/** Lecture et application de l'annuaire. `get` : le fetch (remplace dans les essais). Exportee pour
+ *  les essais, qui verifient qu'elle cree ET rapproche. */
+export async function readDirectory(api: Pick<PluginApi, "ensureAccount" | "reconcileAccounts" | "defaultCap">, url: string, key: string, now: number, get: typeof fetch = fetch): Promise<number | null> {
   try {
-    const r = await fetch(url, { headers: { [DIRECTORY_HEADER]: signDirectory(key, now) }, signal: AbortSignal.timeout(DIRECTORY_TIMEOUT_MS) });
+    const r = await get(url, { headers: { [DIRECTORY_HEADER]: signDirectory(key, now) }, signal: AbortSignal.timeout(DIRECTORY_TIMEOUT_MS) });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const entries = parseDirectory(await r.json());
     for (const e of entries) await api.ensureAccount(e.email, api.defaultCap, e.name);
+    // ses comptes que le site ne liste plus : marques, jamais supprimes (ils peuvent avoir des boitiers)
+    await api.reconcileAccounts(entries.map((e) => e.email));
     return entries.length;
   } catch (e) {
     console.error(`[plugin ${EXTERNAL_AUTH_ID}] annuaire illisible :`, e instanceof Error ? e.message : e);
@@ -118,11 +122,14 @@ async function readDirectory(api: PluginApi, url: string, key: string, now: numb
 
 export const externalAuthPlugin: Plugin = {
   id: EXTERNAL_AUTH_ID,
-  title: "Connexion par un site externe",
+  title: { fr: "Connexion par un site externe", en: "Sign-in through an external site" },
   description: {
     fr: "Connexion unique : un visiteur connecté à un site externe (ex. une boutique) arrive connecté sur le portail, son compte est créé à sa première visite.",
     en: "Single sign-on: a visitor signed in to an external site (e.g. a shop) arrives signed in on the portal, the account is created on first visit.",
   },
+  category: PLUGIN_CATEGORY.login,
+  // origine des comptes, montree dans Utilisateurs : le site de l'adresse de connexion (ex. www.isno.fr)
+  accountSource: () => { try { return new URL(current().loginUrl).hostname; } catch { return ""; } },
   settings,
   register(api) {
     // Premiere activation : le secret partage est cree ici, une fois pour toutes.

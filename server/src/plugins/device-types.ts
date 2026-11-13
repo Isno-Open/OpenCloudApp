@@ -1,11 +1,12 @@
 // Types d'appareils livres avec le portail, chacun dans son plugin integre, actives d'office : volet
 // et portail (ceux que publie le firmware OpenProfalux, profiles.json). On peut les desactiver ; un
 // plugin du catalogue peut en ajouter d'autres de la meme facon (api.registerDeviceType).
-import type { Plugin } from "../plugin-types.js";
+import { PLUGIN_CATEGORY, type Plugin } from "../plugin-types.js";
 
 export const shutterTypePlugin: Plugin = {
   id: "device-volet",
-  title: "Type d'appareil : volet",
+  title: { fr: "Type d'appareil : volet", en: "Device type: shutter" },
+  category: PLUGIN_CATEGORY.devices,
   description: { fr: "Volets roulants : montée, stop, descente, et position quand le volet la donne.", en: "Roller shutters: up, stop, down, and position when the shutter reports it." },
   register(api) {
     api.registerDeviceType({
@@ -19,7 +20,8 @@ export const shutterTypePlugin: Plugin = {
 
 export const gateTypePlugin: Plugin = {
   id: "device-portail",
-  title: "Type d'appareil : portail",
+  title: { fr: "Type d'appareil : portail", en: "Device type: gate" },
+  category: PLUGIN_CATEGORY.devices,
   description: { fr: "Portails : ouvrir, stop, fermer.", en: "Gates: open, stop, close." },
   register(api) {
     api.registerDeviceType({

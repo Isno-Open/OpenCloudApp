@@ -5,6 +5,14 @@
  *  ajoutee d'un cote et pas de l'autre est une erreur de compilation). */
 export type LocalizedText = { fr: string; en: string };
 
+/** Categorie d'un plugin : l'ecran Plugins les range ainsi. Dans une categorie EXCLUSIVE, un seul
+ *  plugin est actif : en activer un desactive les autres (deux modes de connexion a la fois n'ont pas
+ *  de sens). Sans categorie declaree : « autre ». */
+export const PLUGIN_CATEGORY = { login: "login", appearance: "appearance", devices: "devices", app: "app", other: "other" } as const;
+export type PluginCategory = (typeof PLUGIN_CATEGORY)[keyof typeof PLUGIN_CATEGORY];
+export const EXCLUSIVE_CATEGORIES: readonly PluginCategory[] = [PLUGIN_CATEGORY.login];
+export const isPluginCategory = (v: unknown): v is PluginCategory => Object.values(PLUGIN_CATEGORY).some((c) => c === v);
+
 /** Nature d'un reglage, donc du controle dessine par le coeur. */
 export const SETTING_KIND = { toggle: "toggle", number: "number", choice: "choice", text: "text", secret: "secret", color: "color", image: "image" } as const;
 export type SettingKind = (typeof SETTING_KIND)[keyof typeof SETTING_KIND];

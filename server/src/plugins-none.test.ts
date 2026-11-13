@@ -12,6 +12,6 @@ test("sans aucun plugin (compte unique) : la connexion reste possible, pas d'ecr
   await loadPlugins([]);
   assert.equal(installedPlugins().length, 0);
   assert.equal(hasCapability(CAPABILITY.localLogin), true);
-  assert.equal(hasCapability(CAPABILITY.userAdmin), false);
+  assert.equal(hasCapability(CAPABILITY.accountCreation), false);
   assert.deepEqual(authProviders().map((p) => p.id), ["local"]);
 });

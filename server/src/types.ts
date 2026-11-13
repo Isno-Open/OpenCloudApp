@@ -7,6 +7,11 @@ export type Account = {
   // securite (greffon Comptes locaux) : echecs de connexion, blocage, double authentification
   failedCount: number; lockedUntil: number | null;
   totpSecret: string | null; totpEnabled: boolean; totpLastStep: number | null;
+  // origine : plugin qui a cree le compte (un site externe, par son annuaire ou a la premiere visite),
+  // null pour un compte cree dans le portail (installation, connexion par mot de passe). missingSince :
+  // date ou la source ne l'a plus liste (le compte est MARQUE, jamais supprime : il peut avoir des
+  // boitiers), null s'il y figure.
+  source: string | null; missingSince: number | null;
 };
 /** lastSeenAt : derniere activite du boitier vue par le relais (ms), null si jamais vu. */
 export type Device = { deviceId: string; accountId: string; name: string; firmware: string; lastSeenAt?: number | null };

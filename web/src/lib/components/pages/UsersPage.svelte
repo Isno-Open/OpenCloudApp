@@ -10,5 +10,5 @@
 <CloudLayout title={s.usersTitle} lang={data.lang} altUrl={ROUTES.utilisateurs[otherLang(data.lang)]} shell={data.shell}>
   <div class="page-head"><h1>{s.usersTitle}</h1></div>
   <p class="lead">{s.usersLead}</p>
-  <UsersPanel lang={data.lang} rows={data.rows} minPass={data.minPass} canInvite={data.canInvite} />
+  <UsersPanel lang={data.lang} rows={data.rows} minPass={data.minPass} canInvite={data.canInvite} canCreate={data.canCreate} />
 </CloudLayout>

@@ -213,7 +213,21 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.015em; margin: 0; }
 .row.end { justify-content: flex-end; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0 .9rem; }
 .check { display: inline-flex; align-items: center; gap: .5rem; font-size: .88rem; color: var(--text-muted); cursor: pointer; }
-.check input { accent-color: var(--accent); }
+/* case a cocher dessinee (pas le gris du navigateur) : vide, une case au trait ; cochee, pleine a la
+   couleur d'accent avec une coche dans la couleur du texte pose sur l'accent */
+input[type="checkbox"] {
+  appearance: none; flex: none; width: 1.15rem; height: 1.15rem; margin: 0; display: inline-grid; place-content: center;
+  border: 1.5px solid var(--text-faint); border-radius: 5px; background: var(--bg-code); cursor: pointer; transition: .12s;
+}
+input[type="checkbox"]::before {
+  content: ""; width: .62rem; height: .62rem; transform: scale(0); transition: transform .12s;
+  background: var(--accent-fg); clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+input[type="checkbox"]:hover { border-color: var(--accent); }
+input[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent); }
+input[type="checkbox"]:checked::before { transform: scale(1); }
+input[type="checkbox"]:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-weak); }
+input[type="checkbox"]:disabled { opacity: .45; cursor: not-allowed; }
 .formerr { color: var(--danger); font-size: .84rem; margin: .6rem 0 0; }
 .savemsg { font-size: .84rem; }
 .savemsg.ok { color: var(--ok); } .savemsg.err { color: var(--danger); }
@@ -281,6 +295,7 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.015em; margin: 0; }
 .subtab-alert { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); }
 /* ecran Plugins : une carte par plugin, en grille ; les actions collees en bas de chaque carte */
 .plugin-section + .plugin-section { margin-top: 1.4rem; }
+.plugin-section-hint { margin: -.3rem 0 .7rem; }
 .plugin-section h2 { font-size: .78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 .7rem; display: flex; align-items: center; gap: .5rem; }
 .plugin-section h2 .count { font-family: var(--font-mono); font-size: .7rem; color: var(--text-faint); border: 1px solid var(--border); border-radius: 999px; padding: 0 .45rem; letter-spacing: 0; }
 .plugin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: .8rem; }

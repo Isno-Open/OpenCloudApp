@@ -67,7 +67,7 @@ Compte, et échoue à la moindre erreur JavaScript.
 
 ## Plugins
 Ce que le portail sait faire en plus de son cœur vient de **plugins**, page **Plugins** de
-l'opérateur. **Écrire le sien : [docs/PLUGINS.md](docs/PLUGINS.md)**, avec le plugin d'exemple
+l'admin. **Écrire le sien : [docs/PLUGINS.md](docs/PLUGINS.md)**, avec le plugin d'exemple
 `plugins/example`. Un plugin a un seul contrat, `register(api)` (`server/src/plugin-types.ts`), et peut :
 - apporter un mode de **connexion** (`registerAuthProvider`) ;
 - apporter un **type d'appareil** (`registerDeviceType`) : identifiant tel que le boîtier le publie,
@@ -85,14 +85,20 @@ l'opérateur. **Écrire le sien : [docs/PLUGINS.md](docs/PLUGINS.md)**, avec le 
 
 Plugins **intégrés** (livrés avec le portail) :
 
-| Plugin | Rôle | Par défaut |
-|---|---|---|
-| `local-accounts` | Gestion des comptes : écran Utilisateurs, invitations, sécurité (captcha, blocage, double authentification, longueur du mot de passe) | actif |
-| `external-auth` | Connexion par un site externe (connexion unique, voir plus bas) | inactif |
-| `device-volet`, `device-portail` | Types d'appareils volet et portail | actifs d'office, même sur une instance déjà configurée |
-| `theme-isno` | Thème ISNO (sombre par défaut, clair au choix), le thème de base | toujours actif, ne se désactive pas |
-| `theme-custom` | Thème personnalisé : nom, couleur d'accent (les nuances en sont tirées), logo et icône, réglés depuis l'écrou | inactif ; activé, il devient le thème du portail |
-| `installable-app` | Application installable (PWA) : manifeste, icône, service worker | inactif |
+| Plugin | Catégorie | Rôle | Par défaut |
+|---|---|---|---|
+| `local-accounts` | Connexion | **Connexion par mot de passe** : les comptes se créent dans le portail (création, invitation, mot de passe oublié) ; sécurité (captcha, blocage, double authentification, longueur du mot de passe) | actif |
+| `external-auth` | Connexion | **Connexion par un site externe** : les comptes viennent du site (connexion unique et annuaire, voir plus bas) | inactif |
+| `device-volet`, `device-portail` | Appareils | Types d'appareils volet et portail | actifs d'office, même sur une instance déjà configurée |
+| `theme-custom` | Apparence | Thème personnalisé : nom, couleur d'accent (les nuances en sont tirées), logo et icône, réglés depuis l'écrou | inactif ; activé, il devient le thème du portail |
+| `installable-app` | Application | Application installable (PWA) : manifeste, service worker ; son icône est celle du thème | inactif |
+
+La page Plugins range les plugins **par catégorie**. **Connexion est à choix unique** : activer un
+mode de connexion désactive l'autre ; les comptes existants restent, et l'admin garde toujours sa
+connexion de secours (`/connexion?local=1`). Dans **Apparence**, un seul thème est en cours ; il se
+choisit depuis sa carte. Le **thème ISNO** n'est pas un plugin : c'est le thème de base, au cœur, sur
+lequel le portail retombe si le thème choisi disparaît. Un plugin intégré se règle (écrou) avant même
+d'être activé.
 
 Un type publié par un boîtier qu'aucun plugin ne déclare s'affiche comme **appareil inconnu**, sans
 commandes.
@@ -105,7 +111,7 @@ remplacé) :
 2. le catalogue **local** de l'instance (`PLUGIN_LOCAL_CATALOG_PATH`), relu à chaque demande. Monter
    son **dossier** dans le superviseur, pas le fichier seul : un éditeur qui remplace le fichier
    laisserait le conteneur sur l'ancienne version ;
-3. les sources https ajoutées par l'opérateur.
+3. les sources https ajoutées par l'admin (onglet Sources de la page Plugins).
 
 **Mises à jour** : l'installation laisse dans le dossier du plugin l'image copiée (`.image`). Le
 superviseur la compare au catalogue ; une version différente affiche « Mettre à jour (a → b) ».
@@ -121,8 +127,17 @@ fois dans `web/static/pwa/icon.svg` (PNG produits par `scripts/make-pwa-icons.py
 ne s'enregistre que sur une origine sûre (https, ou `localhost`).
 
 ## Comptes
-La connexion par e-mail et mot de passe est **native** : le compte créé à l'installation peut toujours
-entrer (`/connexion?local=1` quand une connexion externe est active), quels que soient les plugins.
+**L'écran Utilisateurs est au cœur** : la liste des comptes, le rôle (admin ou utilisateur), le nombre
+d'appareils permis et la suppression, quel que soit le mode de connexion. Le plugin de connexion actif
+alimente la liste :
+- connexion par mot de passe : les comptes se créent dans le portail (onglet « Nouvel utilisateur ») ;
+- connexion par un site externe : les comptes viennent du site, par son annuaire et à la première
+  visite. Chacun porte son origine (ex. « www.isno.fr »). Un compte que le site ne liste plus est
+  **marqué**, jamais supprimé (il peut avoir des boîtiers) : l'admin décide.
+
+La connexion par e-mail et mot de passe de l'admin est **native** : le compte créé à l'installation
+peut toujours entrer (`/connexion?local=1` quand une connexion externe est active), quels que soient
+les plugins.
 
 **Connexion par un site externe** (plugin `external-auth`) : un site externe (une boutique, par
 exemple) pose sur un domaine commun un cookie de session **signé** ; le portail le vérifie et ouvre la

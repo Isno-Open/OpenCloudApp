@@ -4,8 +4,7 @@
 import { loadConfig } from '@opencloudapp/core/config.js';
 import { hasCapability, CAPABILITY } from '@opencloudapp/core/plugins.js';
 import { createHash } from 'node:crypto';
-import { theme, decodeImage, pngSize } from '@opencloudapp/core/themes.js';
-import { DEFAULT_THEME_ID } from '@opencloudapp/core/plugins/theme-isno.js';
+import { theme, decodeImage, pngSize, activeTheme } from '@opencloudapp/core/themes.js';
 import { installableAppSettings, SHORT_NAME_MAX } from '@opencloudapp/core/plugins/installable-app.js';
 import type { ThemeDecl } from '@opencloudapp/core/plugin-contract.js';
 import { plugins } from '#lib/server/auth.ts';
@@ -25,7 +24,7 @@ const PNG_TYPE = 'image/png';
  *  donc aucun cache ne garde l'ancienne. */
 const ICON_VERSION_CHARS = 12;
 
-const currentTheme = (): ThemeDecl | null => theme(loadConfig()?.theme ?? DEFAULT_THEME_ID) ?? theme(DEFAULT_THEME_ID);
+const currentTheme = (): ThemeDecl | null => activeTheme(loadConfig()?.theme);
 
 /** Le plugin est-il actif ? */
 export async function installableEnabled(): Promise<boolean> {

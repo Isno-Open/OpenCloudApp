@@ -34,10 +34,19 @@ export async function loginRedirect(): Promise<string | null> {
   return externalLoginUrl();
 }
 
-/** Garde de l'ecran Utilisateurs : operateur ET un greffon qui fournit la gestion des comptes. */
-export async function requireUserAdmin(request: Request): Promise<string | null> {
+/** Garde de la CREATION de comptes (nouvel utilisateur, invitation) : admin ET un mode de connexion
+ *  qui cree ses comptes dans le portail (connexion par mot de passe). L'ecran Utilisateurs lui-meme
+ *  (liste, role, plafond, suppression) ne demande que d'etre admin : il est au coeur. */
+export async function requireAccountCreator(request: Request): Promise<string | null> {
   const id = await requireAdmin(request);
-  return id && hasCapability(CAPABILITY.userAdmin) ? id : null;
+  if (!id) return null;
+  await plugins();
+  return hasCapability(CAPABILITY.accountCreation) ? id : null;
+}
+/** Le portail cree-t-il ses comptes lui-meme (sinon ils viennent d'une source, ex. un site externe) ? */
+export async function accountCreationEnabled(): Promise<boolean> {
+  await plugins();
+  return hasCapability(CAPABILITY.accountCreation);
 }
 
 /** Un greffon fournit-il la connexion locale (e-mail + mot de passe) ? */

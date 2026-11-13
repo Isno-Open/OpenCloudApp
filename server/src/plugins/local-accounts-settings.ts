@@ -71,7 +71,7 @@ export const LOCAL_ACCOUNTS_SETTINGS: PluginSettings = {
       options: [
         { value: TOTP_POLICY.off, label: { fr: "Désactivée", en: "Disabled" } },
         { value: TOTP_POLICY.optional, label: { fr: "Facultative", en: "Optional" } },
-        { value: TOTP_POLICY.operators, label: { fr: "Exigée pour les opérateurs", en: "Required for operators" } },
+        { value: TOTP_POLICY.operators, label: { fr: "Exigée pour les admins", en: "Required for admins" } },
         { value: TOTP_POLICY.all, label: { fr: "Exigée pour tous", en: "Required for everyone" } },
       ] },
     { key: "passwordMinLength", kind: SETTING_KIND.number, min: PASSWORD_MIN_FLOOR, max: 128, label: { fr: "Longueur minimale du mot de passe", en: "Minimum password length" } },

@@ -249,7 +249,7 @@
         <div class="field"><label for="appHost">Nom d'hôte du portail</label><input id="appHost" name="appHost" type="text" placeholder="cloud.exemple.fr" spellcheck="false" autocapitalize="none" required bind:value={f.appHost} /><span class="hint">L'adresse où vous êtes en ce moment.</span></div>
         <div class="field"><label for="brokerHost">Nom d'hôte du broker MQTT</label><input id="brokerHost" name="brokerHost" type="text" placeholder="mqtt.exemple.fr" spellcheck="false" autocapitalize="none" required bind:value={f.brokerHost} /><span class="hint">Le nom sous lequel les boîtiers joindront le broker : public (Internet) ou réseau local. Son certificat sera créé avec ce nom.</span></div>
         <div class="bar" id="brokerBarWrap" hidden={brokerProgress === null}><span id="brokerBar" style={`width:${brokerProgress ?? 0}%`}></span></div>
-        <h3 class="sub-h">Opérateur du portail</h3>
+        <h3 class="sub-h">Admin du portail</h3>
         <div class="field"><label for="adminEmail">E-mail</label><input id="adminEmail" name="adminEmail" type="email" autocomplete="email" required bind:value={f.adminEmail} /><span class="hint">Votre identifiant de connexion. Vous aurez accès à Paramètres et Plugins.</span></div>
         <div class="field"><label for="adminName">Nom</label><input id="adminName" name="adminName" type="text" autocomplete="name" maxlength="80" required bind:value={f.adminName} /></div>
         <div class="field"><label for="adminPassword">Mot de passe</label><input id="adminPassword" name="adminPassword" type="password" autocomplete="new-password" minlength="8" required bind:value={f.adminPassword} /><span class="hint">8 caractères minimum.</span></div>
@@ -261,7 +261,7 @@
 
       <section class="step done" data-step="3" hidden={stepN !== 3}>
         <h3>Démarrage…</h3>
-        <p class="note">Configuration enregistrée. Le portail redémarre avec la base choisie, puis cette page ouvre la connexion : identifiez-vous avec l'e-mail de l'opérateur.</p>
+        <p class="note">Configuration enregistrée. Le portail redémarre avec la base choisie, puis cette page ouvre la connexion : identifiez-vous avec l'e-mail de l'admin.</p>
       </section>
       <!-- Journal : chaque operation sur sa ligne, conserve d'une etape a l'autre -->
       <ol class="journal" id="journal" hidden={journal.length === 0}>

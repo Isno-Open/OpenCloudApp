@@ -3,7 +3,7 @@
 // icones, ouverture en plein ecran) et service worker minimal (page « portail injoignable » hors
 // connexion ; aucune donnee gardee en cache). L'icone est le logo du theme s'il en a un.
 import { loadConfig } from "../config.js";
-import { CAPABILITY, SETTING_KIND, TEXT_FORMAT, type Plugin, type PluginSettings } from "../plugin-types.js";
+import { PLUGIN_CATEGORY, CAPABILITY, SETTING_KIND, TEXT_FORMAT, type Plugin, type PluginSettings } from "../plugin-types.js";
 
 export const INSTALLABLE_APP_ID = "installable-app";
 /** Longueur maximale du nom court (sous l'icone de l'ecran d'accueil). */
@@ -29,10 +29,11 @@ const settings: PluginSettings = {
 
 export const installableAppPlugin: Plugin = {
   id: INSTALLABLE_APP_ID,
-  title: "Application installable",
+  title: { fr: "Application installable", en: "Installable app" },
+  category: PLUGIN_CATEGORY.app,
   description: {
-    fr: "Le portail s'installe sur un téléphone ou un ordinateur comme une application, avec son icône.",
-    en: "The portal installs on a phone or computer like an app, with its icon.",
+    fr: "Le portail s'installe sur un téléphone ou un ordinateur comme une application. Son icône est celle du thème en cours (Apparence).",
+    en: "The portal installs on a phone or computer like an app. Its icon is the current theme's (Appearance).",
   },
   settings,
   register(api) { api.provideCapability(CAPABILITY.installableApp); },

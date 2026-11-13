@@ -23,7 +23,8 @@ db.exec(`
 const accountCols = db.prepare("PRAGMA table_info(accounts)").all() as { name: string }[];
 if (!accountCols.some((c) => c.name === "admin")) db.exec("ALTER TABLE accounts ADD COLUMN admin INTEGER NOT NULL DEFAULT 0");
 for (const [col, def] of [["name", "TEXT"], ["failed_count", "INTEGER NOT NULL DEFAULT 0"], ["locked_until", "INTEGER"],
-  ["totp_secret", "TEXT"], ["totp_enabled", "INTEGER NOT NULL DEFAULT 0"], ["totp_last_step", "INTEGER"]] as const)
+  ["totp_secret", "TEXT"], ["totp_enabled", "INTEGER NOT NULL DEFAULT 0"], ["totp_last_step", "INTEGER"],
+  ["source", "TEXT"], ["missing_since", "INTEGER"]] as const)
   if (!accountCols.some((c) => c.name === col)) db.exec(`ALTER TABLE accounts ADD COLUMN ${col} ${def}`);
 
 // Derniere activite d'un boitier (relais), ajoutee apres coup.
@@ -32,11 +33,13 @@ if (!deviceCols.some((c) => c.name === "last_seen_at")) db.exec("ALTER TABLE dev
 const DEVICE_COLS = "device_id AS deviceId, account_id AS accountId, name, firmware, last_seen_at AS lastSeenAt";
 
 type AccountRow = { id: string; name: string | null; deviceCap: number; passHash: string | null; admin: number;
-  failedCount: number; lockedUntil: number | null; totpSecret: string | null; totpEnabled: number; totpLastStep: number | null };
-const ACCOUNT_COLS = "id, name, device_cap AS deviceCap, pass_hash AS passHash, admin, failed_count AS failedCount, locked_until AS lockedUntil, totp_secret AS totpSecret, totp_enabled AS totpEnabled, totp_last_step AS totpLastStep";
+  failedCount: number; lockedUntil: number | null; totpSecret: string | null; totpEnabled: number; totpLastStep: number | null;
+  source: string | null; missingSince: number | null };
+const ACCOUNT_COLS = "id, name, device_cap AS deviceCap, pass_hash AS passHash, admin, failed_count AS failedCount, locked_until AS lockedUntil, totp_secret AS totpSecret, totp_enabled AS totpEnabled, totp_last_step AS totpLastStep, source, missing_since AS missingSince";
 const rowToAccount = (r: AccountRow | undefined): Account | null =>
   r ? { id: r.id, name: r.name, deviceCap: r.deviceCap, passHash: r.passHash, admin: !!r.admin,
-        failedCount: r.failedCount ?? 0, lockedUntil: r.lockedUntil, totpSecret: r.totpSecret, totpEnabled: !!r.totpEnabled, totpLastStep: r.totpLastStep } : null;
+        failedCount: r.failedCount ?? 0, lockedUntil: r.lockedUntil, totpSecret: r.totpSecret, totpEnabled: !!r.totpEnabled, totpLastStep: r.totpLastStep,
+        source: r.source ?? null, missingSince: r.missingSince ?? null } : null;
 
 export function init(): Promise<void> { return Promise.resolve(); }
 export function getAccount(id: string): Promise<Account | null> {
@@ -133,11 +136,29 @@ export function takePairing(code: string): Promise<Pairing | null> {
   });
   return Promise.resolve(tx(code));
 }
-export function ensureAccount(id: string, cap: number, name?: string): Promise<void> {
-  db.prepare("INSERT OR IGNORE INTO accounts (id, device_cap) VALUES (?, ?)").run(id, cap);
+export function ensureAccount(id: string, cap: number, name?: string, source?: string): Promise<void> {
+  db.prepare("INSERT OR IGNORE INTO accounts (id, device_cap, source) VALUES (?, ?, ?)").run(id, cap, source ?? null);
+  // compte cree par cette source avant que l'origine soit notee : sans origine ni mot de passe, il la prend
+  if (source) db.prepare("UPDATE accounts SET source = ? WHERE id = ? AND source IS NULL AND pass_hash IS NULL").run(source, id);
   // nom connu (annuaire d'un site externe) : pose s'il manque, jamais par-dessus un nom choisi
   if (name) db.prepare("UPDATE accounts SET name = ? WHERE id = ? AND name IS NULL").run(name, id);
   return Promise.resolve();
+}
+
+/** Rapproche les comptes d'une source de sa liste : absents -> marques (date gardee si deja marques),
+ *  presents -> demarques. Rend le nombre de comptes marques. */
+export function markMissingAccounts(source: string, present: readonly string[], now: number): Promise<number> {
+  const keep = new Set(present);
+  const tx = db.transaction((): number => {
+    const rows = db.prepare("SELECT id, missing_since AS m FROM accounts WHERE source = ?").all(source) as { id: string; m: number | null }[];
+    let missing = 0;
+    for (const r of rows) {
+      if (keep.has(r.id)) { if (r.m !== null) db.prepare("UPDATE accounts SET missing_since = NULL WHERE id = ?").run(r.id); }
+      else { missing++; if (r.m === null) db.prepare("UPDATE accounts SET missing_since = ? WHERE id = ?").run(now, r.id); }
+    }
+    return missing;
+  });
+  return Promise.resolve(tx());
 }
 
 // ---- Device authorization grant (RFC 8628) ----

@@ -9,6 +9,7 @@
   import { t, type Lang } from '#lib/i18n.ts';
   import { postJson, getJson, ignoreBody, field, reloadAfterRestart, type Parse } from '#lib/api.ts';
   import { PLUGIN_STATE, PLUGIN_ACTION, type PluginCardData, type PluginAction, type SourceRow } from '#lib/plugins-view.ts';
+  import { PLUGIN_CATEGORY, EXCLUSIVE_CATEGORIES, type PluginCategory } from '@opencloudapp/core/plugin-contract.js';
 
   interface Props {
     lang: Lang;
@@ -17,14 +18,16 @@
     catalogError: string | null;
   }
   const { lang, cards, sources, catalogError }: Props = $props();
-  const active = $derived(cards.filter((c) => c.state !== PLUGIN_STATE.available));
-  const available = $derived(cards.filter((c) => c.state === PLUGIN_STATE.available));
+  // une section par categorie, dans un ordre fixe ; actifs d'abord dans chacune ; categorie vide : pas de section
+  const ORDER: readonly PluginCategory[] = [PLUGIN_CATEGORY.login, PLUGIN_CATEGORY.appearance, PLUGIN_CATEGORY.devices, PLUGIN_CATEGORY.app, PLUGIN_CATEGORY.other];
+  const rank = (c: PluginCardData): number => (c.state === PLUGIN_STATE.available ? 1 : 0);
+  const sections = $derived(ORDER.map((cat) => ({ cat, cards: cards.filter((c) => c.category === cat).sort((a, b) => rank(a) - rank(b)) })).filter((x) => x.cards.length > 0));
   const s = $derived(t(lang));
 
   const INSTALL_POLL_MS = 700;
   const API = {
     enable: '/api/plugins/enable', disable: '/api/plugins/disable', install: '/api/plugins/install',
-    status: '/api/plugins/status', sources: '/api/plugins/sources',
+    status: '/api/plugins/status', sources: '/api/plugins/sources', theme: '/api/settings/general',
   } as const;
 
   type InstallStatus = { busy: boolean; progress: number; error: string | null };
@@ -72,8 +75,18 @@
   let tab = $state<string>(TAB.plugins);
   const sourcesFaulty = $derived(catalogError !== null || sources.some((x) => !!x.error));
 
+  // theme en cours : un reglage, pas un redemarrage
+  async function useTheme(id: string): Promise<void> {
+    const themeId = cards.find((c) => c.id === id)?.theme?.id;
+    if (!themeId) return;
+    busy = true; error = null;
+    const r = await postJson(API.theme, { theme: themeId }, s.saveError, ignoreBody);
+    if (r.ok) location.reload(); else fail(r.error);
+  }
+
   function onaction(a: PluginAction, id: string): void {
-    if (a === PLUGIN_ACTION.install) void install(id);
+    if (a === PLUGIN_ACTION.useTheme) void useTheme(id);
+    else if (a === PLUGIN_ACTION.install) void install(id);
     else void act(a === PLUGIN_ACTION.enable ? API.enable : API.disable, id);
   }
 
@@ -90,21 +103,17 @@
 ]} />
 
 <div hidden={tab !== TAB.plugins} data-panel={TAB.plugins}>
-<section class="plugin-section">
-  <h2>{s.pluginsActiveTitle} <span class="count">{active.length}</span></h2>
-  <div class="plugin-grid">
-    {#each active as c (c.id)}<PluginCard {lang} card={c} {busy} progress={progress[c.id]} {onaction} />{/each}
-  </div>
-</section>
-
-<section class="plugin-section">
-  <h2>{s.pluginsAvailableTitle} <span class="count">{available.length}</span></h2>
-  {#if catalogError !== null}<p class="formerr">{s.pluginsCatalogDown} ({catalogError})</p>{/if}
-  {#if available.length === 0}<p class="hint">{s.pluginsNoneAvailable}</p>{/if}
-  <div class="plugin-grid">
-    {#each available as c (c.id)}<PluginCard {lang} card={c} {busy} progress={progress[c.id]} {onaction} />{/each}
-  </div>
-</section>
+{#if catalogError !== null}<p class="formerr">{s.pluginsCatalogDown} ({catalogError})</p>{/if}
+{#each sections as sec (sec.cat)}
+  <section class="plugin-section" data-category={sec.cat}>
+    <h2>{s.pluginCategory[sec.cat]} <span class="count">{sec.cards.length}</span></h2>
+    {#if EXCLUSIVE_CATEGORIES.includes(sec.cat)}<p class="hint plugin-section-hint">{s.pluginCategoryExclusive}</p>{/if}
+    {#if sec.cat === PLUGIN_CATEGORY.appearance}<p class="hint plugin-section-hint">{s.pluginCategoryAppearance}</p>{/if}
+    <div class="plugin-grid">
+      {#each sec.cards as c (c.id)}<PluginCard {lang} card={c} {busy} progress={progress[c.id]} {onaction} />{/each}
+    </div>
+  </section>
+{/each}
 <ErrorText error={error} id="pluginsErr" />
 <p class="savemsg" id="pluginsMsg">{message}</p>
 </div>

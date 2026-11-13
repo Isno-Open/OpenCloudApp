@@ -8,9 +8,9 @@
   const s = $derived(t(data.lang));
 </script>
 
-<CloudLayout title={data.plugin.title} lang={data.lang} altUrl={pluginHref(data.plugin.id, otherLang(data.lang))} shell={data.shell}>
+<CloudLayout title={data.plugin.title[data.lang]} lang={data.lang} altUrl={pluginHref(data.plugin.id, otherLang(data.lang))} shell={data.shell}>
   <a class="backlink" href={ROUTES.plugins[data.lang]}>← {s.pluginsTitle}</a>
-  <div class="page-head"><h1>{data.plugin.title}</h1></div>
+  <div class="page-head"><h1>{data.plugin.title[data.lang]}</h1></div>
   <p class="lead">{s.pluginSettingsLead} <span class="ro">{data.plugin.builtin ? s.pluginBuiltin : s.pluginExternal}</span></p>
   <PluginSettingsForm lang={data.lang} pluginId={data.plugin.id} fields={data.fields} values={data.values} />
 </CloudLayout>

@@ -11,8 +11,10 @@
   import { postJson, ignoreBody } from '#lib/api.ts';
   import type { UserRow } from '#lib/users-view.ts';
 
-  interface Props { lang: Lang; rows: UserRow[]; minPass: number; canInvite: boolean; }
-  const { lang, rows, minPass, canInvite }: Props = $props();
+  // canCreate : le mode de connexion cree ses comptes dans le portail (mot de passe) ; sinon ils
+  // viennent d'une source (site externe) et l'onglet de creation n'existe pas
+  interface Props { lang: Lang; rows: UserRow[]; minPass: number; canInvite: boolean; canCreate: boolean; }
+  const { lang, rows, minPass, canInvite, canCreate }: Props = $props();
   const s = $derived(t(lang));
 
   const DEFAULT_CAP = 5;
@@ -51,9 +53,10 @@
 
 <SubTabs label={s.usersTitle} bind:current={tab} items={[
   { id: TAB.list, label: s.usersListTitle, count: rows.length },
-  { id: TAB.create, label: s.userNewTitle },
+  ...(canCreate ? [{ id: TAB.create, label: s.userNewTitle }] : []),
 ]} />
 
+{#if canCreate}
 <div class="tab-panel" hidden={tab !== TAB.create} data-panel={TAB.create}>
 <form class="panel" id="userForm" onsubmit={create}>
   <h3>{s.userNewTitle}</h3>
@@ -68,8 +71,10 @@
   <ErrorText error={createError} id="userErr" />
 </form>
 </div>
+{/if}
 
 <div class="tab-panel panel" hidden={tab !== TAB.list} data-panel={TAB.list}>
+  {#if !canCreate}<p class="hint" style="margin:0 0 .6rem">{s.usersFromSource}</p>{/if}
   <ErrorText error={rowError} />
   <div class="utable">
     <div class="ut-head"><span>{s.colLogin}</span><span>{s.colRole}</span><span>{s.colCap}</span><span>{s.colDevices}</span><span></span></div>
@@ -81,6 +86,8 @@
           {#if a.totpEnabled}<span class="role">2FA</span>{/if}
           {#if a.locked}<span class="role locked">{s.lockedTag}</span>{/if}
           {#if a.invited}<span class="role pending">{s.invitedTag}</span>{/if}
+          {#if a.source}<span class="role" data-source={a.source}>{a.source}</span>{/if}
+          {#if a.missing}<span class="role locked" data-missing={a.id} title={s.missingHint}>{s.missingTag(a.source ?? '')}</span>{/if}
         </span>
         <span class="num" data-label={s.colCap}>{a.cap}</span>
         <span class="num" data-label={s.colDevices}>{a.devices}</span>
@@ -89,7 +96,7 @@
           {#if a.locked}<button class="btn ghost sm" type="button" data-unlock={a.id} disabled={busyId === a.id} onclick={() => act('/api/user/unlock', { id: a.id }, a.id, s.roleError)}>{s.unlockBtn}</button>{/if}
           {#if a.totpEnabled && !a.isSelf}<button class="btn ghost sm" type="button" data-totp-reset={a.id} disabled={busyId === a.id} onclick={() => act('/api/user/totp-reset', { id: a.id }, a.id, s.roleError)}>{s.totpResetBtn}</button>{/if}
           {#if a.canChange}
-            <button class="btn ghost sm" type="button" data-role={a.id} data-admin={a.admin ? 'false' : 'true'} disabled={busyId === a.id} onclick={() => act('/api/user/role', { id: a.id, admin: !a.admin }, a.id, s.roleError)}>{a.admin ? s.unmakeOperator : s.makeOperator}</button>
+            <button class="btn ghost sm" type="button" data-role={a.id} data-admin={a.admin ? 'false' : 'true'} disabled={busyId === a.id} onclick={() => act('/api/user/role', { id: a.id, admin: !a.admin }, a.id, s.roleError)}>{a.admin ? s.unmakeAdmin : s.makeAdmin}</button>
             <ConfirmButton data-del={a.id} disabled={busyId === a.id} label={s.removeUser} confirmLabel={s.confirmRemoveUser(a.id)} onconfirm={() => remove(a.id)} />
           {/if}
         </span>

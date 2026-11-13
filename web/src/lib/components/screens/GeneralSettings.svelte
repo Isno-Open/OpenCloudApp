@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Parametres > General et Messagerie : nom du portail, theme et messagerie, enregistres d'un seul
+  // Parametres > General et Messagerie : nom du portail et messagerie (le theme se choisit sur la page Plugins), enregistres d'un seul
   // bouton ; essai d'envoi. Un seul formulaire pour deux onglets : `part` dit lequel est montre, les
   // champs de l'autre restent dans le formulaire (et partent avec lui).
   import { SAVE, type SaveState } from '#lib/components/ui/save.ts';
@@ -11,7 +11,7 @@
   import { SETTINGS_PART, type SettingsPart } from '#lib/settings-tabs.ts';
   export type SmtpInitial = { host: string; port: number; security: string; user: string; passKept: boolean; fromEmail: string; fromName: string };
   interface Props {
-    lang: Lang; appName: string; theme: string; themeOptions: { value: string; label: string }[]; smtp: SmtpInitial; smtpOn: boolean;
+    lang: Lang; appName: string; smtp: SmtpInitial; smtpOn: boolean;
     securityOptions: { value: string; label: string }[];
     part: SettingsPart;
   }
@@ -19,7 +19,7 @@
   const s = $derived(t(props.lang));
 
   // valeurs du formulaire, initialisees une fois depuis le serveur
-  const init = (): SmtpInitial & { appName: string; theme: string; pass: string } => ({ ...props.smtp, appName: props.appName, theme: props.theme, pass: '' });
+  const init = (): SmtpInitial & { appName: string; pass: string } => ({ ...props.smtp, appName: props.appName, pass: '' });
   let f = $state(init());
   let msg = $state<{ state: SaveState; text: string }>({ state: SAVE.idle, text: '' });
   let testing = $state(false);
@@ -31,7 +31,6 @@
     msg = { state: SAVE.pending, text: '' };
     const r = await postJson('/api/settings/general', {
       appName: f.appName,
-      theme: f.theme,
       smtp: { host: f.host.trim(), port: Number(f.port), security: f.security, user: f.user.trim(), pass: f.pass, fromEmail: f.fromEmail.trim(), fromName: f.fromName.trim() },
     }, s.saveError, ignoreBody);
     msg = r.ok ? { state: SAVE.ok, text: s.savedMsg } : { state: SAVE.err, text: r.error };
@@ -48,10 +47,6 @@
 <form class="panel" id="generalForm" onsubmit={save}>
   <div hidden={props.part !== SETTINGS_PART.general} data-part={SETTINGS_PART.general}>
   <Field label={s.appNameLabel} forId="appName" hint={s.appNameHint}><input id="appName" type="text" maxlength="60" bind:value={f.appName} placeholder="ISNO Cloud" /></Field>
-
-  <Field label={s.themeLabel} forId="theme" hint={s.themeHint}>
-    <select id="theme" bind:value={f.theme}>{#each props.themeOptions as o (o.value)}<option value={o.value}>{o.label}</option>{/each}</select>
-  </Field>
   </div>
 
   <div hidden={props.part !== SETTINGS_PART.mail} data-part={SETTINGS_PART.mail}>

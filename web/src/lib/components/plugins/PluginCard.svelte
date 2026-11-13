@@ -20,15 +20,24 @@
       <h3>{card.title}</h3>
       <div class="plugin-tags"><span class="ro">{card.origin}</span>{#if card.version}<span class="ro">{card.version}</span>{/if}</div>
     </div>
-    {#if on && card.configurable}
+    {#if card.configurable}
       <a class="gear" href={pluginHref(card.id, lang)} title={s.pluginSettings} aria-label={`${s.pluginSettings} : ${card.title}`}><GearIcon strokeWidth={1.8} /></a>
     {/if}
   </header>
   {#if card.description}<p class="plugin-desc">{card.description[lang]}</p>{/if}
   {#if !card.builtin}<div class="bar" hidden={progress === undefined} data-bar={card.id}><span style={`width:${progress ?? 0}%`}></span></div>{/if}
   <footer class="plugin-card-foot">
-    {#if card.state === PLUGIN_STATE.required}
-      <span class="plugin-status on" data-required={card.id}>{s.pluginAlwaysOn}</span>
+    {#if on && card.theme}
+      <!-- plugin de theme actif : un seul theme en cours, choisi ici -->
+      {#if card.theme.inUse}
+        <span class="plugin-status on" data-theme-in-use={card.theme.id}>{s.themeInUse(card.theme.label)}</span>
+      {:else}
+        <span class="plugin-status">{card.theme.label}</span>
+        <button class="btn primary sm" type="button" data-use-theme={card.theme.id} disabled={busy} onclick={() => onaction(PLUGIN_ACTION.useTheme, card.id)}>{s.themeUse}</button>
+      {/if}
+      {#if card.state !== PLUGIN_STATE.core}
+        <button class="btn ghost sm" type="button" data-disable={card.id} disabled={busy} onclick={() => onaction(PLUGIN_ACTION.disable, card.id)}>{card.builtin ? s.pluginDisable : s.pluginRemove}</button>
+      {/if}
     {:else if on}
       <span class="plugin-status on">{s.pluginActiveTag}</span>
       <span class="plugin-card-act">

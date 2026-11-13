@@ -4,6 +4,7 @@
 // l'appareil declare le type et l'action canonique (UP/STOP/DOWN), l'app ne traduit que l'etiquette.
 // Vocabulaire : « appareil » = le boitier OpenProfalux (ce qu'on ajoute, nomme, configure). Un appareil
 // contient ses volets/portails.
+import type { PluginCategory } from '@opencloudapp/core/plugin-contract.js';
 
 export const LANG = { fr: 'fr', en: 'en' } as const;
 export type Lang = (typeof LANG)[keyof typeof LANG];
@@ -50,7 +51,7 @@ interface S {
   usersTitle: string; usersLead: string; userNewTitle: string; userLogin: string; userName: string; userPassword: string; userCap: string;
   userMakeAdmin: string; createUserBtn: string; usersListTitle: string; colLogin: string; colRole: string; colCap: string; colDevices: string;
   roleAdmin: string; roleUser: string; youTag: string; removeUser: string; confirmRemoveUser: (id: string) => string;
-  createUserError: string; removeUserError: string; makeOperator: string; unmakeOperator: string; roleError: string;
+  createUserError: string; removeUserError: string; makeAdmin: string; unmakeAdmin: string; roleError: string;
   // liaison d'un appareil (device grant) + onboarding utilisateur
   linkTitle: string; linkLead: string; linkCodeLabel: string; linkCodePh: string; linkContinue: string;
   linkConfirmTitle: string; linkIdWord: string; linkNameLabel: string; linkNamePh: string; linkConfirmBtn: string;
@@ -69,7 +70,7 @@ interface S {
   userPassInviteHint: string; invitedTag: string; resendInviteBtn: string;
   pluginSettings: string; pluginSettingsLead: string; pluginsLead: string; pluginsActiveTitle: string;
   pluginCatalog: string; pluginLocal: string; pluginInstall: string; pluginEnable: string; pluginDisable: string; pluginRemove: string;
-  pluginsCatalogDown: string; pluginsNoneAvailable: string; pluginsAvailableTitle: string; pluginActiveTag: string; secretShow: string; secretHide: string; secretCopy: string; secretCopied: string; pluginAlwaysOn: string; pluginSourcesTab: string; pluginSourcesLead: string; pluginSourcesFaulty: string; imageChoose: string; imageReplace: string; imageRemove: string; imageNone: string; imageRefused: string; colorDefault: string; pluginUpdate: (from: string, to: string) => string;
+  pluginsCatalogDown: string; pluginsNoneAvailable: string; pluginsAvailableTitle: string; pluginActiveTag: string; secretShow: string; secretHide: string; secretCopy: string; secretCopied: string; pluginCore: string; baseThemeTitle: string; baseThemeDescription: { fr: string; en: string }; pluginCategory: Record<PluginCategory, string>; pluginCategoryExclusive: string; pluginCategoryAppearance: string; themeInUse: (name: string) => string; themeUse: string; usersFromSource: string; missingTag: (source: string) => string; missingHint: string; pluginSourcesTab: string; pluginSourcesLead: string; pluginSourcesFaulty: string; imageChoose: string; imageReplace: string; imageRemove: string; imageNone: string; imageRefused: string; colorDefault: string; pluginUpdate: (from: string, to: string) => string;
   pluginSourcesTitle: string; pluginSourceIsno: string; pluginSourceRemove: string; pluginSourceAdd: string; pluginSourceAddBtn: string; pluginSourceWarn: string;
   setupUserAdmin: string; setupUserAdminHint: string; pluginRestarting: string; pluginInstalling: string;
   instanceTitle: string; portalHostLabel: string; portalHostHint: string; portalHostBtn: string; brokerRoReason: string; dbRoReason: string;
@@ -86,7 +87,7 @@ interface S {
 export const STRINGS = {
   [LANG.fr]: {
     brandAria: 'ISNO Cloud, accueil', themeToggle: 'Basculer le thème clair / sombre', menu: 'Menu', navMore: 'Plus', navMain: 'Navigation principale',
-    langSwitch: 'View this page in English', langName: 'EN',
+    langSwitch: 'View this page in English', langName: 'FR',
     nav: { appareils: 'appareils', ajouter: 'ajouter', compte: 'compte' },
     footSponsor: 'Sponsorisé par',
     appareilsTitle: 'Mes appareils', noCovers: 'Aucun volet pour cet appareil.',
@@ -120,12 +121,12 @@ export const STRINGS = {
     adminNav: { utilisateurs: 'utilisateurs', plugins: 'plugins', parametres: 'paramètres' },
     usersTitle: 'Utilisateurs', usersLead: 'Créez et gérez les comptes qui pilotent des appareils sur ce portail.',
     userNewTitle: 'Nouvel utilisateur', userLogin: 'E-mail', userName: 'Nom', userPassword: 'Mot de passe', userCap: "Plafond d'appareils",
-    userMakeAdmin: 'Opérateur (accès Paramètres et Utilisateurs)', createUserBtn: 'Créer', usersListTitle: 'Comptes',
+    userMakeAdmin: 'Admin (accès Paramètres, Utilisateurs et Plugins)', createUserBtn: 'Créer', usersListTitle: 'Comptes',
     colLogin: 'Compte', colRole: 'Rôle', colCap: 'Plafond', colDevices: 'Appareils',
-    roleAdmin: 'opérateur', roleUser: 'utilisateur', youTag: 'vous', removeUser: 'Supprimer',
+    roleAdmin: 'admin', roleUser: 'utilisateur', youTag: 'vous', removeUser: 'Supprimer',
     confirmRemoveUser: (id) => `Supprimer le compte « ${id} » et ses appareils ?`,
     createUserError: 'Création impossible (e-mail déjà utilisé ou champ invalide).', removeUserError: 'Suppression impossible.',
-    makeOperator: 'Rendre opérateur', unmakeOperator: 'Retirer opérateur', roleError: 'Changement de rôle impossible.',
+    makeAdmin: 'Rendre admin', unmakeAdmin: 'Retirer admin', roleError: 'Changement de rôle impossible.',
     linkTitle: 'Lier un appareil', linkLead: 'Saisissez le code affiché par votre boîtier, ou scannez son QR code.',
     linkCodeLabel: 'Code affiché par le boîtier', linkCodePh: 'XXXX-XXXX', linkContinue: 'Continuer',
     linkConfirmTitle: 'Ajouter cet appareil à votre compte ?', linkIdWord: 'Identifiant',
@@ -156,7 +157,7 @@ export const STRINGS = {
     pluginsActiveTitle: 'Actifs', pluginCatalog: 'catalogue ISNO', pluginLocal: 'cette instance', pluginInstall: 'Installer', pluginEnable: 'Activer',
     pluginDisable: 'Désactiver', pluginRemove: 'Désinstaller',
     pluginsCatalogDown: 'Catalogue indisponible', pluginsNoneAvailable: 'Tout ce que le catalogue propose est déjà actif.',
-    pluginsAvailableTitle: 'Disponibles', pluginActiveTag: 'actif', secretShow: 'Afficher', secretHide: 'Masquer', secretCopy: 'Copier', secretCopied: 'Copié', pluginAlwaysOn: 'toujours actif', pluginSourcesTab: 'Sources', pluginSourcesLead: 'D\'où viennent les plugins proposés : le catalogue ISNO, et les catalogues que vous ajoutez.', pluginSourcesFaulty: 'Une source ne se lit pas', imageChoose: 'Choisir une image', imageReplace: 'Remplacer', imageRemove: 'Retirer', imageNone: 'Aucune : celle du thème ISNO', imageRefused: 'Image refusée : PNG, WebP ou SVG, 100 Ko au plus.', colorDefault: 'Couleur ISNO', pluginUpdate: (from: string, to: string) => `Mettre à jour (${from} → ${to})`,
+    pluginsAvailableTitle: 'Disponibles', pluginActiveTag: 'actif', secretShow: 'Afficher', secretHide: 'Masquer', secretCopy: 'Copier', secretCopied: 'Copié', pluginCore: 'cœur', baseThemeTitle: 'Thème ISNO', baseThemeDescription: { fr: 'L\'identité ISNO, sombre par défaut, claire au choix. Thème de base du portail, intégré au cœur : il est toujours là.', en: 'The ISNO identity, dark by default, light on demand. The portal\'s base theme, part of the core: always there.' }, pluginCategory: { login: 'Connexion', appearance: 'Apparence', devices: 'Appareils', app: 'Application', other: 'Autres' }, pluginCategoryExclusive: 'Un seul mode de connexion à la fois : en activer un désactive l\'autre. Les comptes existants restent. L\'admin garde toujours sa connexion de secours.', pluginCategoryAppearance: 'Un seul thème en cours pour tout le portail. Le pied « Sponsorisé par » ne change pas.', themeInUse: (name: string) => `thème en cours : ${name}`, themeUse: 'Utiliser', usersFromSource: 'Les comptes viennent du site de connexion : ils se créent là-bas, et apparaissent ici tout seuls. Ici, vous réglez leur rôle et leur nombre d\'appareils.', missingTag: (source: string) => `absent de ${source}`, missingHint: 'Ce site ne liste plus ce compte. Il est gardé (il peut avoir des boîtiers) : à vous de le supprimer.', pluginSourcesTab: 'Sources', pluginSourcesLead: 'D\'où viennent les plugins proposés : le catalogue ISNO, et les catalogues que vous ajoutez.', pluginSourcesFaulty: 'Une source ne se lit pas', imageChoose: 'Choisir une image', imageReplace: 'Remplacer', imageRemove: 'Retirer', imageNone: 'Aucune : celle du thème ISNO', imageRefused: 'Image refusée : PNG, WebP ou SVG, 100 Ko au plus.', colorDefault: 'Couleur ISNO', pluginUpdate: (from: string, to: string) => `Mettre à jour (${from} → ${to})`,
     pluginSourcesTitle: 'Sources du catalogue', pluginSourceIsno: 'Livré avec cette version du portail, toujours présent.',
     pluginSourceRemove: 'Retirer', pluginSourceAdd: 'Ajouter une source (adresse https d\'un catalogue)', pluginSourceAddBtn: 'Ajouter',
     pluginSourceWarn: "Un plugin s'exécute dans le portail : n'ajoutez que des sources dont vous connaissez l'auteur. Une source ne peut pas remplacer un plugin ISNO.",
@@ -171,7 +172,7 @@ export const STRINGS = {
     smtpTitle: 'Messagerie (SMTP)', smtpOff: 'non configurée', smtpIntro: 'Sert aux invitations et au mot de passe oublié. Serveur vide : pas de messagerie, et ces fonctions restent masquées.',
     smtpHost: 'Serveur', smtpPort: 'Port', smtpSecurity: 'Sécurité', smtpSecNone: 'Aucune', smtpUser: 'Identifiant', smtpPass: 'Mot de passe', smtpPassKept: 'inchangé',
     smtpFrom: 'Adresse d’expédition', smtpFromName: 'Nom d’expéditeur', smtpTest: "Envoyer un test", smtpTestOk: 'E-mail de test envoyé à', loginCaptchaError: 'Code de vérification incorrect.',
-    loginLocked: 'Compte temporairement bloqué après trop de tentatives. Réessayez plus tard, ou demandez à un opérateur de le débloquer.',
+    loginLocked: 'Compte temporairement bloqué après trop de tentatives. Réessayez plus tard, ou demandez à un admin de le débloquer.',
     loginTotpPrompt: "Saisissez le code à 6 chiffres de votre appli d'authentification.", loginTotpError: 'Code incorrect.',
     loginExpired: 'Délai dépassé : reconnectez-vous.', totpCodeLabel: 'Code',
     totpTitle: 'Double authentification', totpIntro: "Protégez votre compte avec un code à 6 chiffres d'une appli d'authentification (Aegis, Google Authenticator, 2FAS…).",
@@ -184,7 +185,7 @@ export const STRINGS = {
   },
   [LANG.en]: {
     brandAria: 'ISNO Cloud, home', themeToggle: 'Toggle light / dark theme', menu: 'Menu', navMore: 'More', navMain: 'Main navigation',
-    langSwitch: 'Voir cette page en français', langName: 'FR',
+    langSwitch: 'Voir cette page en français', langName: 'EN',
     nav: { appareils: 'devices', ajouter: 'add', compte: 'account' },
     footSponsor: 'Sponsored by',
     appareilsTitle: 'My devices', noCovers: 'No shutter on this device.',
@@ -218,12 +219,12 @@ export const STRINGS = {
     adminNav: { utilisateurs: 'users', plugins: 'plugins', parametres: 'settings' },
     usersTitle: 'Users', usersLead: 'Create and manage the accounts that control devices on this portal.',
     userNewTitle: 'New user', userLogin: 'Email', userName: 'Name', userPassword: 'Password', userCap: 'Device limit',
-    userMakeAdmin: 'Operator (access to Settings and Users)', createUserBtn: 'Create', usersListTitle: 'Accounts',
+    userMakeAdmin: 'Admin (access to Settings, Users and Plugins)', createUserBtn: 'Create', usersListTitle: 'Accounts',
     colLogin: 'Account', colRole: 'Role', colCap: 'Limit', colDevices: 'Devices',
-    roleAdmin: 'operator', roleUser: 'user', youTag: 'you', removeUser: 'Remove',
+    roleAdmin: 'admin', roleUser: 'user', youTag: 'you', removeUser: 'Remove',
     confirmRemoveUser: (id) => `Delete account “${id}” and its devices?`,
     createUserError: 'Could not create (email already used or invalid field).', removeUserError: 'Could not remove.',
-    makeOperator: 'Make operator', unmakeOperator: 'Remove operator', roleError: 'Could not change role.',
+    makeAdmin: 'Make admin', unmakeAdmin: 'Remove admin', roleError: 'Could not change role.',
     linkTitle: 'Link a device', linkLead: 'Enter the code shown by your device, or scan its QR code.',
     linkCodeLabel: 'Code shown by the device', linkCodePh: 'XXXX-XXXX', linkContinue: 'Continue',
     linkConfirmTitle: 'Add this device to your account?', linkIdWord: 'ID',
@@ -254,7 +255,7 @@ export const STRINGS = {
     pluginsActiveTitle: 'Active', pluginCatalog: 'ISNO catalog', pluginLocal: 'this instance', pluginInstall: 'Install', pluginEnable: 'Enable',
     pluginDisable: 'Disable', pluginRemove: 'Uninstall',
     pluginsCatalogDown: 'Catalog unavailable', pluginsNoneAvailable: 'Everything the catalog offers is already active.',
-    pluginsAvailableTitle: 'Available', pluginActiveTag: 'active', secretShow: 'Show', secretHide: 'Hide', secretCopy: 'Copy', secretCopied: 'Copied', pluginAlwaysOn: 'always on', pluginSourcesTab: 'Sources', pluginSourcesLead: 'Where the offered plugins come from: the ISNO catalog, and the catalogs you add.', pluginSourcesFaulty: 'A source cannot be read', imageChoose: 'Choose an image', imageReplace: 'Replace', imageRemove: 'Remove', imageNone: 'None: the ISNO theme one', imageRefused: 'Image refused: PNG, WebP or SVG, 100 KB at most.', colorDefault: 'ISNO color', pluginUpdate: (from: string, to: string) => `Update (${from} → ${to})`,
+    pluginsAvailableTitle: 'Available', pluginActiveTag: 'active', secretShow: 'Show', secretHide: 'Hide', secretCopy: 'Copy', secretCopied: 'Copied', pluginCore: 'core', baseThemeTitle: 'ISNO theme', baseThemeDescription: { fr: 'L\'identité ISNO, sombre par défaut, claire au choix. Thème de base du portail, intégré au cœur : il est toujours là.', en: 'The ISNO identity, dark by default, light on demand. The portal\'s base theme, part of the core: always there.' }, pluginCategory: { login: 'Sign-in', appearance: 'Appearance', devices: 'Devices', app: 'Application', other: 'Other' }, pluginCategoryExclusive: 'One sign-in method at a time: enabling one disables the other. Existing accounts stay. The admin always keeps a fallback sign-in.', pluginCategoryAppearance: 'One theme in use for the whole portal. The “Sponsored by” footer does not change.', themeInUse: (name: string) => `theme in use: ${name}`, themeUse: 'Use', usersFromSource: 'Accounts come from the sign-in site: they are created there and show up here on their own. Here you set their role and number of devices.', missingTag: (source: string) => `gone from ${source}`, missingHint: 'That site no longer lists this account. It is kept (it may have boxes): deleting it is your call.', pluginSourcesTab: 'Sources', pluginSourcesLead: 'Where the offered plugins come from: the ISNO catalog, and the catalogs you add.', pluginSourcesFaulty: 'A source cannot be read', imageChoose: 'Choose an image', imageReplace: 'Replace', imageRemove: 'Remove', imageNone: 'None: the ISNO theme one', imageRefused: 'Image refused: PNG, WebP or SVG, 100 KB at most.', colorDefault: 'ISNO color', pluginUpdate: (from: string, to: string) => `Update (${from} → ${to})`,
     pluginSourcesTitle: 'Catalog sources', pluginSourceIsno: 'Shipped with this portal version, always present.',
     pluginSourceRemove: 'Remove', pluginSourceAdd: 'Add a source (https address of a catalog)', pluginSourceAddBtn: 'Add',
     pluginSourceWarn: 'A plugin runs inside the portal: only add sources whose author you know. A source cannot replace an ISNO plugin.',
@@ -269,7 +270,7 @@ export const STRINGS = {
     smtpTitle: 'Mail (SMTP)', smtpOff: 'not configured', smtpIntro: 'Used for invitations and password resets. Empty server: no mail, and these features stay hidden.',
     smtpHost: 'Server', smtpPort: 'Port', smtpSecurity: 'Security', smtpSecNone: 'None', smtpUser: 'Username', smtpPass: 'Password', smtpPassKept: 'unchanged',
     smtpFrom: 'Sender address', smtpFromName: 'Sender name', smtpTest: 'Send a test', smtpTestOk: 'Test email sent to', loginCaptchaError: 'Wrong verification code.',
-    loginLocked: 'Account temporarily locked after too many attempts. Try again later, or ask an operator to unlock it.',
+    loginLocked: 'Account temporarily locked after too many attempts. Try again later, or ask an admin to unlock it.',
     loginTotpPrompt: 'Enter the 6-digit code from your authenticator app.', loginTotpError: 'Wrong code.',
     loginExpired: 'Timed out: please sign in again.', totpCodeLabel: 'Code',
     totpTitle: 'Two-factor authentication', totpIntro: 'Protect your account with a 6-digit code from an authenticator app (Aegis, Google Authenticator, 2FAS…).',
@@ -320,11 +321,11 @@ export function navItems(lang: Lang): NavItem[] {
   ];
 }
 
-/** Items de nav reserves a l'operateur. Utilisateurs n'apparait que si un plugin gere les comptes. */
-export function adminNavItems(lang: Lang, opts: { userAdmin: boolean }): NavItem[] {
+/** Items de nav reserves a l'admin. Utilisateurs est au coeur : toujours la. */
+export function adminNavItems(lang: Lang): NavItem[] {
   const s = t(lang);
   return [
-    ...(opts.userAdmin ? [{ href: ROUTES.utilisateurs[lang], label: s.adminNav.utilisateurs, prefix: null, icon: NAV_ICON.users }] : []),
+    { href: ROUTES.utilisateurs[lang], label: s.adminNav.utilisateurs, prefix: null, icon: NAV_ICON.users },
     { href: ROUTES.plugins[lang], label: s.adminNav.plugins, prefix: `${ROUTES.plugins[lang]}/`, icon: NAV_ICON.plugins },
     { href: ROUTES.parametres[lang], label: s.adminNav.parametres, prefix: null, icon: NAV_ICON.settings },
   ];

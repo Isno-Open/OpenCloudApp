@@ -1,9 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { accentPalettes, customTheme, customThemePlugin, CUSTOM_THEME_ID } from "./theme-custom.js";
-import { asTheme } from "../themes.js";
-import { enabledIn, withPluginOff, isRequiredPlugin, BUILTIN_PLUGINS, pluginAppliedTheme } from "../plugins.js";
-import { DEFAULT_THEME_ID } from "./theme-isno.js";
+import { asTheme, BASE_THEME, BASE_THEME_ID, activeTheme, registerTheme, clearThemes } from "../themes.js";
+import { BUILTIN_PLUGINS, pluginAppliedTheme } from "../plugins.js";
 
 const EMPTY = { name: "", accent: "", logo: "", icon: "" };
 
@@ -31,13 +30,16 @@ test("theme personnalise : reglages bornes par le plugin", () => {
   assert.equal((f.fromForm({ accent: "red" }) as { accent: string }).accent, "", "couleur hors format : vide");
 });
 
-test("theme personnalise : son activation l'applique ; le theme ISNO ne se desactive pas", async () => {
+test("theme personnalise : son activation l'applique", async () => {
   assert.ok(BUILTIN_PLUGINS[customThemePlugin.id]);
   assert.equal(await pluginAppliedTheme(customThemePlugin.id), CUSTOM_THEME_ID);
-  const isno = Object.values(BUILTIN_PLUGINS).find((p) => p.id !== customThemePlugin.id && p.id.startsWith("theme-"))!;
-  assert.ok(isRequiredPlugin(isno.id));
-  const cfg = { plugins: ["local-accounts"] };
-  assert.deepEqual(withPluginOff(cfg, isno.id), cfg, "desactiver le theme de base ne change rien");
-  assert.ok(enabledIn({ plugins: ["local-accounts"], pluginsOff: [isno.id] }).includes(isno.id), "meme nomme dans pluginsOff, il reste actif");
-  assert.equal(DEFAULT_THEME_ID, "isno");
+});
+
+test("theme de base : au coeur, pas un plugin ; le theme en cours y retombe", () => {
+  assert.ok(!Object.values(BUILTIN_PLUGINS).some((p) => p.appliesTheme === BASE_THEME_ID), "aucun plugin ne porte le theme de base");
+  clearThemes();
+  registerTheme(BASE_THEME);
+  assert.equal(activeTheme("nexiste-pas")?.id, BASE_THEME_ID);
+  assert.equal(activeTheme(undefined)?.id, BASE_THEME_ID);
+  clearThemes();
 });
