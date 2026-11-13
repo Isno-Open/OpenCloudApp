@@ -78,6 +78,7 @@ const DIRECTORY_MIN_GAP_MS = 60_000;      // jamais plus d'une lecture par minut
 const EMAIL_RE = /^[^\s@]+@[^\s@]+$/;
 let directoryApi: PluginApi | null = null;
 let lastSync = 0;
+let inflight: Promise<number | null> | null = null;   // lecture en cours : on l'attend plutot que de la sauter
 
 type DirectoryEntry = { email: string; name?: string };
 function parseDirectory(body: unknown): DirectoryEntry[] {
@@ -93,10 +94,16 @@ function parseDirectory(body: unknown): DirectoryEntry[] {
 
 /** Lit l'annuaire du site externe et cree les comptes manquants. Rend le nombre de comptes lus, ou
  *  null si rien a faire (plugin inactif, pas d'adresse, lecture trop recente) ou si la lecture echoue. */
-export async function syncExternalDirectory(now: number = Date.now()): Promise<number | null> {
+export function syncExternalDirectory(now: number = Date.now()): Promise<number | null> {
+  if (inflight) return inflight;   // ex. ecran Utilisateurs ouvert pendant la lecture du demarrage
   const api = directoryApi, url = current().directoryUrl, key = secret();
-  if (!api || !url || !key || now - lastSync < DIRECTORY_MIN_GAP_MS) return null;
+  if (!api || !url || !key || now - lastSync < DIRECTORY_MIN_GAP_MS) return Promise.resolve(null);
   lastSync = now;
+  inflight = readDirectory(api, url, key, now).finally(() => { inflight = null; });
+  return inflight;
+}
+
+async function readDirectory(api: PluginApi, url: string, key: string, now: number): Promise<number | null> {
   try {
     const r = await fetch(url, { headers: { [DIRECTORY_HEADER]: signDirectory(key, now) }, signal: AbortSignal.timeout(DIRECTORY_TIMEOUT_MS) });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
