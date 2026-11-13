@@ -5,7 +5,11 @@
   const { shell, withWaves = false }: { shell: Pick<Shell, 'portalName' | 'portalNameIsCustom' | 'theme'>; withWaves?: boolean } = $props();
 </script>
 
-{#if shell.theme.logo}
+{#if shell.theme.logo?.srcLight}
+  <!-- deux logos : celui du mode clair remplace l'autre sur fond clair (cloud.css) -->
+  <img class="brand-logo on-dark" src={shell.theme.logo.src} alt={shell.theme.logo.alt} />
+  <img class="brand-logo on-light" src={shell.theme.logo.srcLight} alt={shell.theme.logo.alt} />
+{:else if shell.theme.logo}
   <img class="brand-logo" src={shell.theme.logo.src} alt={shell.theme.logo.alt} />
 {:else if withWaves}
   <svg class="rf" viewBox="0 0 28 28" aria-hidden="true">

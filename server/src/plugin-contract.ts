@@ -46,6 +46,9 @@ export type PluginSettings = {
   fields: readonly SettingField[];
   toForm(stored: unknown): Record<string, SettingValue>;      // valeurs affichees, depuis la config
   fromForm(input: Record<string, unknown>): unknown;           // valeur a enregistrer, bornee par le plugin
+  // facultatif, pour un plugin de theme : le theme tel que ces valeurs (non enregistrees) le donneraient.
+  // L'ecran le montre en direct pendant la saisie ; le coeur le verifie comme tout theme.
+  preview?(input: Record<string, unknown>): ThemeDecl;
 };
 
 
@@ -78,6 +81,13 @@ export const THEME_TOKENS = [
 export type ThemeToken = (typeof THEME_TOKENS)[number];
 export type ThemePalette = Partial<Record<ThemeToken, string>>;
 
+/** Mode d'affichage par defaut d'un theme (le visiteur peut toujours basculer, son choix est garde). */
+export const THEME_MODE = { dark: "dark", light: "light", system: "system" } as const;
+export type ThemeMode = (typeof THEME_MODE)[keyof typeof THEME_MODE];
+/** Forme des coins (cartes, champs, boutons). round : celle d'ISNO (tokens.css). */
+export const THEME_SHAPE = { round: "round", medium: "medium", square: "square" } as const;
+export type ThemeShape = (typeof THEME_SHAPE)[keyof typeof THEME_SHAPE];
+
 /** Theme DECLARE par un plugin : couleurs (sombre et clair), polices (familles Google Fonts) et logo
  *  (image en data: URL, PNG, WebP ou SVG, montree comme une image). Rien de libre : ni CSS, ni
  *  balisage. Le pied « powered by » n'est pas thematisable. */
@@ -87,7 +97,10 @@ export type ThemeDecl = {
   dark?: ThemePalette;
   light?: ThemePalette;
   fonts?: { sans?: string; mono?: string };
-  logo?: { src: string; alt?: LocalizedText };
+  // srcLight : logo du mode clair (un logo blanc disparait sur fond clair) ; sans lui, le meme partout
+  logo?: { src: string; srcLight?: string; alt?: LocalizedText };
+  mode?: ThemeMode;
+  shape?: ThemeShape;
   // icone de l'application : onglet du navigateur, ecran d'accueil (PWA). Carree ; PNG de 512 px
   // conseille (un PNG non carre est refuse), ou SVG.
   icon?: { src: string };

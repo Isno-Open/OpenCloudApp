@@ -369,6 +369,12 @@ chk "manifeste : l'icone du theme seule, a sa taille" "$(curl -s "$B/manifest.we
 chk "icone iOS : celle du theme (PNG)" "$(echo "$CP" | grep -cF "rel=\"apple-touch-icon\" href=\"$FAV\"")" 1
 chk "theme personnalise : son nom sur sa carte, en cours" "$(curl -s -b "$J" "$B/plugins" | grep -c 'data-theme-in-use="custom">thème en cours : Maison<')" 1
 chk "theme ISNO : se reprend depuis sa carte" "$(curl -s -b "$J" "$B/plugins" | grep -o 'data-use-theme="isno"' | wc -l)" 1
+chk "apercu : la feuille suit des valeurs non enregistrees" "$(curl -s -b "$J" -X POST -H 'content-type: application/json' -d '{"id":"theme-custom","values":{"accent":"#123456","tone":"graphite","shape":"square"}}' "$B/api/settings/plugin-preview" | grep -o '#123456\|--bg:#16181c\|--radius:3px' | sort -u | wc -l)" 3
+chk "apercu : rien n'est enregistre" "$(curl -s -b "$J" "$B/" | grep -c '#123456')" 0
+chk "fond, mode et coins enregistres" "$(apiJ /api/settings/plugin "{\"id\":\"theme-custom\",\"values\":{\"name\":\"Maison\",\"accent\":\"#c0392b\",\"icon\":\"$ICON\",\"tone\":\"graphite\",\"mode\":\"light\",\"shape\":\"square\",\"font\":\"Nunito\"}}")" 200
+CP2=$(curl -s -b "$J" "$B/")
+chk "mode par defaut du theme : clair" "$(echo "$CP2" | grep -c '<html lang="fr" data-theme-default="light"')" 1
+chk "fond graphite, coins carres, police du theme" "$(echo "$CP2" | grep -o -- '--bg:#16181c\|--radius:3px\|family=Nunito' | sort -u | wc -l)" 3
 WIDE=$(png_url 300 100)
 chk "icone non carree : refusee" "$(apiJ /api/settings/plugin "{\"id\":\"theme-custom\",\"values\":{\"accent\":\"#c0392b\",\"icon\":\"$WIDE\"}}")" 200
 chk "icone refusee : retour a celle d'ISNO" "$(curl -s -b "$J" "$B/" | grep -c 'rel="icon" href="/pwa/icon.svg"')" 1

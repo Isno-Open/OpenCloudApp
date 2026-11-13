@@ -119,8 +119,10 @@ api.registerTheme({
   dark: { accent: "#ff7a1a", "accent-hover": "#ff9a4d" },   // jetons de THEME_TOKENS
   light: { accent: "#c2560a" },
   fonts: { sans: "Source Sans 3" },                          // famille Google Fonts
-  logo: { src: "data:image/png;base64,…", alt: { fr: "Maison", en: "Home" } },
+  logo: { src: "data:image/png;base64,…", srcLight: "data:image/png;base64,…", alt: { fr: "Maison", en: "Home" } },
   icon: { src: "data:image/png;base64,…" },                  // carrée, PNG de 512 px conseillé
+  mode: THEME_MODE.system,                                   // mode par défaut : dark, light ou system
+  shape: THEME_SHAPE.medium,                                 // coins : round (ISNO), medium, square
 });
 ```
 
@@ -132,6 +134,11 @@ api.registerTheme({
 - **Un thème réglable** se déclare par une **fonction** : `api.registerTheme(() => monTheme(reglages()))`.
   Il est relu (et revérifié) à chaque page, donc un réglage enregistré s'applique sans redémarrer.
   C'est ainsi qu'est fait le thème personnalisé intégré (`server/src/plugins/theme-custom.ts`).
+- **Mode** : ce que voit un visiteur qui n'a pas encore choisi ; le bouton jour/nuit garde la main.
+  **Logo du mode clair** (`srcLight`) : pour un logo clair, qui disparaîtrait sur fond blanc.
+- **Aperçu en direct** : un plugin de thème réglable ajoute `preview(input)` à ses réglages, qui rend le
+  thème tel que les valeurs saisies le donneraient. L'écran de l'écrou l'applique à la page pendant la
+  saisie, sans rien enregistrer.
 - `appliesTheme: "maison"` rend le thème actif dès l'activation du plugin. Sans lui, l'admin le
   choisit depuis la carte du plugin (page Plugins, catégorie Apparence).
 - Le thème ISNO n'est pas un plugin : c'est le thème de base, au cœur. Si le thème choisi disparaît

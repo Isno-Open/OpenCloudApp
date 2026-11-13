@@ -174,7 +174,7 @@ export async function pluginSettingsScreen(lang: Lang, request: Request, id: str
   const plugin = installedPlugins().find((p) => p.id === id) ?? builtinInfo(id);
   const form = plugin ? pluginSettingsForm(id) : null;
   if (!plugin || !form) redirect(302, ROUTES.plugins[lang]);
-  return { plugin, fields: form.fields, values: form.values };
+  return { plugin, fields: form.fields, values: form.values, previewable: form.previewable };
 }
 
 /** /lier : saisir un code, confirmer l'appareil trouve, ou code invalide/expire. */

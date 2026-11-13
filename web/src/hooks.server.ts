@@ -7,7 +7,10 @@ import type { Handle } from '@sveltejs/kit/hooks';
 import { isConfigured, setupWindowRemaining, SETUP_WINDOW_S } from '@opencloudapp/core/config.js';
 import { getAccount } from '@opencloudapp/core/store.js';
 import { localAccountsSettings, totpRequiredFor } from '@opencloudapp/core/plugins/local-accounts-settings.js';
-import { resolveAccountId } from '#lib/server/auth.ts';
+import { resolveAccountId, plugins } from '#lib/server/auth.ts';
+import { loadConfig } from '@opencloudapp/core/config.js';
+import { activeTheme } from '@opencloudapp/core/themes.js';
+import { THEME_MODE, type ThemeMode } from '@opencloudapp/core/plugin-contract.js';
 import { ROUTES, langOfPath } from '#lib/i18n.ts';
 
 // Pages toujours accessibles a un compte qui doit encore activer sa double authentification.
@@ -15,6 +18,14 @@ const TOTP_FREE = new Set<string>([...Object.values(ROUTES.compte), ...Object.va
 const SETUP_PATH = '/setup';
 
 let announced = false;
+
+/** Mode par defaut du theme en cours (le visiteur qui a deja choisi garde son choix : app.html). Avant
+ *  l'installation : sombre, comme le theme de base. */
+async function defaultMode(): Promise<ThemeMode> {
+  if (!isConfigured()) return THEME_MODE.dark;
+  await plugins();
+  return activeTheme(loadConfig()?.theme)?.mode ?? THEME_MODE.dark;
+}
 
 export const handle: Handle = async ({ event, resolve }) => {
   const p = event.url.pathname;
@@ -35,5 +46,6 @@ export const handle: Handle = async ({ event, resolve }) => {
     if (a && !a.totpEnabled && totpRequiredFor(localAccountsSettings(), a.admin))
       redirect(302, `${ROUTES.compte[event.locals.lang]}?totp=required`);
   }
-  return resolve(event, { transformPageChunk: ({ html }) => html.replace('%lang%', event.locals.lang) });
+  const mode = await defaultMode();
+  return resolve(event, { transformPageChunk: ({ html }) => html.replace('%lang%', event.locals.lang).replace('%theme-mode%', mode) });
 };

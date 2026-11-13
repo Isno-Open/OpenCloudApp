@@ -26,33 +26,32 @@
   </header>
   {#if card.description}<p class="plugin-desc">{card.description[lang]}</p>{/if}
   {#if !card.builtin}<div class="bar" hidden={progress === undefined} data-bar={card.id}><span style={`width:${progress ?? 0}%`}></span></div>{/if}
+  <!-- pied : l'etat a gauche (theme en cours, actif), les actions a droite ; chaque cas garde toutes
+       ses actions (mise a jour comprise, meme pour un plugin qui apporte un theme) -->
   <footer class="plugin-card-foot">
-    {#if on && card.theme}
-      <!-- plugin de theme actif : un seul theme en cours, choisi ici -->
-      {#if card.theme.inUse}
-        <span class="plugin-status on" data-theme-in-use={card.theme.id}>{s.themeInUse(card.theme.label)}</span>
-      {:else}
-        <span class="plugin-status">{card.theme.label}</span>
-        <button class="btn primary sm" type="button" data-use-theme={card.theme.id} disabled={busy} onclick={() => onaction(PLUGIN_ACTION.useTheme, card.id)}>{s.themeUse}</button>
-      {/if}
-      {#if card.state !== PLUGIN_STATE.core}
-        <button class="btn ghost sm" type="button" data-disable={card.id} disabled={busy} onclick={() => onaction(PLUGIN_ACTION.disable, card.id)}>{card.builtin ? s.pluginDisable : s.pluginRemove}</button>
-      {/if}
+    {#if card.theme?.inUse}
+      <span class="plugin-status on" data-theme-in-use={card.theme.id}>{s.themeInUse(card.theme.label)}</span>
+    {:else if card.theme}
+      <span class="plugin-status">{card.theme.label}</span>
     {:else if on}
       <span class="plugin-status on">{s.pluginActiveTag}</span>
-      <span class="plugin-card-act">
-        {#if card.updateAvailable}
-          <button class="btn primary sm" type="button" data-install={card.id} disabled={busy} onclick={() => onaction(PLUGIN_ACTION.install, card.id)}>{s.pluginUpdate(card.installedVersion ?? '?', card.version ?? '?')}</button>
-        {/if}
-        <button class="btn ghost sm" type="button" data-disable={card.id} disabled={busy} onclick={() => onaction(PLUGIN_ACTION.disable, card.id)}>{card.builtin ? s.pluginDisable : s.pluginRemove}</button>
-      </span>
     {:else}
       <span class="plugin-status"></span>
-      {#if card.builtin}
+    {/if}
+    <span class="plugin-card-act">
+      {#if on && card.updateAvailable}
+        <button class="btn primary sm" type="button" data-install={card.id} disabled={busy} onclick={() => onaction(PLUGIN_ACTION.install, card.id)}>{s.pluginUpdate(card.installedVersion ?? '?', card.version ?? '?')}</button>
+      {/if}
+      {#if card.theme && !card.theme.inUse}
+        <button class="btn primary sm" type="button" data-use-theme={card.theme.id} disabled={busy} onclick={() => onaction(PLUGIN_ACTION.useTheme, card.id)}>{s.themeUse}</button>
+      {/if}
+      {#if card.state === PLUGIN_STATE.active}
+        <button class="btn ghost sm" type="button" data-disable={card.id} disabled={busy} onclick={() => onaction(PLUGIN_ACTION.disable, card.id)}>{card.builtin ? s.pluginDisable : s.pluginRemove}</button>
+      {:else if card.state === PLUGIN_STATE.available && card.builtin}
         <button class="btn primary sm" type="button" data-enable={card.id} disabled={busy} onclick={() => onaction(PLUGIN_ACTION.enable, card.id)}>{s.pluginEnable}</button>
-      {:else}
+      {:else if card.state === PLUGIN_STATE.available}
         <button class="btn primary sm" type="button" data-install={card.id} disabled={busy} onclick={() => onaction(PLUGIN_ACTION.install, card.id)}>{s.pluginInstall}</button>
       {/if}
-    {/if}
+    </span>
   </footer>
 </article>

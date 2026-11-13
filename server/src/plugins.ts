@@ -8,7 +8,7 @@
 import { externalAuthPlugin } from "./plugins/external-auth.js";
 import { shutterTypePlugin, gateTypePlugin } from "./plugins/device-types.js";
 import { registerDeviceType } from "./device-types.js";
-import { registerTheme, BASE_THEME } from "./themes.js";
+import { registerTheme, BASE_THEME, asTheme } from "./themes.js";
 import { installableAppPlugin } from "./plugins/installable-app.js";
 import { customThemePlugin } from "./plugins/theme-custom.js";
 import type { PortalConfig } from "./config.js";
@@ -19,7 +19,7 @@ import { localAccountsPlugin } from "./plugins/local-accounts.js";
 import { loadConfig } from "./config.js";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { CAPABILITY, PLUGIN_CATEGORY, EXCLUSIVE_CATEGORIES, isPluginCategory, type Capability, type Plugin, type PluginApi, type PluginInfo, type PluginSettings, type SettingValue, type LocalizedText, type PluginCategory } from "./plugin-types.js";
+import { CAPABILITY, PLUGIN_CATEGORY, EXCLUSIVE_CATEGORIES, isPluginCategory, type Capability, type Plugin, type PluginApi, type PluginInfo, type PluginSettings, type SettingValue, type LocalizedText, type PluginCategory, type ThemeDecl } from "./plugin-types.js";
 export { CAPABILITY, type Capability, type Plugin, type PluginApi, type PluginInfo };
 
 /** Greffons livres avec le portail. */
@@ -146,9 +146,16 @@ export function builtinInfo(id: string): PluginInfo | null {
   const p = BUILTIN_PLUGINS[id];
   return p ? { id: p.id, title: p.title, description: p.description, category: p.category ?? PLUGIN_CATEGORY.other, builtin: true, configurable: !!p.settings, ...(p.appliesTheme ? { appliesTheme: p.appliesTheme } : {}) } : null;
 }
-export function pluginSettingsForm(id: string): { fields: PluginSettings["fields"]; values: Record<string, SettingValue> } | null {
+export function pluginSettingsForm(id: string): { fields: PluginSettings["fields"]; values: Record<string, SettingValue>; previewable: boolean } | null {
   const s = settingsOf(id);
-  return s ? { fields: s.fields, values: s.toForm(loadConfig()?.pluginSettings?.[id]) } : null;
+  return s ? { fields: s.fields, values: s.toForm(loadConfig()?.pluginSettings?.[id]), previewable: typeof s.preview === "function" } : null;
+}
+/** Apercu d'un theme depuis des valeurs non enregistrees : le theme VERIFIE, ou null (pas d'apercu,
+ *  ou valeurs qui ne donnent pas un theme valable). */
+export function pluginThemePreview(id: string, input: Record<string, unknown>): ThemeDecl | null {
+  const s = settingsOf(id);
+  if (!s?.preview) return null;
+  try { return asTheme(s.preview(input)); } catch { return null; }
 }
 /** Valeur validee par le plugin, prete a enregistrer (null : plugin absent ou sans reglages). */
 export function pluginSettingsFromForm(id: string, input: Record<string, unknown>): unknown {

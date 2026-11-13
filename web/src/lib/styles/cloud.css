@@ -341,4 +341,7 @@ input[type="checkbox"]:disabled { opacity: .45; cursor: not-allowed; }
 .panel.spaced { margin-top: .9rem; }
 .brand-logo { height: 26px; width: auto; max-width: 160px; object-fit: contain; display: block; }
 .login-mark .brand-logo { height: 34px; margin: 0 auto .4rem; }
+.brand-logo.on-light { display: none; }
+:root[data-theme="light"] .brand-logo.on-dark { display: none; }
+:root[data-theme="light"] .brand-logo.on-light { display: block; }
 .grp-seen { font-size: .74rem; color: var(--text-faint); }

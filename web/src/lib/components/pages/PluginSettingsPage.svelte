@@ -12,5 +12,5 @@
   <a class="backlink" href={ROUTES.plugins[data.lang]}>← {s.pluginsTitle}</a>
   <div class="page-head"><h1>{data.plugin.title[data.lang]}</h1></div>
   <p class="lead">{s.pluginSettingsLead} <span class="ro">{data.plugin.builtin ? s.pluginBuiltin : s.pluginExternal}</span></p>
-  <PluginSettingsForm lang={data.lang} pluginId={data.plugin.id} fields={data.fields} values={data.values} />
+  <PluginSettingsForm lang={data.lang} pluginId={data.plugin.id} fields={data.fields} values={data.values} previewable={data.previewable} />
 </CloudLayout>

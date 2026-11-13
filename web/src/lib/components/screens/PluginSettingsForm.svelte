@@ -9,10 +9,11 @@
   import { invalidateAll } from '$app/navigation';
   import { SETTING_KIND, TEXT_FORMAT, IMAGE_TYPES, IMAGE_MAX_CHARS, ICON_MIN_PX, type SettingField, type SettingValue } from '@opencloudapp/core/plugin-contract.js';
   import { t, type Lang } from '#lib/i18n.ts';
-  import { postJson, ignoreBody } from '#lib/api.ts';
+  import { postJson, ignoreBody, field, type Parse } from '#lib/api.ts';
 
-  interface Props { lang: Lang; pluginId: string; fields: readonly SettingField[]; values: Record<string, SettingValue>; }
-  const { lang, pluginId, fields, values }: Props = $props();
+  // previewable : un plugin de theme dont l'ecran montre le theme en direct pendant la saisie
+  interface Props { lang: Lang; pluginId: string; fields: readonly SettingField[]; values: Record<string, SettingValue>; previewable?: boolean; }
+  const { lang, pluginId, fields, values, previewable = false }: Props = $props();
   const s = $derived(t(lang));
 
   // valeurs editables (le secret n'en fait pas partie : montre, jamais renvoye)
@@ -39,6 +40,39 @@
     status = r.ok ? SAVE.ok : SAVE.err;
     if (r.ok) await invalidateAll();   // un reglage peut changer le gabarit (theme) : relu sans recharger
   }
+
+  // apercu en direct : a chaque changement (regroupes), le serveur rend la feuille du theme tel que ces
+  // valeurs le donneraient, et la page la prend a la place de la feuille du theme en cours. Rien n'est
+  // enregistre ; recharger la page rend le theme en cours.
+  const PREVIEW_DELAY_MS = 250;
+  const THEME_STYLE_ID = 'portal-theme', PREVIEW_FONTS_ID = 'portal-theme-preview-fonts';
+  const parsePreview: Parse<{ css: string; fontsHref: string | null }> = (b) => {
+    const css = field(b, 'css'), href = field(b, 'fontsHref');
+    return typeof css === 'string' ? { css, fontsHref: typeof href === 'string' ? href : null } : null;
+  };
+  function applyPreview(css: string, fontsHref: string | null): void {
+    let style = document.getElementById(THEME_STYLE_ID);
+    if (!style) { style = document.createElement('style'); style.id = THEME_STYLE_ID; document.head.append(style); }
+    style.textContent = css;
+    let link = document.getElementById(PREVIEW_FONTS_ID);
+    if (fontsHref) {
+      if (!(link instanceof HTMLLinkElement)) { link = Object.assign(document.createElement('link'), { id: PREVIEW_FONTS_ID, rel: 'stylesheet' }); document.head.append(link); }
+      if (link instanceof HTMLLinkElement && link.href !== fontsHref) link.href = fontsHref;
+    }
+  }
+  let previewTimer: ReturnType<typeof setTimeout> | undefined;
+  let previewed = false;
+  $effect(() => {
+    if (!previewable) return;
+    const snapshot = JSON.stringify(form);   // lu ici : l'effet suit chaque champ
+    if (!previewed) { previewed = true; return; }   // pas d'apercu au chargement : la page montre deja le theme
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(async () => {
+      const r = await postJson('/api/settings/plugin-preview', { id: pluginId, values: JSON.parse(snapshot) }, s.saveError, parsePreview);
+      if (r.ok) applyPreview(r.data.css, r.data.fontsHref);
+    }, PREVIEW_DELAY_MS);
+    return () => clearTimeout(previewTimer);
+  });
 
   // couleur non reglee : le selecteur montre l'accent en vigueur, sans l'enregistrer
   let shownColor = $state<Record<string, string>>({});

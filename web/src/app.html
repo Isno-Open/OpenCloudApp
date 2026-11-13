@@ -1,10 +1,18 @@
 <!doctype html>
-<html lang="%lang%">
+<html lang="%lang%" data-theme-default="%theme-mode%">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <script>
-      try { if (localStorage.getItem('theme') === 'light') document.documentElement.setAttribute('data-theme', 'light'); } catch (e) {}
+      // mode : le choix du visiteur (bouton jour/nuit) s'il en a fait un, sinon celui du theme
+      // (data-theme-default : dark, light ou system, pose par le serveur)
+      (function () {
+        var root = document.documentElement, chosen = null;
+        try { chosen = localStorage.getItem('theme'); } catch (e) {}
+        var def = root.getAttribute('data-theme-default');
+        var mode = chosen || (def === 'system' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : def);
+        if (mode === 'light') root.setAttribute('data-theme', 'light');
+      })();
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

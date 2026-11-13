@@ -24,7 +24,7 @@ export type PluginApi = {
   settings: () => unknown;   // ses reglages tels que ranges (a relire par sa fonction de lecture), relus a chaque appel
 };
 import type { LocalizedText, PluginSettings, DeviceTypeDecl, ThemeDecl, PluginCategory } from "./plugin-contract.js";
-export { PLUGIN_CATEGORY, EXCLUSIVE_CATEGORIES, isPluginCategory, type PluginCategory, SETTING_KIND, TEXT_FORMAT, IMAGE_MAX_CHARS, IMAGE_TYPES, ICON_MIN_PX, type SettingKind, type TextFormat, type SettingField, type SettingValue, type LocalizedText, type PluginSettings, type DeviceTypeDecl, type DeviceIcon, type ThemeDecl, type ThemeToken, type ThemePalette, THEME_TOKENS } from "./plugin-contract.js";
+export { THEME_MODE, THEME_SHAPE, type ThemeMode, type ThemeShape, PLUGIN_CATEGORY, EXCLUSIVE_CATEGORIES, isPluginCategory, type PluginCategory, SETTING_KIND, TEXT_FORMAT, IMAGE_MAX_CHARS, IMAGE_TYPES, ICON_MIN_PX, type SettingKind, type TextFormat, type SettingField, type SettingValue, type LocalizedText, type PluginSettings, type DeviceTypeDecl, type DeviceIcon, type ThemeDecl, type ThemeToken, type ThemePalette, THEME_TOKENS } from "./plugin-contract.js";
 
 /** appliesTheme : theme que le plugin apporte et qui devient celui du portail quand on l'active (un
  *  plugin de theme qui ne changerait rien a son activation laisserait croire qu'il ne marche pas). */

@@ -90,7 +90,7 @@ Plugins **intégrés** (livrés avec le portail) :
 | `local-accounts` | Connexion | **Connexion par mot de passe** : les comptes se créent dans le portail (création, invitation, mot de passe oublié) ; sécurité (captcha, blocage, double authentification, longueur du mot de passe) | actif |
 | `external-auth` | Connexion | **Connexion par un site externe** : les comptes viennent du site (connexion unique et annuaire, voir plus bas) | inactif |
 | `device-volet`, `device-portail` | Appareils | Types d'appareils volet et portail | actifs d'office, même sur une instance déjà configurée |
-| `theme-custom` | Apparence | Thème personnalisé : nom, couleur d'accent (les nuances en sont tirées), logo et icône, réglés depuis l'écrou | inactif ; activé, il devient le thème du portail |
+| `theme-custom` | Apparence | Thème personnalisé, réglé depuis l'écrou avec un **aperçu en direct** : nom, mode par défaut (sombre, clair, selon le système), fond (bleu nuit, graphite, noir, chaud), couleurs d'accent des modes sombre et clair (les nuances en sont tirées), police, coins, logos des modes sombre et clair, icône | inactif ; activé, il devient le thème du portail |
 | `installable-app` | Application | Application installable (PWA) : manifeste, service worker ; son icône est celle du thème | inactif |
 
 La page Plugins range les plugins **par catégorie**. **Connexion est à choix unique** : activer un

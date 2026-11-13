@@ -1,7 +1,7 @@
 // Registre des themes. Chaque theme est DECLARE par un plugin (le theme ISNO par un plugin integre,
 // actif d'office) et VERIFIE piece par piece : couleurs, familles de polices et logo ont une forme
 // stricte, pour que rien de ce qu'un plugin declare ne devienne du CSS ou du HTML arbitraire.
-import { THEME_TOKENS, IMAGE_MAX_CHARS, IMAGE_TYPES, ICON_MIN_PX, type ThemeDecl, type ThemePalette, type ThemeToken, type LocalizedText } from "./plugin-contract.js";
+import { THEME_MODE, THEME_SHAPE, type ThemeShape, THEME_TOKENS, IMAGE_MAX_CHARS, IMAGE_TYPES, ICON_MIN_PX, type ThemeDecl, type ThemePalette, type ThemeToken, type LocalizedText } from "./plugin-contract.js";
 
 export const THEME_ID_RE = /^[a-z0-9_-]{1,40}$/;
 const COLOR_RE = /^(#[0-9a-fA-F]{3,8}|rgba?\(\s*[0-9.]+%?\s*,\s*[0-9.]+%?\s*,\s*[0-9.]+%?\s*(,\s*[0-9.]+%?\s*)?\)|hsla?\(\s*[0-9.]+(deg)?\s*,\s*[0-9.]+%\s*,\s*[0-9.]+%\s*(,\s*[0-9.]+%?\s*)?\))$/;
@@ -76,7 +76,18 @@ export function asTheme(v: unknown): ThemeDecl {
   if (v.logo !== undefined) {
     const l = v.logo;
     if (!isObj(l) || !isImageDataUrl(l.src)) throw new Error(`theme ${id} : logo invalide (image PNG, WebP ou SVG en data: URL, 100 Ko au plus)`);
-    out.logo = isText(l.alt) ? { src: l.src, alt: l.alt } : { src: l.src };
+    if (l.srcLight !== undefined && !isImageDataUrl(l.srcLight)) throw new Error(`theme ${id} : logo du mode clair invalide`);
+    out.logo = { src: l.src, ...(typeof l.srcLight === "string" ? { srcLight: l.srcLight } : {}), ...(isText(l.alt) ? { alt: l.alt } : {}) };
+  }
+  if (v.mode !== undefined) {
+    const mode = Object.values(THEME_MODE).find((m) => m === v.mode);
+    if (!mode) throw new Error(`theme ${id} : mode inconnu « ${String(v.mode)} »`);
+    out.mode = mode;
+  }
+  if (v.shape !== undefined) {
+    const shape = Object.values(THEME_SHAPE).find((m) => m === v.shape);
+    if (!shape) throw new Error(`theme ${id} : forme inconnue « ${String(v.shape)} »`);
+    out.shape = shape;
   }
   if (v.icon !== undefined) {
     const src = isObj(v.icon) ? v.icon.src : undefined;
@@ -131,12 +142,20 @@ export const clearThemes = (): void => { themes.clear(); };   // tests
  *  reglage peut arriver avant celle du portail, et a egalite c'est l'ordre qui deciderait. La palette
  *  sombre ne vaut que hors du mode clair, comme dans tokens.css ; les polices valent dans les deux. */
 export const THEME_SELECTOR = { all: ":root:root", dark: ':root:not([data-theme="light"])', light: ':root:root[data-theme="light"]' } as const;
+/** Rayons des coins par forme : grand et petit (jetons --radius et --radius-sm de tokens.css). La forme
+ *  « round » est celle de tokens.css : rien a redefinir. */
+export const SHAPE_RADII: Record<Exclude<ThemeShape, typeof THEME_SHAPE.round>, { radius: string; small: string }> = {
+  [THEME_SHAPE.medium]: { radius: "8px", small: "6px" },
+  [THEME_SHAPE.square]: { radius: "3px", small: "2px" },
+};
 export function themeCss(t: ThemeDecl): string {
   const vars = (p: ThemePalette | undefined): string => Object.entries(p ?? {}).map(([k, c]) => `--${k}:${c};`).join("");
   // la police du theme, puis les replis declares une fois dans tokens.css (--font-*-stack)
   const fonts = (t.fonts?.sans ? `--font-sans:'${t.fonts.sans}',var(--font-sans-stack);` : "") + (t.fonts?.mono ? `--font-mono:'${t.fonts.mono}',var(--font-mono-stack);` : "");
+  const radii = t.shape && t.shape !== THEME_SHAPE.round ? SHAPE_RADII[t.shape] : null;
+  const shape = radii ? `--radius:${radii.radius};--radius-sm:${radii.small};` : "";
   const block = (sel: string, body: string): string => (body ? `${sel}{${body}}` : "");
-  return block(THEME_SELECTOR.all, fonts) + block(THEME_SELECTOR.dark, vars(t.dark)) + block(THEME_SELECTOR.light, vars(t.light));
+  return block(THEME_SELECTOR.all, fonts + shape) + block(THEME_SELECTOR.dark, vars(t.dark)) + block(THEME_SELECTOR.light, vars(t.light));
 }
 
 /** Feuille Google Fonts des polices du theme, ou null. */

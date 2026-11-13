@@ -19,7 +19,7 @@ async function shellTheme(lang: Lang): Promise<ShellTheme> {
   await plugins();
   const t = activeTheme(loadConfig()?.theme);
   if (!t) return NO_THEME;
-  return { css: themeCss(t), fontsHref: themeFontsHref(t), logo: t.logo ? { src: t.logo.src, alt: t.logo.alt?.[lang] ?? '' } : null, icon: favicon() };
+  return { css: themeCss(t), fontsHref: themeFontsHref(t), logo: t.logo ? { src: t.logo.src, srcLight: t.logo.srcLight ?? null, alt: t.logo.alt?.[lang] ?? '' } : null, icon: favicon() };
 }
 
 /** Application installable (plugin) : manifeste et icone iOS, ou rien. */
