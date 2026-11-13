@@ -31,7 +31,7 @@ export const renameDevice = (d: string, a: string, name: string): Promise<void> 
 export const removeDevice = (d: string, a: string): Promise<void> => m().removeDevice(d, a);
 export const addPairing = (p: Pairing): Promise<void> => m().addPairing(p);
 export const takePairing = (c: string): Promise<Pairing | null> => m().takePairing(c);
-export const ensureAccount = (id: string, cap: number): Promise<void> => m().ensureAccount(id, cap);
+export const ensureAccount = (id: string, cap: number, name?: string): Promise<void> => m().ensureAccount(id, cap, name);
 export const claimDevice = (d: string, a: string, name: string, fw: string): Promise<boolean> => m().claimDevice(d, a, name, fw);
 export const startDeviceAuth = (d: DeviceAuth): Promise<void> => m().startDeviceAuth(d);
 export const getDeviceAuthByUserCode = (userCode: string): Promise<DeviceAuth | null> => m().getDeviceAuthByUserCode(userCode);

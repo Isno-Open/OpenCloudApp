@@ -46,7 +46,7 @@ services:
     depends_on: [socket-proxy]
 
   server:
-    build: .                                # image unique : coeur backend + app Astro SSR (web/)
+    build: .                                # image unique : coeur backend + app SvelteKit (web/)
     container_name: isno-cloud-server
     restart: unless-stopped
     ports:

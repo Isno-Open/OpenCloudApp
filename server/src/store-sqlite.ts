@@ -133,8 +133,10 @@ export function takePairing(code: string): Promise<Pairing | null> {
   });
   return Promise.resolve(tx(code));
 }
-export function ensureAccount(id: string, cap: number): Promise<void> {
+export function ensureAccount(id: string, cap: number, name?: string): Promise<void> {
   db.prepare("INSERT OR IGNORE INTO accounts (id, device_cap) VALUES (?, ?)").run(id, cap);
+  // nom connu (annuaire d'un site externe) : pose s'il manque, jamais par-dessus un nom choisi
+  if (name) db.prepare("UPDATE accounts SET name = ? WHERE id = ? AND name IS NULL").run(name, id);
   return Promise.resolve();
 }
 

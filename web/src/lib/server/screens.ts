@@ -13,6 +13,7 @@ import { signingKey } from '@opencloudapp/core/session.js';
 import { mailEnabled, smtpConfig, SMTP_SECURITY } from '@opencloudapp/core/mail.js';
 import { resolveAccountId, requireAdmin, requireUserAdmin, loginRedirect, localLoginEnabled, plugins } from '#lib/server/auth.ts';
 import { listThemes } from '@opencloudapp/core/themes.js';
+import { syncExternalDirectory } from '@opencloudapp/core/plugins/external-auth.js';
 import { DEFAULT_THEME_ID } from '@opencloudapp/core/plugins/theme-isno.js';
 import { getAccountInfo, listBoitiers, listAppareils, getBoitier } from '#lib/server/cloud-data.ts';
 import { listCatalogPlugins } from '#lib/server/supervisor.ts';
@@ -82,6 +83,7 @@ export async function loginScreen(lang: Lang, request: Request, url: URL) {
 export async function usersScreen(lang: Lang, request: Request) {
   const self = await requireUserAdmin(request);
   if (!self) redirect(302, ROUTES.appareils[lang]);
+  await syncExternalDirectory();   // comptes du site externe crees d'avance (au plus une lecture par minute)
   const accounts = await listAccounts();
   const operators = accounts.filter((a) => a.admin).length;
   const now = Date.now();

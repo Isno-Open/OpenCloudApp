@@ -14,7 +14,7 @@ export type Capability = (typeof CAPABILITY)[keyof typeof CAPABILITY];
 export type PluginApi = {
   registerAuthProvider: (p: AuthProvider) => void;
   provideCapability: (c: Capability) => void;
-  ensureAccount: (id: string, cap: number) => Promise<void>;   // provisionne un compte a sa 1re visite
+  ensureAccount: (id: string, cap: number, name?: string) => Promise<void>;   // provisionne un compte (1re visite, annuaire)
   registerDeviceType: (decl: DeviceTypeDecl) => void;          // apporte un type d'appareil (carte, commandes)
   registerTheme: (decl: ThemeDecl) => void;                    // apporte un theme (couleurs, polices, logo)
   defaultCap: number;

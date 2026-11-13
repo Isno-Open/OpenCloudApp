@@ -11,14 +11,16 @@ import { loadConfig } from "../config.js";
 import { SETTING_KIND, TEXT_FORMAT, type Plugin, type PluginSettings } from "../plugin-types.js";
 import { cookieValue, readSignedSession } from "../signed-cookie.js";
 import { ensurePluginSecret, storedPluginSecret } from "../plugin-secrets.js";
+import { signDirectory, DIRECTORY_HEADER } from "../directory-auth.js";
+import type { PluginApi } from "../plugin-types.js";
 
 export const EXTERNAL_AUTH_ID = "external-auth";
 const ENV_SECRET = process.env.SSO_SECRET ?? "";
 /** Secret en vigueur : celui de l'environnement, sinon celui du plugin (cree a la premiere activation). */
 const secret = (): string => ENV_SECRET || storedPluginSecret(EXTERNAL_AUTH_ID) || "";
 
-export type ExternalAuthSettings = { loginUrl: string; logoutUrl: string; cookieName: string; cookieDomain: string };
-export const EXTERNAL_AUTH_DEFAULTS: ExternalAuthSettings = { loginUrl: "", logoutUrl: "", cookieName: "isno_account", cookieDomain: "" };
+export type ExternalAuthSettings = { loginUrl: string; logoutUrl: string; cookieName: string; cookieDomain: string; directoryUrl: string };
+export const EXTERNAL_AUTH_DEFAULTS: ExternalAuthSettings = { loginUrl: "", logoutUrl: "", cookieName: "isno_account", cookieDomain: "", directoryUrl: "" };
 
 const URL_MAX = 500;
 const COOKIE_NAME_RE = /^[A-Za-z0-9_-]{1,64}$/;
@@ -41,6 +43,7 @@ export function normalizeExternalAuth(raw: unknown): ExternalAuthSettings {
     logoutUrl: httpsUrl(str(raw, "logoutUrl")),
     cookieName: COOKIE_NAME_RE.test(name) ? name : EXTERNAL_AUTH_DEFAULTS.cookieName,
     cookieDomain: COOKIE_DOMAIN_RE.test(domain) ? domain : "",
+    directoryUrl: httpsUrl(str(raw, "directoryUrl")),
   };
 }
 const current = (): ExternalAuthSettings => normalizeExternalAuth(loadConfig()?.pluginSettings?.[EXTERNAL_AUTH_ID]);
@@ -59,10 +62,52 @@ const settings: PluginSettings = {
     { key: "cookieDomain", kind: SETTING_KIND.text, format: TEXT_FORMAT.plain, maxLength: 253, placeholder: ".exemple.fr",
       label: { fr: "Domaine du cookie (facultatif)", en: "Cookie domain (optional)" },
       hint: { fr: "Domaine commun au site externe et au portail, pour effacer le cookie à la déconnexion.", en: "Domain shared by the external site and the portal, to clear the cookie on sign-out." } },
+    { key: "directoryUrl", kind: SETTING_KIND.text, format: TEXT_FORMAT.url, maxLength: URL_MAX, placeholder: "https://exemple.fr/shop/account/directory",
+      label: { fr: "Adresse de l'annuaire des comptes (facultative)", en: "Account directory address (optional)" },
+      hint: { fr: "Le portail y lit les comptes du site externe (requête signée par le secret partagé) et les crée d'avance : ils apparaissent dans Utilisateurs avant leur première visite.", en: "The portal reads the external site's accounts there (request signed with the shared secret) and creates them in advance: they appear in Users before their first visit." } },
   ],
   toForm: (stored) => ({ ...normalizeExternalAuth(stored), secret: secret() }),
   fromForm: (input) => normalizeExternalAuth(input),
 };
+
+// ── Annuaire du site externe : comptes crees d'avance ──
+const DIRECTORY_TIMEOUT_MS = 8000;
+const DIRECTORY_MAX = 10_000;
+const DIRECTORY_EVERY_MS = 15 * 60_000;   // relecture periodique
+const DIRECTORY_MIN_GAP_MS = 60_000;      // jamais plus d'une lecture par minute
+const EMAIL_RE = /^[^\s@]+@[^\s@]+$/;
+let directoryApi: PluginApi | null = null;
+let lastSync = 0;
+
+type DirectoryEntry = { email: string; name?: string };
+function parseDirectory(body: unknown): DirectoryEntry[] {
+  const list = body !== null && typeof body === "object" ? Object.getOwnPropertyDescriptor(body, "accounts")?.value : undefined;
+  if (!Array.isArray(list)) return [];
+  const out: DirectoryEntry[] = [];
+  for (const a of list.slice(0, DIRECTORY_MAX)) {
+    const email = str(a, "email").toLowerCase(), name = str(a, "name").slice(0, 80);
+    if (EMAIL_RE.test(email)) out.push(name ? { email, name } : { email });
+  }
+  return out;
+}
+
+/** Lit l'annuaire du site externe et cree les comptes manquants. Rend le nombre de comptes lus, ou
+ *  null si rien a faire (plugin inactif, pas d'adresse, lecture trop recente) ou si la lecture echoue. */
+export async function syncExternalDirectory(now: number = Date.now()): Promise<number | null> {
+  const api = directoryApi, url = current().directoryUrl, key = secret();
+  if (!api || !url || !key || now - lastSync < DIRECTORY_MIN_GAP_MS) return null;
+  lastSync = now;
+  try {
+    const r = await fetch(url, { headers: { [DIRECTORY_HEADER]: signDirectory(key, now) }, signal: AbortSignal.timeout(DIRECTORY_TIMEOUT_MS) });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const entries = parseDirectory(await r.json());
+    for (const e of entries) await api.ensureAccount(e.email, api.defaultCap, e.name);
+    return entries.length;
+  } catch (e) {
+    console.error(`[plugin ${EXTERNAL_AUTH_ID}] annuaire illisible :`, e instanceof Error ? e.message : e);
+    return null;
+  }
+}
 
 export const externalAuthPlugin: Plugin = {
   id: EXTERNAL_AUTH_ID,
@@ -75,6 +120,10 @@ export const externalAuthPlugin: Plugin = {
   register(api) {
     // Premiere activation : le secret partage est cree ici, une fois pour toutes.
     if (!ENV_SECRET) ensurePluginSecret(EXTERNAL_AUTH_ID);
+    // annuaire : lu au demarrage puis regulierement (et a l'ouverture de l'ecran Utilisateurs)
+    directoryApi = api;
+    void syncExternalDirectory();
+    setInterval(() => { void syncExternalDirectory(); }, DIRECTORY_EVERY_MS).unref();
     api.registerAuthProvider({
       id: EXTERNAL_AUTH_ID,
       resolveAccount: async (cookie) => {

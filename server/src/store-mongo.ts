@@ -62,8 +62,10 @@ export async function takePairing(code: string): Promise<Pairing | null> {
   const r = await pairings().findOneAndUpdate({ code, used: false }, { $set: { used: true } }, { projection: { _id: 0, used: 0 } });
   return r ? { code: r.code, accountId: r.accountId, deviceId: r.deviceId, name: r.name } : null;
 }
-export async function ensureAccount(id: string, cap: number): Promise<void> {
+export async function ensureAccount(id: string, cap: number, name?: string): Promise<void> {
   await accounts().updateOne({ id }, { $setOnInsert: { id, name: null, deviceCap: cap, passHash: null, admin: false, failedCount: 0, lockedUntil: null, totpSecret: null, totpEnabled: false, totpLastStep: null } }, { upsert: true });
+  // nom connu (annuaire d'un site externe) : pose s'il manque, jamais par-dessus un nom choisi
+  if (name) await accounts().updateOne({ id, name: null }, { $set: { name } });
 }
 export async function claimDevice(deviceId: string, accountId: string, name: string, firmware: string): Promise<boolean> {
   const existing = await devices().findOne({ deviceId });

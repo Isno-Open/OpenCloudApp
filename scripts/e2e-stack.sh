@@ -18,19 +18,28 @@ services:
       - "0.0.0.0:18080:8080"
     environment:
       - PORTAL_SETUP_WINDOW_S=1800
+      - NODE_EXTRA_CA_CERTS=/e2e/ca.pem   # annuaire d'un site externe servi en https par l'AC de test
+    volumes:
+      - $WORK/e2e-ca.pem:/e2e/ca.pem:ro
   supervisor:
     environment:
       - PLUGIN_CATALOG_PATH=/e2e/plugins.json
       - NODE_EXTRA_CA_CERTS=/e2e/ca.pem
     volumes:
       - $WORK/plugins.json:/e2e/plugins.json:ro
-      - $WORK/ca.pem:/e2e/ca.pem:ro
+      - $WORK/e2e-ca.pem:/e2e/ca.pem:ro
 EOF
-# source de catalogue tierce, servie en https dans le reseau de la pile (AC de test, connue du seul superviseur de test)
-openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=e2e-ca" -keyout "$WORK/ca.key" -out "$WORK/ca.pem" 2>/dev/null
+# source de catalogue tierce et annuaire, servis en https dans le reseau de la pile par une AC de test. Fichier
+# e2e-ca.pem, PAS ca.pem : le boitier simule depose plus loin le ca.pem du broker dans $WORK (l'ancien nom
+# etait ecrase, et un serveur redemarre perdait la confiance dans l'AC de test).
+openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=e2e-ca" -keyout "$WORK/e2e-ca.key" -out "$WORK/e2e-ca.pem" 2>/dev/null
 openssl req -newkey rsa:2048 -nodes -subj "/CN=isno-e2e-catalog" -keyout "$WORK/src.key" -out "$WORK/src.csr" 2>/dev/null
 printf 'subjectAltName=DNS:isno-e2e-catalog\n' > "$WORK/san.ext"
-openssl x509 -req -in "$WORK/src.csr" -CA "$WORK/ca.pem" -CAkey "$WORK/ca.key" -CAcreateserial -days 1 -extfile "$WORK/san.ext" -out "$WORK/src.pem" 2>/dev/null
+openssl x509 -req -in "$WORK/src.csr" -CA "$WORK/e2e-ca.pem" -CAkey "$WORK/e2e-ca.key" -CAcreateserial -days 1 -extfile "$WORK/san.ext" -out "$WORK/src.pem" 2>/dev/null
+# annuaire d'un site externe (plugin de connexion externe) : servi seulement avec un en-tete signe
+cat > "$WORK/directory.json" <<'JSON'
+{ "accounts": [ { "email": "annie@exemple.fr", "name": "Annie Annuaire" }, { "email": "pas-un-email" } ] }
+JSON
 cat > "$WORK/third.json" <<'JSON'
 { "tiers": { "title": "Plugin tiers", "description": { "fr": "Venu d'une source ajoutee.", "en": "From an added source." }, "image": "tiers/plugin:1.0.0" },
   "example": { "title": "Imposteur", "description": { "fr": "x", "en": "x" }, "image": "tiers/piege:1.0.0" } }
@@ -230,7 +239,7 @@ chk "catalogue jamais vide : la gestion des comptes y figure, marquee installee"
 chk "Plugins : l'exemple du catalogue est propose" "$(echo "$PL" | grep -c 'data-install="example"')" 1
 chk "source http refusee" "$(apiJ /api/plugins/sources '{"add":"http://exemple.fr/plugins.json"}')" 400
 chk "source https injoignable refusee (rien n'est garde)" "$(apiJ /api/plugins/sources '{"add":"https://nexiste-pas.invalid/plugins.json"}')" 400
-docker run -d --name isno-e2e-catalog --network isno-cloud-net -v "$WORK":/w:ro node:26.13.1-trixie-slim node -e "require('https').createServer({key:require('fs').readFileSync('/w/src.key'),cert:require('fs').readFileSync('/w/src.pem')},(q,r)=>{r.setHeader('content-type','application/json');r.end(require('fs').readFileSync('/w/third.json'))}).listen(443)" >/dev/null; sleep 2
+docker run -d --name isno-e2e-catalog --network isno-cloud-net -v "$WORK":/w:ro node:26.13.1-trixie-slim node -e "require('https').createServer({key:require('fs').readFileSync('/w/src.key'),cert:require('fs').readFileSync('/w/src.pem')},(q,r)=>{r.setHeader('content-type','application/json');if(q.url.startsWith('/directory')){if(!/^[0-9]+\\.[A-Za-z0-9_-]{43}$/.test(q.headers['x-isno-directory']||'')){r.statusCode=401;return r.end('{}')}return r.end(require('fs').readFileSync('/w/directory.json'))}r.end(require('fs').readFileSync('/w/third.json'))}).listen(443)" >/dev/null; sleep 2
 chk "source https valide ajoutee" "$(apiJ /api/plugins/sources '{"add":"https://isno-e2e-catalog/plugins.json"}')" 200
 PL=$(curl -s -b "$J" "$B/plugins")
 chk "catalogue : le plugin de la source est propose, avec son origine" "$(echo "$PL" | grep -c 'isno-e2e-catalog</span>')" 1
@@ -288,7 +297,11 @@ chk "activation (le portail redemarre)" "$(apiJ /api/plugins/enable '{"id":"exte
 wait_restart
 chk "reglages : adresse en http refusee (vide)" "$(apiJ /api/settings/plugin '{"id":"external-auth","values":{"loginUrl":"http://boutique.exemple.fr/compte"}}')" 200
 chk "reglages : l'adresse http n'est pas gardee" "$(curl -s -b "$J" "$B/plugins/external-auth" | grep -c 'value="http://boutique')" 0
-chk "reglages enregistres" "$(apiJ /api/settings/plugin '{"id":"external-auth","values":{"loginUrl":"https://boutique.exemple.fr/compte","logoutUrl":"https://boutique.exemple.fr/sortie","cookieName":"isno_account","cookieDomain":".exemple.fr"}}')" 200
+chk "reglages enregistres" "$(apiJ /api/settings/plugin '{"id":"external-auth","values":{"loginUrl":"https://boutique.exemple.fr/compte","logoutUrl":"https://boutique.exemple.fr/sortie","cookieName":"isno_account","cookieDomain":".exemple.fr","directoryUrl":"https://isno-e2e-catalog/directory"}}')" 200
+chk "annuaire refuse sans signature (le site externe exige l'en-tete)" "$(docker exec isno-cloud-server node -e "fetch('https://isno-e2e-catalog/directory').then(r=>console.log(r.status)).catch(e=>console.log('erreur',e.cause?.code||e.message))")" 401
+UL=$(curl -s -b "$J" "$B/utilisateurs")
+chk "annuaire : compte du site externe cree d'avance, avec son nom" "$(echo "$UL" | grep -o '<b>Annie Annuaire</b>' | wc -l)" 1
+chk "annuaire : entree sans e-mail valide ignoree" "$(echo "$UL" | grep -o 'class="mono">pas-un-email<' | wc -l)" 0
 # secret partage : cree par le plugin a sa premiere activation (pas de SSO_SECRET dans cet environnement)
 SEC=$(docker exec isno-cloud-server node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync("/data/plugin-secrets.json","utf8"))["external-auth"]||"")')
 chk "secret partage cree a la premiere activation" "$(echo -n "$SEC" | wc -c | awk '{print ($1>=40)}')" 1
