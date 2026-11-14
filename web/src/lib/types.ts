@@ -44,7 +44,12 @@ export type Boitier = {
   firmware: string;      // ex. 0.2.15+cloud
   updateAvailable: boolean;
   count: number;         // nombre d'appareils
-  wifi?: { ssid: string; ip: string; rssiDbm: number | null };
+  /** reseau et sante, en lecture seule, tels que le boitier les publie (fait « boitier » de sa famille) */
+  wifi?: { ssid: string | null; ip: string | null; rssiDbm: number | null };
+  broker?: string | null;
+  uptimeS?: number | null;
+  memory?: { free: number; min: number } | null;
+  lastReset?: { fr: string; en: string } | null;
   uptime?: string;
   radios?: string;       // ex. "868 · 433"
   /** derniere activite vue par le relais (ms), null si jamais vu */

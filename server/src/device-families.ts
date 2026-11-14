@@ -6,7 +6,7 @@ import { SETTING_KIND, TEXT_FORMAT, type LocalizedText, type SettingField, type 
 import { asIcon } from "./icons.js";
 import {
   FAMILY_CONTRACT, CONTROL, FACT, EVENT_LEVEL,
-  type ControlDecl, type ControlValue, type CommandTarget, type EventLevel, type Fact, type FamilyDecl, type KindDecl,
+  type ControlDecl, type ControlValue, type CommandTarget, type EventLevel, type Fact, type FamilyDecl, type KindDecl, type BoxHealth, type BoxNetwork,
 } from "./family-contract.js";
 
 /** Identifiant de famille = champ `firmware` d'un boitier ; racine de topics ; identifiants internes. */
@@ -160,7 +160,7 @@ export const clearDeviceFamilies = (): void => { families.clear(); boxes.clear()
  *  montre « inconnu », sans commandes : un firmware plus recent que son plugin, par exemple). */
 export type DeviceState = { kind: string; known: boolean; name: string; hidden: ReadonlySet<string>; values: Map<string, ControlValue>; settings: Map<string, SettingValue> };
 export type BoxEvent = { at: number; level: EventLevel; code: string; text: LocalizedText; device?: string };
-export type BoxState = { online: boolean | null; firmware: string | null; latest: string | null; devices: Map<string, DeviceState>; events: BoxEvent[] };
+export type BoxState = { online: boolean | null; firmware: string | null; latest: string | null; health: BoxHealth; network: BoxNetwork; devices: Map<string, DeviceState>; events: BoxEvent[] };
 const boxes = new Map<string, BoxState>();
 const key = (family: string, box: string): string => `${family}/${box}`;
 export const boxState = (family: string, box: string): BoxState | null => boxes.get(key(family, box)) ?? null;
@@ -176,13 +176,41 @@ function valueFits(c: ControlDecl, v: unknown): v is ControlValue {
   }
 }
 
+/** Sante verifiee champ par champ (bornes plausibles), ou null si un champ est faux. */
+function asHealth(v: unknown): BoxHealth | null {
+  if (!isObj(v)) return null;
+  const out: BoxHealth = {};
+  const num = (k: "rssiDbm" | "uptimeS" | "freeHeap" | "minFreeHeap", min: number, max: number): boolean => {
+    const x = v[k];
+    if (x === undefined) return true;
+    if (!isNum(x) || x < min || x > max) return false;
+    out[k] = x;
+    return true;
+  };
+  if (!num("rssiDbm", -127, 0) || !num("uptimeS", 0, 10 * 365 * 86400) || !num("freeHeap", 0, 64 * 1024 * 1024) || !num("minFreeHeap", 0, 64 * 1024 * 1024)) return null;
+  if (v.lastReset !== undefined) { if (!isText(v.lastReset)) return null; out.lastReset = v.lastReset; }
+  return out;
+}
+/** Reseau verifie (textes courts), ou null. */
+function asNetwork(v: unknown): BoxNetwork | null {
+  if (!isObj(v)) return null;
+  const out: BoxNetwork = {};
+  for (const k of ["ssid", "ip", "broker"] as const) {
+    const x = v[k];
+    if (x === undefined) continue;
+    if (typeof x !== "string" || x.length > 160) return null;
+    out[k] = x;
+  }
+  return out;
+}
+
 /** Applique les faits rendus par une famille pour un boitier. Un fait mal forme est ecarte seul, et
  *  rendu dans la liste des refus (journal) : il ne casse ni les autres faits, ni le relais. */
 export function applyFacts(f: FamilyDecl, box: string, facts: unknown, now: number): string[] {
   const refused: string[] = [];
   if (!Array.isArray(facts)) return ["read() n'a pas rendu une liste"];
   let s = boxes.get(key(f.id, box));
-  if (!s) { s = { online: null, firmware: null, latest: null, devices: new Map(), events: [] }; boxes.set(key(f.id, box), s); }
+  if (!s) { s = { online: null, firmware: null, latest: null, health: {}, network: {}, devices: new Map(), events: [] }; boxes.set(key(f.id, box), s); }
   for (const x of facts) {
     if (!isObj(x)) { refused.push("fait : objet attendu"); continue; }
     switch (x.fact) {
@@ -216,6 +244,8 @@ export function applyFacts(f: FamilyDecl, box: string, facts: unknown, now: numb
       case FACT.box:
         if (x.firmware !== undefined) { if (typeof x.firmware === "string" && x.firmware.length <= 64) s.firmware = x.firmware; else refused.push("boitier : version invalide"); }
         if (x.latest !== undefined) { if (typeof x.latest === "string" && x.latest.length <= 64) s.latest = x.latest; else refused.push("boitier : derniere version invalide"); }
+        if (x.health !== undefined) { const h = asHealth(x.health); if (h) s.health = { ...s.health, ...h }; else refused.push("boitier : sante invalide"); }
+        if (x.network !== undefined) { const n = asNetwork(x.network); if (n) s.network = { ...s.network, ...n }; else refused.push("boitier : reseau invalide"); }
         break;
       case FACT.event: {
         const levelOk = Object.values(EVENT_LEVEL).some((l) => l === x.level);

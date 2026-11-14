@@ -5,6 +5,7 @@
 //   cover/<id>/attrs        {"type": "volet", "positional": true, "course_s": 19}   (retenu)
 //   cover/<id>/position     0..100                                  (retenu)
 //   update                  {"installed": "0.2.16", "latest": "0.2.17"} (retenu)
+//   sante                   {"rssi": -60, "ssid": "Essai"}          (retenu)
 // et se commande par `cover/<id>/set` (OPEN | STOP | CLOSE) et `cover/<id>/set_position` (0..100) ;
 // son reglage « course » (secondes) s'envoie sur `cover/<id>/config` ({"course_s": N}).
 import type { Plugin } from "../../server/src/plugin-types.js";
@@ -31,6 +32,12 @@ const family: FamilyDecl = {
   }],
   read({ path, payload }): Fact[] {
     if (path === "status") return payload === "online" || payload === "offline" ? [{ fact: FACT.presence, online: payload === "online" }] : [];
+    if (path === "sante") {
+      let h: unknown;
+      try { h = JSON.parse(payload); } catch { return []; }
+      const o = h && typeof h === "object" ? (h as Record<string, unknown>) : {};
+      return [{ fact: FACT.box, health: typeof o.rssi === "number" ? { rssiDbm: o.rssi } : {}, network: typeof o.ssid === "string" ? { ssid: o.ssid } : {} }];
+    }
     if (path === "update") {
       let u: unknown;
       try { u = JSON.parse(payload); } catch { return []; }

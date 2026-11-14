@@ -17,6 +17,13 @@ const boitierOf = (d: { deviceId: string; name: string; firmware: string; lastSe
     id: d.deviceId, familyKnown: !!familyById(d.firmware), name: d.name, firmware: st?.firmware ?? d.firmware,
     online: deviceOnline(d.firmware, d.deviceId), updateAvailable: !!st?.latest && !!st.firmware && isNewerVersion(st.latest, st.firmware),
     count: st?.devices.size ?? 0, lastSeenAt: d.lastSeenAt ?? null,
+    ...(st ? {
+      wifi: { ssid: st.network.ssid ?? null, ip: st.network.ip ?? null, rssiDbm: st.health.rssiDbm ?? null },
+      broker: st.network.broker ?? null,
+      uptimeS: st.health.uptimeS ?? null,
+      memory: st.health.freeHeap !== undefined && st.health.minFreeHeap !== undefined ? { free: st.health.freeHeap, min: st.health.minFreeHeap } : null,
+      lastReset: st.health.lastReset ?? null,
+    } : {}),
   };
 };
 

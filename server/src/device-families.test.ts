@@ -224,3 +224,17 @@ test("isolation : un reglage traduit hors du boitier est refuse", async () => {
   applyMessage("test-famille/b1/store/salon/type", "19", true, 1);
   assert.ok("error" in buildConfigure(familyById("famille-test")!, { box: "b1", device: "salon" }, { course: 21 }));
 });
+
+test("sante et reseau du boitier : verifies, et un fait partiel garde les autres valeurs", () => {
+  registerDeviceFamily({ ...STORE, read: ({ path, payload }: FamilyMessage): readonly Fact[] =>
+    path === "hb" ? [{ fact: FACT.box, health: { rssiDbm: Number(payload), uptimeS: 60 } }]
+    : path === "sys" ? [{ fact: FACT.box, health: { lastReset: { fr: "Logiciel", en: "Software" } }, network: { ssid: "Maison", ip: "192.168.1.9", broker: "ha.local:1883" } }]
+    : [] });
+  applyMessage("test-famille/b1/hb", "-67", true, 1);
+  applyMessage("test-famille/b1/sys", "", true, 1);
+  const s = boxState("famille-test", "b1")!;
+  assert.deepEqual([s.health.rssiDbm, s.health.uptimeS, s.health.lastReset?.fr], [-67, 60, "Logiciel"]);
+  assert.deepEqual(s.network, { ssid: "Maison", ip: "192.168.1.9", broker: "ha.local:1883" });
+  assert.equal(applyMessage("test-famille/b1/hb", "12", true, 1)!.refused.length, 1, "un signal positif n'existe pas");
+  assert.equal(s.health.rssiDbm, -67, "la valeur d'avant reste");
+});

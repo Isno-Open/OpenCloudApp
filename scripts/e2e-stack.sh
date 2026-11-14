@@ -169,6 +169,13 @@ docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/update" -m '{"
 sleep 2
 chk "version publiee plus recente : mise a jour proposee" "$(curl -s -b "$J" "$B/boitier/$ID" | grep -c 'mise à jour dispo')" 1
 
+echo "== sante du boitier : en lecture, telle que sa famille la lit"
+docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/sante" -m '{"rssi":-61,"ssid":"Reseau essai"}'
+sleep 2
+BOX=$(curl -s -b "$J" "$B/boitier/$ID")
+chk "sante : signal Wi-Fi" "$(echo "$BOX" | grep -c -- '-61 dBm')" 1
+chk "sante : reseau Wi-Fi (lecture seule)" "$(echo "$BOX" | grep -c '>Reseau essai<')" 1
+
 echo "== reconciliation : la config change de nom, le certificat suit"
 FP1=$(docker exec isno-cloud-server openssl x509 -in /broker-certs/server.crt -noout -fingerprint -sha256)
 docker exec isno-cloud-server sh -c "sed -i 's#mqtts://$LAN:18883#mqtts://localtest.me:18883#' /data/portal.config.json"

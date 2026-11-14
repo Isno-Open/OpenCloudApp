@@ -44,8 +44,13 @@
       <h3>{s.availability} <span class="ro">{s.readonly}</span></h3>
       <KeyValue label={s.state} value={b.online ? s.online : s.offlineShort} />
       {#if !b.online && b.lastSeenAt !== null}<KeyValue label={s.lastSeenLabel} value={relativeTime(b.lastSeenAt, now, lang)} />{/if}
-      {#if b.uptime}<KeyValue label={s.since} value={b.uptime} />{/if}
+      {#if b.uptimeS != null}<KeyValue label={s.since} value={s.uptimeValue(b.uptimeS)} />{:else if b.uptime}<KeyValue label={s.since} value={b.uptime} />{/if}
+      {#if b.lastReset}<KeyValue label={s.lastReset} value={b.lastReset[lang]} />{/if}
       {#if b.wifi?.rssiDbm != null}<KeyValue label={s.wifiSignal} value={`${b.wifi.rssiDbm} dBm`} />{/if}
+      {#if b.wifi?.ssid}<KeyValue label={s.wifiNetwork} value={b.wifi.ssid} />{/if}
+      {#if b.wifi?.ip}<KeyValue label={s.ipAddress} value={b.wifi.ip} />{/if}
+      {#if b.broker}<KeyValue label={s.localBroker} value={b.broker} />{/if}
+      {#if b.memory}<KeyValue label={s.memory} value={s.memoryValue(b.memory.free, b.memory.min)} />{/if}
       {#if b.radios}<KeyValue label={s.radios} value={b.radios} />{/if}
       <KeyValue label={s.firmware}><span style={b.updateAvailable ? 'color:var(--warn)' : undefined}>{b.updateAvailable ? s.updateAvailable : s.upToDate}</span></KeyValue>
     </div>

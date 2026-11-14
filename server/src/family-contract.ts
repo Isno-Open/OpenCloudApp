@@ -52,8 +52,15 @@ export type Fact =
       // valeurs actuelles de ses reglages (par cle de champ), telles que le boitier les publie
       settings?: Readonly<Record<string, SettingValue>> }
   | { fact: typeof FACT.state; device: string; control: string; value: ControlValue }
-  | { fact: typeof FACT.box; firmware?: string; latest?: string }
+  | { fact: typeof FACT.box; firmware?: string; latest?: string; health?: BoxHealth; network?: BoxNetwork }
   | { fact: typeof FACT.event; level: EventLevel; code: string; text: LocalizedText; device?: string };
+
+/** Sante d'un boitier, en lecture : ce qu'il publie de lui-meme (battement, etat systeme). Chaque champ
+ *  est facultatif ; un fait n'en porte que ceux qu'il connait, les autres gardent leur valeur. */
+export type BoxHealth = { rssiDbm?: number; uptimeS?: number; freeHeap?: number; minFreeHeap?: number; lastReset?: LocalizedText };
+/** Reseau d'un boitier, pour information seulement (on ne coupe pas a distance le lien qui le relie) :
+ *  le Wi-Fi rejoint, son adresse, le broker local (sans identifiants). */
+export type BoxNetwork = { ssid?: string; ip?: string; broker?: string };
 
 /** Cible d'une commande : un appareil d'un boitier, ou le boitier entier (mise a jour du firmware). */
 export type CommandTarget = { box: string; device?: string };
