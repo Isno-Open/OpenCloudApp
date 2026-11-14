@@ -19,13 +19,14 @@ export type PluginApi = {
   provideCapability: (c: Capability) => void;
   ensureAccount: (id: string, cap: number, name?: string) => Promise<void>;   // provisionne un compte (1re visite, annuaire) ; le plugin en devient la source
   reconcileAccounts: (present: readonly string[]) => Promise<number>;         // ses comptes absents de cette liste sont marques (jamais supprimes)
-  registerDeviceType: (decl: DeviceTypeDecl) => void;          // apporte un type d'appareil (carte, commandes)
+  registerDeviceFamily: (decl: FamilyDecl) => void;            // apporte une famille de boitiers (docs/FAMILLES.md)
   registerTheme: (decl: ThemeDecl | (() => ThemeDecl)) => void;   // apporte un theme ; une fonction : relu a chaque page
   defaultCap: number;
   settings: () => unknown;   // ses reglages tels que ranges (a relire par sa fonction de lecture), relus a chaque appel
 };
-import type { PluginSettings, DeviceTypeDecl, ThemeDecl, PluginCategory } from "./plugin-contract.js";
-export { THEME_MODE, THEME_SHAPE, type ThemeMode, type ThemeShape, PLUGIN_CATEGORY, EXCLUSIVE_CATEGORIES, isPluginCategory, type PluginCategory, SETTING_KIND, TEXT_FORMAT, IMAGE_MAX_CHARS, IMAGE_TYPES, ICON_MIN_PX, type SettingKind, type TextFormat, type SettingField, type SettingValue, type LocalizedText, type PluginSettings, type DeviceTypeDecl, type DeviceIcon, type Icon, type ThemeDecl, type ThemeToken, type ThemePalette, THEME_TOKENS } from "./plugin-contract.js";
+import type { PluginSettings, ThemeDecl, PluginCategory } from "./plugin-contract.js";
+import type { FamilyDecl } from "./family-contract.js";
+export { THEME_MODE, THEME_SHAPE, type ThemeMode, type ThemeShape, PLUGIN_CATEGORY, EXCLUSIVE_CATEGORIES, isPluginCategory, type PluginCategory, SETTING_KIND, TEXT_FORMAT, IMAGE_MAX_CHARS, IMAGE_TYPES, ICON_MIN_PX, type SettingKind, type TextFormat, type SettingField, type SettingValue, type LocalizedText, type PluginSettings, type Icon, type ThemeDecl, type ThemeToken, type ThemePalette, THEME_TOKENS } from "./plugin-contract.js";
 
 /** Champs propres au portail, que le moteur ne connait pas (voir PLUGIN_EXTRA dans plugins.ts, qui les
  *  verifie pour un plugin du catalogue) :

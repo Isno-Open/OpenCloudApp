@@ -1,0 +1,173 @@
+import { test, beforeEach } from "node:test";
+import assert from "node:assert/strict";
+import { CONTROL, FACT, EVENT_LEVEL, FAMILY_CONTRACT, type FamilyDecl, type FamilyMessage, type Fact } from "./family-contract.js";
+import { asFamily, registerDeviceFamily, clearDeviceFamilies, applyMessage, buildCommand, boxState, familyById, onFamilyRegistered } from "./device-families.js";
+import { isLiveActivity } from "./mqtt.js";
+
+// Petite famille de test : « store » publie `<boitier>/en_ligne` et `<boitier>/store/<id>/{type,pos,etat}` ;
+// elle se commande par `store/<id>/cmd` et `store/<id>/aller`.
+const STORE: FamilyDecl = {
+  id: "famille-test", label: { fr: "Famille de test", en: "Test family" }, icon: { glyph: "T" },
+  contract: FAMILY_CONTRACT, topicRoot: "test-famille",
+  kinds: [{
+    id: "store", label: { fr: "Store", en: "Blind" }, icon: { glyph: "S" },
+    controls: [
+      { kind: CONTROL.action, id: "monter", label: { fr: "Monter", en: "Up" } },
+      { kind: CONTROL.position, id: "pos", label: { fr: "Position", en: "Position" }, settable: true },
+      { kind: CONTROL.reading, id: "etat", label: { fr: "État", en: "State" } },
+    ],
+  }],
+  read({ path, payload }): Fact[] {
+    if (path === "en_ligne") return [{ fact: FACT.presence, online: payload === "1" }];
+    const m = /^store\/([^/]+)\/(type|pos|etat)$/.exec(path);
+    if (!m) return [];
+    if (m[2] === "type") return [{ fact: FACT.device, device: m[1]!, kind: payload, hidden: payload === "store" ? [] : ["pos"] }];
+    if (m[2] === "pos") return [{ fact: FACT.state, device: m[1]!, control: "pos", value: Number(payload) }];
+    return [{ fact: FACT.state, device: m[1]!, control: "etat", value: payload }];
+  },
+  command({ device }, control, value) {
+    if (!device) return { path: "maj", payload: "go" };
+    return control === "monter" ? { path: `store/${device}/cmd`, payload: "UP" } : { path: `store/${device}/aller`, payload: String(value) };
+  },
+};
+
+beforeEach(() => clearDeviceFamilies());
+
+test("une famille valable est enregistree ; une seconde a la meme racine est refusee", () => {
+  registerDeviceFamily(STORE);
+  assert.equal(familyById("famille-test")?.topicRoot, "test-famille");
+  assert.throws(() => registerDeviceFamily({ ...STORE, id: "autre" }), /racine de topics/);
+  assert.throws(() => registerDeviceFamily(STORE), /deja declaree/);
+});
+
+test("declaration verifiee piece par piece : contrat, racine, controles, icone", () => {
+  assert.throws(() => asFamily({ ...STORE, contract: 2 }), /contrat 2/);
+  assert.throws(() => asFamily({ ...STORE, topicRoot: "a/#" }), /racine/);
+  assert.throws(() => asFamily({ ...STORE, kinds: [] }), /au moins un type/);
+  const k = STORE.kinds[0]!;
+  assert.throws(() => asFamily({ ...STORE, kinds: [{ ...k, controls: [{ kind: "curseur-magique", id: "x", label: k.label }] }] }), /controle inconnu/);
+  assert.throws(() => asFamily({ ...STORE, kinds: [{ ...k, controls: [...k.controls, k.controls[0]] }] }), /meme identifiant/);
+  assert.throws(() => asFamily({ ...STORE, kinds: [{ ...k, controls: [{ kind: CONTROL.setpoint, id: "c", label: k.label, min: 5, max: 5, step: 1, unit: "°C" }] }] }), /consigne/);
+  assert.throws(() => asFamily({ ...STORE, icon: { path: "M0 0\"/><script>" } }), /icone/);
+  assert.throws(() => asFamily({ ...STORE, read: undefined }), /read\(\)/);
+});
+
+test("les messages deviennent des faits : presence, appareil, etat", () => {
+  registerDeviceFamily(STORE);
+  applyMessage("test-famille/b1/en_ligne", "1", true, 1);
+  applyMessage("test-famille/b1/store/salon/type", "store", true, 1);
+  applyMessage("test-famille/b1/store/salon/pos", "40", true, 1);
+  applyMessage("test-famille/b1/store/salon/etat", "ferme", true, 1);
+  const s = boxState("famille-test", "b1")!;
+  assert.equal(s.online, true);
+  const d = s.devices.get("salon")!;
+  assert.deepEqual([d.kind, d.values.get("pos"), d.values.get("etat")], ["store", 40, "ferme"]);
+});
+
+test("un fait mal forme est ecarte seul et signale ; les autres passent", () => {
+  registerDeviceFamily(STORE);
+  applyMessage("test-famille/b1/store/salon/type", "store", true, 1);
+  const r = applyMessage("test-famille/b1/store/salon/pos", "250", true, 1)!;
+  assert.equal(r.refused.length, 1, "position hors de 0..100");
+  assert.equal(boxState("famille-test", "b1")!.devices.get("salon")!.values.has("pos"), false);
+  // un type que la famille ne connait pas : appareil montre « inconnu », sans etat ni commande
+  assert.deepEqual(applyMessage("test-famille/b1/store/x/type", "fusee", true, 1)!.refused, []);
+  const x = boxState("famille-test", "b1")!.devices.get("x")!;
+  assert.deepEqual([x.kind, x.known], ["fusee", false]);
+  assert.equal(applyMessage("test-famille/b1/store/x/pos", "10", true, 1)!.refused.length, 1);
+  assert.ok("error" in buildCommand(familyById("famille-test")!, { box: "b1", device: "x" }, "monter", null));
+  assert.equal(applyMessage("test-famille/b1/store/y/type", "a b", true, 1)!.refused.length, 1, "type au nom invalide");
+  assert.deepEqual(applyMessage("test-famille/b1/store/z/type", "", true, 1)!.refused, [], "aucun type declare : appareil inconnu");
+  assert.equal(boxState("famille-test", "b1")!.devices.get("z")!.known, false);
+  assert.equal(applyMessage("test-famille/b1/store/fantome/pos", "10", true, 1)!.refused.length, 1, "etat d'un appareil jamais vu");
+});
+
+test("une famille qui leve une erreur ne casse pas le relais", () => {
+  registerDeviceFamily({ ...STORE, read: () => { throw new Error("boum"); } });
+  const r = applyMessage("test-famille/b1/en_ligne", "1", false, 1)!;
+  assert.match(r.refused[0]!, /boum/);
+});
+
+test("un topic hors de toute famille, ou d'un boitier au nom suspect, est ignore", () => {
+  registerDeviceFamily(STORE);
+  assert.equal(applyMessage("homeassistant/cover/x/config", "{}", true, 1), null);
+  assert.equal(applyMessage("test-famille/+/en_ligne", "1", true, 1), null);
+});
+
+test("commande : traduite par la famille, toujours sous <racine>/<boitier>/", () => {
+  registerDeviceFamily(STORE);
+  const f = familyById("famille-test")!;
+  applyMessage("test-famille/b1/store/salon/type", "store", true, 1);
+  assert.deepEqual(buildCommand(f, { box: "b1", device: "salon" }, "monter", null), { topic: "test-famille/b1/store/salon/cmd", payload: "UP", retain: false });
+  assert.deepEqual(buildCommand(f, { box: "b1", device: "salon" }, "pos", 30), { topic: "test-famille/b1/store/salon/aller", payload: "30", retain: false });
+  assert.deepEqual(buildCommand(f, { box: "b1" }, "maj", null), { topic: "test-famille/b1/maj", payload: "go", retain: false });
+});
+
+test("commande refusee : appareil ou controle inconnu, lecture seule, valeur hors bornes, controle masque", () => {
+  registerDeviceFamily(STORE);
+  const f = familyById("famille-test")!;
+  applyMessage("test-famille/b1/store/salon/type", "store", true, 1);
+  assert.ok("error" in buildCommand(f, { box: "b1", device: "cuisine" }, "monter", null));
+  assert.ok("error" in buildCommand(f, { box: "b1", device: "salon" }, "voler", null));
+  assert.ok("error" in buildCommand(f, { box: "b1", device: "salon" }, "etat", "x"), "un releve ne se commande pas");
+  assert.ok("error" in buildCommand(f, { box: "b1", device: "salon" }, "pos", 101));
+  assert.ok("error" in buildCommand(f, { box: "b1", device: "salon" }, "pos", "30"), "une position est un nombre");
+  assert.ok("error" in buildCommand(f, { box: "b1/../b2", device: "salon" }, "monter", null), "boitier au nom suspect");
+});
+
+test("isolation : une famille ne peut pas publier hors de son boitier", () => {
+  for (const path of ["../b2/cmd", "a/+/b", "#", "/abs", "a//b", "x".repeat(200)]) {
+    clearDeviceFamilies();
+    registerDeviceFamily({ ...STORE, command: () => ({ path, payload: "x" }) });
+    applyMessage("test-famille/b1/store/salon/type", "store", true, 1);
+    assert.ok("error" in buildCommand(familyById("famille-test")!, { box: "b1", device: "salon" }, "monter", null), `chemin refuse : ${path.slice(0, 20)}`);
+  }
+  clearDeviceFamilies();
+  registerDeviceFamily({ ...STORE, command: () => ({ path: "ok", payload: "x".repeat(600) }) });
+  applyMessage("test-famille/b1/store/salon/type", "store", true, 1);
+  assert.ok("error" in buildCommand(familyById("famille-test")!, { box: "b1", device: "salon" }, "monter", null), "charge trop longue");
+});
+
+test("controle masque sur un appareil : ni commande, ni etat", () => {
+  registerDeviceFamily(STORE);
+  const f = familyById("famille-test")!;
+  applyMessage("test-famille/b1/store/salon/type", "store", true, 1);
+  // la famille dit : cet appareil n'a pas de position (hidden)
+  const d = boxState("famille-test", "b1")!.devices.get("salon")!;
+  boxState("famille-test", "b1")!.devices.set("salon", { ...d, hidden: new Set(["pos"]) });
+  assert.ok("error" in buildCommand(f, { box: "b1", device: "salon" }, "pos", 10));
+});
+
+test("evenements : niveau et code verifies, les plus recents en tete", () => {
+  registerDeviceFamily({ ...STORE, read: ({ payload }: FamilyMessage) => [{ fact: FACT.event, level: payload === "x" ? "panique" as never : EVENT_LEVEL.alert, code: "pile", text: { fr: "Pile faible", en: "Low battery" } }] });
+  applyMessage("test-famille/b1/ev", "a", false, 5);
+  applyMessage("test-famille/b1/ev", "x", false, 6);
+  const ev = boxState("famille-test", "b1")!.events;
+  assert.equal(ev.length, 1, "niveau inconnu refuse");
+  assert.equal(ev[0]!.code, "pile");
+});
+
+test("le relais s'abonne aussi aux familles enregistrees apres lui", () => {
+  const seen: string[] = [];
+  onFamilyRegistered((f) => seen.push(f.topicRoot));
+  registerDeviceFamily(STORE);
+  assert.deepEqual(seen, ["test-famille"]);
+});
+
+test("activite : un message direct, ou une presence en ligne retenue ; pas un message retenu seul", () => {
+  assert.equal(isLiveActivity(false, null), true);
+  assert.equal(isLiveActivity(true, true), true);
+  assert.equal(isLiveActivity(true, null), false);
+  assert.equal(isLiveActivity(true, false), false);
+});
+
+test("ACL du broker : une racine par famille, le relais partout, chaque boitier chez lui seulement", async () => {
+  const { brokerAcl } = await import("./broker-config.js");
+  const acl = brokerAcl(["openprofalux", "test-famille", "openprofalux"]);
+  assert.match(acl, /^user relay$/m);
+  assert.equal((acl.match(/^topic readwrite openprofalux\/#$/gm) ?? []).length, 1, "une racine en double n'ecrit qu'une ligne");
+  assert.match(acl, /^pattern readwrite test-famille\/%u\/#$/m);
+  assert.doesNotMatch(acl, /^pattern readwrite #/m);
+  assert.throws(() => brokerAcl(["a/#"]), /racine/);
+  assert.throws(() => brokerAcl(["x\npattern readwrite #"]), /racine/);
+});

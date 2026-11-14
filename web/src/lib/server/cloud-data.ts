@@ -1,21 +1,22 @@
 // Acces aux donnees, branche sur le backend isno-cloud partage (@core). Un Device du store = un
-// BOITIER ; les volets/portails = les covers, issus de l'etat MQTT live (coversOf). On mappe vers les
-// types UI. Le type d'un appareil (nom, icone, commandes) est celui qu'un plugin declare.
+// BOITIER ; ses appareils (volets, portails...) sont ce que la FAMILLE du boitier lit de ses messages
+// (device-families.ts). La famille d'un boitier est celle qu'il a declaree a l'enrolement (firmware).
 import { listDevices, countDevices, findDevice, getAccount } from '@opencloudapp/core/store.js';
-import { coversOf, deviceOnline } from '@opencloudapp/core/mqtt.js';
-import { deviceType } from '@opencloudapp/core/device-types.js';
+import { deviceOnline } from '@opencloudapp/core/mqtt.js';
+import { familyById, boxState } from '@opencloudapp/core/device-families.js';
 import type { Appareil, Boitier, Account } from '#lib/types.ts';
 import { boot } from '#lib/server/boot.ts';
 import { plugins } from '#lib/server/auth.ts';
 
-// Type publie par le boitier -> type declare par un plugin, ou null (inconnu). Jamais de repli sur
-// « volet » : un type nouveau deguise en volet recevrait des commandes de volet.
-
-// online : ce que le boitier ANNONCE (openprofalux/<id>/status : online a sa connexion, offline par son
-// testament si il disparait), pas une deduction de ses appareils, dont les etats restent retenus.
+// online : ce que le boitier ANNONCE (fait de presence de sa famille), pas une deduction de ses
+// appareils, dont les etats restent retenus.
 const boitierOf = (d: { deviceId: string; name: string; firmware: string; lastSeenAt?: number | null }): Boitier => {
-  const covers = coversOf(d.deviceId);
-  return { id: d.deviceId, name: d.name, firmware: d.firmware, online: deviceOnline(d.deviceId), updateAvailable: false, count: covers.length, lastSeenAt: d.lastSeenAt ?? null };
+  const st = boxState(d.firmware, d.deviceId);
+  return {
+    id: d.deviceId, familyKnown: !!familyById(d.firmware), name: d.name, firmware: st?.firmware ?? d.firmware,
+    online: deviceOnline(d.firmware, d.deviceId), updateAvailable: !!st?.latest && !!st.firmware && st.latest !== st.firmware,
+    count: st?.devices.size ?? 0, lastSeenAt: d.lastSeenAt ?? null,
+  };
 };
 
 export async function getAccountInfo(accountId: string): Promise<Account> {
@@ -38,16 +39,19 @@ export async function listBoitiers(accountId: string): Promise<Boitier[]> {
 
 export async function listAppareils(accountId: string): Promise<Appareil[]> {
   await boot();
-  await plugins();   // les types d'appareils viennent des plugins
+  await plugins();   // les familles de boitiers viennent des plugins
   const devices = await listDevices(accountId);
   const out: Appareil[] = [];
   for (const d of devices) {
-    const covers = coversOf(d.deviceId);
-    const online = deviceOnline(d.deviceId);
-    for (const c of covers) {
+    const fam = familyById(d.firmware);
+    const st = boxState(d.firmware, d.deviceId);
+    if (!fam || !st) continue;
+    const online = deviceOnline(d.firmware, d.deviceId);
+    for (const [slug, dev] of st.devices) {
       out.push({
-        id: `${d.deviceId}:${c.slug}`, boitierId: d.deviceId, slug: c.slug, name: c.slug,
-        kind: deviceType(c.type), declaredType: c.type, positional: c.positional, position: c.position, online,
+        id: `${d.deviceId}:${slug}`, boitierId: d.deviceId, slug, name: dev.name,
+        kind: dev.known ? fam.kinds.find((k) => k.id === dev.kind) ?? null : null, declaredType: dev.kind,
+        values: Object.fromEntries(dev.values), hidden: [...dev.hidden], online,
       });
     }
   }

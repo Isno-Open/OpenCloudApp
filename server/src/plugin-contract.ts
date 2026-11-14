@@ -22,24 +22,6 @@ export const isPluginCategory = (v: unknown): v is PluginCategory => Object.valu
  *  theme : l'ecran le montre pendant la saisie, et le coeur le verifie comme tout theme. */
 export type PluginSettings = Omit<HostPluginSettings, "preview"> & { preview?(input: Record<string, unknown>): ThemeDecl };
 
-/** Les trois commandes d'un appareil, telles que l'app les envoie au relais (/api/cmd). Le relais les
- *  traduit pour le boitier (mqtt.ts) ; un type d'appareil n'en change que les libelles. */
-export const DEVICE_ACTION = { up: "UP", stop: "STOP", down: "DOWN" } as const;
-export type DeviceAction = (typeof DEVICE_ACTION)[keyof typeof DEVICE_ACTION];
-
-/** Icone d'un type d'appareil : celle du moteur (caractere, trace SVG ou petite image). */
-export type DeviceIcon = Icon;
-
-/** Type d'appareil DECLARE par un plugin. `id` est le type tel que le boitier le publie (attrs.type) ;
- *  le coeur dessine la carte (icone, nom, trois commandes UP/STOP/DOWN) avec ces libelles. Ce qui est
- *  positionnel ou non vient du boitier lui-meme, pas du type. */
-export type DeviceTypeDecl = {
-  id: string;
-  label: LocalizedText;
-  icon: DeviceIcon;
-  actions: { up: LocalizedText; stop: LocalizedText; down: LocalizedText };
-};
-
 /** Jetons de couleur qu'un theme peut redefinir (variables CSS du portail, --<nom>). Leurs valeurs par
  *  defaut vivent dans web/src/lib/styles/tokens.css ; un banc verifie que chaque nom y existe. */
 export const THEME_TOKENS = [

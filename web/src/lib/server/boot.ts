@@ -9,6 +9,7 @@ import { startRelay } from '@opencloudapp/core/mqtt.js';
 import { loadConfig, applyStoreEnv } from '@opencloudapp/core/config.js';
 import { ensureCA, ensureRelayCert } from '@opencloudapp/core/pki.js';
 import { prepareBroker, brokerInternal } from '#lib/server/broker.ts';
+import { loadPlugins, enabledPlugins } from '@opencloudapp/core/plugins.js';
 
 const log = (what: string, e: unknown) => console.error(`[boot] ${what} :`, e instanceof Error ? e.message : e);
 
@@ -23,6 +24,8 @@ export function boot(): Promise<void> {
     // Premier operateur (installation ou semis) : cree s'il n'existe pas encore, jamais ecrase ensuite.
     if (cfg.operator && !(await getAccount(cfg.operator.email)))
       await createAccount(cfg.operator.email, cfg.operator.name, cfg.operator.passHash, DEFAULT_CAP, true);
+    // les familles de boitiers viennent des plugins : chargees AVANT le relais, qui s'abonne a leurs racines
+    try { await loadPlugins(enabledPlugins()); } catch (e) { log('plugins', e); }
     try {
       const r = await prepareBroker(new URL(cfg.brokerPublicUrl).hostname);
       if (!r.ok) log('broker', r.error);

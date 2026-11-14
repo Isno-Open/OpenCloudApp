@@ -10,8 +10,7 @@
 // partage OpenPluginHost (@isno-open/plugin-host) : ce fichier ne garde que ce qui est propre au portail
 // (api donnee aux plugins, capacites, theme applique a l'activation, origine des comptes).
 import { externalAuthPlugin } from "./plugins/external-auth.js";
-import { shutterTypePlugin, gateTypePlugin } from "./plugins/device-types.js";
-import { registerDeviceType } from "./device-types.js";
+import { registerDeviceFamily } from "./device-families.js";
 import { registerTheme, BASE_THEME, asTheme } from "./themes.js";
 import { installableAppPlugin } from "./plugins/installable-app.js";
 import { customThemePlugin } from "./plugins/theme-custom.js";
@@ -28,18 +27,19 @@ export { CAPABILITY, type Capability, type Plugin, type PluginApi, type PluginIn
 /** Greffons livres avec le portail. */
 export const BUILTIN_PLUGINS: Record<string, Plugin> = {
   [localAccountsPlugin.id]: localAccountsPlugin, [externalAuthPlugin.id]: externalAuthPlugin,
-  [shutterTypePlugin.id]: shutterTypePlugin, [gateTypePlugin.id]: gateTypePlugin,
   [installableAppPlugin.id]: installableAppPlugin, [customThemePlugin.id]: customThemePlugin,
 };
 /** Actives quand la config n'en dit rien. */
 export const DEFAULT_PLUGINS: readonly string[] = [localAccountsPlugin.id];
 /** Integres actives D'OFFICE, meme sur une instance deja configuree (sa liste ne les nomme pas) :
- *  seul un retrait explicite (pluginsOff) les eteint. Ce sont les types d'appareils de base. */
-export const ALWAYS_ON_PLUGINS: readonly string[] = [shutterTypePlugin.id, gateTypePlugin.id];
+ *  seul un retrait explicite (pluginsOff) les eteint. Aucun aujourd'hui : les types d'appareils
+ *  viennent des familles de boitiers, choisies a l'installation (docs/FAMILLES.md). */
+export const ALWAYS_ON_PLUGINS: readonly string[] = [];
 const RULES: EnabledRules = { defaults: DEFAULT_PLUGINS, alwaysOn: ALWAYS_ON_PLUGINS };
-/** Anciens plugins devenus partie du coeur : une config qui les nomme encore ne cherche pas a les
- *  charger (le theme ISNO, theme de base, est au coeur depuis le 2026-11-13). */
-const RETIRED_PLUGINS: readonly string[] = ["theme-isno"];
+/** Anciens plugins retires : une config qui les nomme encore ne cherche pas a les charger. Le theme
+ *  ISNO est au coeur depuis le 2026-11-13 ; les types volet et portail sont apportes par la famille
+ *  OpenProfalux depuis le 2026-11-14. */
+const RETIRED_PLUGINS: readonly string[] = ["theme-isno", "device-volet", "device-portail"];
 
 /** Dossier des plugins ajoutes depuis le catalogue (volume isno-plugins, en lecture seule). */
 export const PLUGINS_DIR = process.env.PLUGINS_DIR ?? "/plugins";
@@ -74,7 +74,7 @@ const host = createPluginHost<PluginApi, PluginCategory, PluginExtra>({
     ensureAccount: (acc, cap, name) => ensureAccount(acc, cap, name, id),
     reconcileAccounts: (present) => markMissingAccounts(id, present, Date.now()),
     defaultCap: DEFAULT_CAP,
-    registerDeviceType,
+    registerDeviceFamily,
     registerTheme,
     settings: () => loadConfig()?.pluginSettings?.[id],
   }),

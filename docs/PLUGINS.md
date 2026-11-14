@@ -54,7 +54,7 @@ export default plugin;
 | Appel | Ce qu'il apporte |
 |---|---|
 | `registerTheme(decl)` | un **thème** : couleurs, polices, logo, icône (voir plus bas) |
-| `registerDeviceType(decl)` | un **type d'appareil** : nom, icône, libellés des trois commandes. Provisoire : ce rôle passe aux plugins de famille de boîtiers (voir « À venir ») |
+| `registerDeviceFamily(decl)` | une **famille de boîtiers** : sa racine de topics, la lecture de ce que publient ses boîtiers, ses commandes et les cartes de ses types d'appareils (voir « Plugins de famille de boîtiers ») |
 | `registerAuthProvider(p)` | un **mode de connexion** (`server/src/auth-provider.ts`) : reconnaître un compte depuis un cookie, adresse de connexion et de déconnexion, cookies à effacer |
 | `provideCapability(c)` | une **capacité** que l'app consulte (`CAPABILITY` : `accountCreation` pour créer des comptes dans le portail, `installableApp`) |
 | `ensureAccount(id, cap, name?)` | **crée un compte** s'il n'existe pas (première visite, annuaire) sans jamais écraser un nom déjà choisi ; le plugin en devient l'origine |
@@ -213,10 +213,11 @@ suivant) :
   `scripts/e2e-stack.sh` fait subir au plugin d'exemple ; prenez-le comme modèle.
 - Vérifiez qu'un contrôle sait échouer : cassez volontairement la borne, constatez l'échec, remettez.
 
-## À venir : les plugins de famille de boîtiers
+## Plugins de famille de boîtiers
 
-Une famille de boîtiers (OpenProfalux, demain OpenXtraflame) deviendra **un** plugin, qui vivra dans le
-dépôt de son firmware et apportera tout ce qui lui est propre : son espace de topics MQTT, la lecture de
-ce que publie le boîtier (présence, état, attributs), ses types d'appareils, ses commandes, et ses
-cartes, déclarées dans un vocabulaire de contrôles fixé par le cœur. `registerDeviceType` sera remplacé
-par ce contrat, qui sera décrit ici quand il sera arrêté.
+Une famille de boîtiers (OpenProfalux, demain OpenXtraflame) est **un** plugin, qui vit dans le dépôt
+de son firmware et apporte tout ce qui lui est propre : sa racine de topics MQTT, la lecture de ce que
+publient ses boîtiers, ses types d'appareils, ses commandes, et ses cartes, déclarées dans un vocabulaire
+de contrôles fixé par le cœur. Contrat : `server/src/family-contract.ts` ; conception et règles :
+[FAMILLES.md](FAMILLES.md). Une famille de test, `plugins/famille-test`, sert aux tests du portail et
+d'exemple.

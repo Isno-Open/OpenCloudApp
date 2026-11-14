@@ -1,0 +1,68 @@
+// Contrat des plugins de FAMILLE de boitiers (docs/FAMILLES.md). Une famille = un firmware et tout ce
+// qu'il publie (OpenProfalux, OpenXtraflame...) ; son plugin apprend au portail a lire ses boitiers, a
+// les commander et a dessiner leurs cartes. Le portail ne connait aucune famille en dur.
+//
+// Fichier SANS dependance a l'execution : un plugin du catalogue l'importe (livre a cote de son
+// index.js, comme plugin-contract.js). Les types du moteur ne sont importes qu'en type.
+import type { Icon, LocalizedText } from "@isno-open/plugin-host/contract";
+
+/** Version du contrat que suit une famille. Le portail refuse une famille d'une autre version. */
+export const FAMILY_CONTRACT = 1;
+
+/** Le vocabulaire des cartes, fixe par le coeur : une famille decrit chaque type d'appareil comme une
+ *  liste de controles pris ici. Un controle absent s'ajoute ICI, pour toutes les familles. */
+export const CONTROL = {
+  action: "action",       // bouton : Monter, Stop, Descendre ; Ouvrir, Fermer
+  toggle: "toggle",       // marche/arret
+  setpoint: "setpoint",   // consigne bornee (min, max, pas, unite)
+  position: "position",   // ouverture de 0 a 100 %, reglable ou non
+  reading: "reading",     // releve affiche (nombre ou texte), seuils d'alerte eventuels
+} as const;
+export type ControlKind = (typeof CONTROL)[keyof typeof CONTROL];
+
+type ControlBase = { id: string; label: LocalizedText };
+export type ControlDecl =
+  | (ControlBase & { kind: typeof CONTROL.action; icon?: Icon })
+  | (ControlBase & { kind: typeof CONTROL.toggle })
+  | (ControlBase & { kind: typeof CONTROL.setpoint; min: number; max: number; step: number; unit: string })
+  | (ControlBase & { kind: typeof CONTROL.position; settable: boolean })
+  | (ControlBase & { kind: typeof CONTROL.reading; unit?: string; alertBelow?: number; alertAbove?: number });
+
+/** Un type d'appareil d'une famille et sa carte. */
+export type KindDecl = { id: string; label: LocalizedText; icon: Icon; controls: readonly ControlDecl[] };
+
+/** Ce que le coeur passe a read() : un message d'un boitier, sans `<racine>/<boitier>/`. */
+export type FamilyMessage = { box: string; path: string; payload: string; retained: boolean };
+
+/** Ce que read() rend : des FAITS, que le coeur verifie avant de les appliquer. */
+export const FACT = { presence: "presence", device: "device", state: "state", box: "box", event: "event" } as const;
+export type FactKind = (typeof FACT)[keyof typeof FACT];
+export const EVENT_LEVEL = { info: "info", alert: "alert" } as const;
+export type EventLevel = (typeof EVENT_LEVEL)[keyof typeof EVENT_LEVEL];
+
+export type ControlValue = number | boolean | string;
+export type Fact =
+  | { fact: typeof FACT.presence; online: boolean }
+  // appareil vu : son type (un `kinds`), son nom, et les controles masques sur CET appareil (ex. la
+  // position d'un volet qui ne la donne pas)
+  | { fact: typeof FACT.device; device: string; kind: string; name?: string; hidden?: readonly string[] }
+  | { fact: typeof FACT.state; device: string; control: string; value: ControlValue }
+  | { fact: typeof FACT.box; firmware?: string; latest?: string }
+  | { fact: typeof FACT.event; level: EventLevel; code: string; text: LocalizedText; device?: string };
+
+/** Cible d'une commande : un appareil d'un boitier, ou le boitier entier (mise a jour du firmware). */
+export type CommandTarget = { box: string; device?: string };
+/** Ce que command() rend : le coeur le publie sous `<racine>/<boitier>/<path>`, apres verification. */
+export type FamilyCommand = { path: string; payload: string; retain?: boolean };
+
+/** Une famille, telle que son plugin la declare (api.registerDeviceFamily). */
+export type FamilyDecl = {
+  id: string;            // = le champ `firmware` des boitiers de la famille, declare a l'enrolement
+  label: LocalizedText;
+  icon: Icon;
+  contract: typeof FAMILY_CONTRACT;
+  topicRoot: string;     // racine de ses topics : abonnement `<racine>/+/#`, ACL `<racine>/%u/#`
+  kinds: readonly KindDecl[];
+  read(msg: FamilyMessage): readonly Fact[];
+  command(target: CommandTarget, control: string, value: ControlValue | null): FamilyCommand | null;
+};

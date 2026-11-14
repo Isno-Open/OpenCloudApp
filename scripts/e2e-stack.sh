@@ -19,8 +19,10 @@ services:
     environment:
       - PORTAL_SETUP_WINDOW_S=1800
       - NODE_EXTRA_CA_CERTS=/e2e/ca.pem   # annuaire d'un site externe servi en https par l'AC de test
+      - HARNESS_MODULE=/e2e/famille-test/index.js   # famille de boitiers de test (plugins/famille-test)
     volumes:
       - $WORK/e2e-ca.pem:/e2e/ca.pem:ro
+      - $WORK/famille-test:/e2e/famille-test:ro
   supervisor:
     environment:
       - PLUGIN_CATALOG_PATH=/e2e/plugins.json
@@ -50,6 +52,10 @@ cat > "$WORK/plugins.json" <<'JSON'
 { "example": { "title": "Exemple", "description": { "fr": "Plugin de reference.", "en": "Reference plugin." }, "image": "isno-cloud-plugin-example:e2e" } }
 JSON
 docker build -q -f plugins/example/Dockerfile -t isno-cloud-plugin-example:e2e . >/dev/null || { echo "construction du plugin d'exemple impossible"; exit 2; }
+# famille de boitiers de test : construite ici, chargee par le serveur comme module de developpement
+docker build -q -f plugins/famille-test/Dockerfile -t opencloudapp-famille-test:e2e . >/dev/null || { echo "construction de la famille de test impossible"; exit 2; }
+FT=$(docker create opencloudapp-famille-test:e2e) && docker cp "$FT:/plugin" "$WORK/famille-test" >/dev/null && docker rm "$FT" >/dev/null
+chmod -R a+rX "$WORK/famille-test"
 C=(docker compose -p isnoe2e -f docker-compose.yml -f "$WORK/override.yml")
 teardown() {
   docker rm -f isno-mqtt isno-mongo isno-e2e-device isno-e2e-mail isno-e2e-catalog >/dev/null 2>&1
@@ -99,7 +105,7 @@ chk "l'operateur voit Parametres et Utilisateurs" "$(curl -s -b "$J" "$B/" | gre
 chk "relais connecte au broker" "$(docker logs isno-mqtt 2>&1 | grep -c "u'relay'" | awk '{print ($1>0)}')" 1
 
 echo "== boitier simule : device grant, mTLS, commande, isolation"
-R=$(post /api/device/start '{"firmware":"openprofalux"}'); DC=$(echo "$R" | jget "['device_code']"); UC=$(echo "$R" | jget "['user_code']")
+R=$(post /api/device/start '{"firmware":"famille-test"}'); DC=$(echo "$R" | jget "['device_code']"); UC=$(echo "$R" | jget "['user_code']")
 chk "approbation par l'utilisateur" "$(curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' -d "{\"code\":\"$UC\"}" "$B/api/device/approve")" 200
 post /api/device/poll "{\"device_code\":\"$DC\"}" > "$WORK/bundle.json"
 python3 - "$WORK" <<'EOF'
@@ -109,34 +115,39 @@ open(d+'/id','w').write(b['device_id'])
 EOF
 ID=$(cat "$WORK/id"); chmod 644 "$WORK"/*.pem
 SUB=(eclipse-mosquitto:2.0.22 mosquitto_sub -h "$LAN" -p 18883 --cafile /d/ca.pem --cert /d/cert.pem --key /d/key.pem)
-docker run -d --name isno-e2e-device -v "$WORK:/d:ro" "${SUB[@]}" -t "openprofalux/$ID/cover/volet/set" -C 1 -W 25 >/dev/null; sleep 3
-curl -s -o /dev/null -b "$J" -X POST -H 'content-type: application/json' -d "{\"device_id\":\"$ID\",\"slug\":\"volet\",\"action\":\"DOWN\"}" "$B/api/cmd"
-sleep 3; chk "commande recue par le boitier (mTLS, nom verifie)" "$(docker logs isno-e2e-device 2>&1)" "CLOSE"
-chk "isolation : un autre topic ne recoit rien" "$(docker run --rm -v "$WORK:/d:ro" "${SUB[@]}" -t 'openprofalux/opf-autre/#' -C 1 -W 4 2>&1 | grep -vc 'Timed out')" 0
-
-echo "== types d'appareils : un type gere a sa carte, tout autre est un appareil inconnu"
 PUB=(eclipse-mosquitto:2.0.22 mosquitto_pub -h "$LAN" -p 18883 --cafile /d/ca.pem --cert /d/cert.pem --key /d/key.pem -r)
-docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "openprofalux/$ID/cover/salon/attrs" -m '{"type":"volet","positional":true}'
-docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "openprofalux/$ID/cover/pergola/attrs" -m '{"type":"pergola","positional":false}'
-docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "openprofalux/$ID/cover/mystere/attrs" -m '{"positional":false}'
+# le boitier se presente (comme un firmware : description retenue) ; une commande ne vise qu'un appareil vu
+docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/cover/volet/attrs" -m '{"type":"volet","positional":true}'
+docker run -d --name isno-e2e-device -v "$WORK:/d:ro" "${SUB[@]}" -t "famille-test/$ID/cover/volet/set" -C 1 -W 25 >/dev/null; sleep 3
+curl -s -o /dev/null -b "$J" -X POST -H 'content-type: application/json' -d "{\"device_id\":\"$ID\",\"slug\":\"volet\",\"control\":\"down\"}" "$B/api/cmd"
+sleep 3; chk "commande recue par le boitier (mTLS, nom verifie, traduite par sa famille)" "$(docker logs isno-e2e-device 2>&1)" "CLOSE"
+chk "isolation : un autre topic ne recoit rien" "$(docker run --rm -v "$WORK:/d:ro" "${SUB[@]}" -t 'famille-test/opf-autre/#' -C 1 -W 4 2>&1 | grep -vc 'Timed out')" 0
+chk "commande d'un appareil jamais vu : refusee" "$(curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' -d "{\"device_id\":\"$ID\",\"slug\":\"fantome\",\"control\":\"down\"}" "$B/api/cmd")" 400
+chk "position hors bornes : refusee" "$(curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' -d "{\"device_id\":\"$ID\",\"slug\":\"volet\",\"control\":\"position\",\"value\":150}" "$B/api/cmd")" 400
+
+echo "== types d'appareils : un type de la famille a sa carte, tout autre est un appareil inconnu"
+docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/cover/salon/attrs" -m '{"type":"volet","positional":true}'
+docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/cover/pergola/attrs" -m '{"type":"pergola","positional":false}'
+docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/cover/mystere/attrs" -m '{"positional":false}'
 # presence annoncee par le boitier (comme le firmware : online retenu a la connexion)
-docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "openprofalux/$ID/status" -m 'online'
+docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/status" -m 'online'
 sleep 3; PAGE=$(curl -s -b "$J" "$B/")
 # commandes du salon actives ou non : on lit les boutons de SA carte (data-slug="salon")
 salon_disabled() { curl -s -b "$J" "$B/" | grep -o 'data-slug="salon">.\{0,40\}<button[^>]*>' | grep -c 'disabled'; }
 chk "presence : boitier annonce en ligne, commandes actives" "$(salon_disabled)" 0
 chk "type gere : une carte de commande" "$(echo "$PAGE" | grep -c 'data-slug="salon"')" 1
-chk "type gere : libelles declares par son plugin" "$(echo "$PAGE" | grep -c 'aria-label="Montée"')" 1
+chk "type gere : libelles declares par sa famille" "$(echo "$PAGE" | grep -c 'aria-label="Montée"')" 1
+chk "position reglable : un curseur par volet positionnel (volet et salon)" "$(echo "$PAGE" | grep -o 'data-control="position"' | wc -l)" 2
 chk "type non gere : pas de commandes" "$(echo "$PAGE" | grep -c 'data-slug="pergola"')" 0
 chk "type non gere : nomme dans la carte inconnue" "$(echo "$PAGE" | grep -c 'Type « pergola » non géré par ce portail.')" 1
 chk "aucun type declare : dit tel quel" "$(echo "$PAGE" | grep -c 'Le boîtier ne déclare aucun type pour cet appareil.')" 1
 # le boitier disparait : son testament (offline, retenu) est publie par le broker a sa place
-docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "openprofalux/$ID/status" -m 'offline'
+docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/status" -m 'offline'
 sleep 3
 chk "presence : boitier hors ligne (testament), commandes coupees" "$(salon_disabled)" 1
 chk "presence : etat hors ligne affiche malgre les etats retenus de ses appareils" "$(curl -s -b "$J" "$B/" | grep -o 'class="grp-head"[^>]*>.\{0,40\}class="dot off"' | wc -l)" 1
 chk "derniere activite : un boitier hors ligne dit quand il a ete vu" "$(curl -s -b "$J" "$B/" | grep -o 'class="grp-seen">vu [^<]*' | wc -l)" 1
-docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "openprofalux/$ID/status" -m 'online'
+docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/status" -m 'online'
 sleep 2
 
 echo "== reconciliation : la config change de nom, le certificat suit"
@@ -236,7 +247,7 @@ PL=$(curl -s -b "$J" "$B/plugins")
 chk "Plugins : « Connexion par mot de passe » active, avec son ecrou" "$(echo "$PL" | grep -c 'href="/plugins/local-accounts"')" 1
 chk "Plugins : elle se retire (la connexion est native)" "$(echo "$PL" | grep -c 'data-disable="local-accounts"')" 1
 chk "cartes : la connexion par mot de passe, active, dans Connexion" "$(echo "$PL" | grep -o 'data-plugin="local-accounts" data-state="active"' | wc -l)" 1
-chk "cartes : chaque plugin integre porte son logo (et le theme de base)" "$(echo "$PL" | grep -o '<svg class="icon-mark"' | wc -l | awk '{print ($1>=7)}')" 1
+chk "cartes : chaque plugin integre porte son logo (et le theme de base)" "$(echo "$PL" | grep -o '<svg class="icon-mark"' | wc -l | awk '{print ($1>=5)}')" 1   # 4 integres + le theme de base
 chk "Plugins : l'exemple du catalogue est propose" "$(echo "$PL" | grep -c 'data-install="example"')" 1
 chk "source http refusee" "$(apiJ /api/plugins/sources '{"add":"http://exemple.fr/plugins.json"}')" 400
 chk "source https injoignable refusee (rien n'est garde)" "$(apiJ /api/plugins/sources '{"add":"https://nexiste-pas.invalid/plugins.json"}')" 400
@@ -386,19 +397,13 @@ chk "desactivation (le portail redemarre)" "$(apiJ /api/plugins/disable '{"id":"
 wait_restart
 chk "desactive : plus de manifeste" "$(curl -s -o /dev/null -w '%{http_code}' "$B/manifest.webmanifest")" 404
 
-echo "== types d'appareils : chacun est un plugin, active d'office, desactivable"
-chk "plugin du type volet : actif d'office" "$(curl -s -b "$J" "$B/plugins" | grep -c 'data-disable="device-volet"')" 1
-chk "type volet desactive (le portail redemarre)" "$(apiJ /api/plugins/disable '{"id":"device-volet"}')" 200
-wait_restart
-for _ in $(seq 1 20); do curl -s -b "$J" "$B/" | grep -q 'Type « volet » non géré' && break; sleep 1; done
-chk "type desactive : le volet devient un appareil inconnu" "$(curl -s -b "$J" "$B/" | grep -c 'Type « volet » non géré par ce portail.')" 1
-chk "type desactive : plus de commandes pour lui" "$(curl -s -b "$J" "$B/" | grep -c 'data-slug="salon"')" 0
-chk "type desactive : reste eteint (config)" "$(docker exec isno-cloud-server grep -c '"device-volet"' /data/portal.config.json)" 1
-chk "type volet reactive (le portail redemarre)" "$(apiJ /api/plugins/enable '{"id":"device-volet"}')" 200
-wait_restart
-# apres redemarrage, l'etat des appareils revient du broker (messages retenus) en quelques secondes
+echo "== familles de boitiers : l'ACL du broker suit les familles installees"
+chk "ACL : la racine de la famille de test, pour chaque boitier sous son nom" "$(docker exec isno-cloud-server grep -c '^pattern readwrite famille-test/%u/#$' /broker-config/acl)" 1
+chk "ACL : aucune famille non installee" "$(docker exec isno-cloud-server grep -c 'openprofalux' /broker-config/acl)" 0
+# apres un redemarrage du portail, l'etat des appareils revient du broker (messages retenus)
+docker restart isno-cloud-server >/dev/null; wait_restart
 for _ in $(seq 1 20); do curl -s -b "$J" "$B/" | grep -q 'data-slug="salon"' && break; sleep 1; done
-chk "type reactive : la carte de commande revient" "$(curl -s -b "$J" "$B/" | grep -c 'data-slug="salon"')" 1
+chk "redemarrage : la carte revient des messages retenus" "$(curl -s -b "$J" "$B/" | grep -c 'data-slug="salon"')" 1
 chk "desactive : le secret partage est garde" "$(docker exec isno-cloud-server node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync("/data/plugin-secrets.json","utf8"))["external-auth"]||"")')" "$SEC"
 
 echo "== Instance : adresse du portail modifiable apres verification"

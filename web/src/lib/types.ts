@@ -2,27 +2,27 @@
 // pas des chaines ecrites a la main (regle « pas de texte litteral dans le code »). Le cloud ne recode
 // pas les types : ils viennent de ce que le DEVICE declare (profiles.json cote firmware).
 
-import type { DeviceTypeDecl } from '@opencloudapp/core/plugin-types.js';
-/** Type d'appareil tel qu'un plugin le DECLARE (nom, icone, libelles des commandes). */
-export type DeviceKind = DeviceTypeDecl;
+import type { KindDecl, ControlValue } from '@opencloudapp/core/family-contract.js';
+/** Type d'appareil tel que sa FAMILLE le declare (nom, icone, controles de sa carte). */
+export type DeviceKind = KindDecl;
 
-/** Un appareil pilote (volet, portail...) rattache a un boitier. Rendu PAR TYPE. */
+/** Un appareil pilote (volet, portail...) rattache a un boitier, tel que la famille du boitier le lit.
+ *  Sa carte se dessine depuis les controles de son type. */
 export type Appareil = {
   id: string;
   boitierId: string;
-  /** slug du cover cote firmware, sert a cibler la commande (/api/cmd) */
+  /** identifiant de l'appareil dans le boitier, sert a cibler la commande (/api/cmd) */
   slug: string;
   name: string;
-  /** Type declare par un plugin, ou null : aucun plugin ne declare ce type (montre comme « appareil
-   *  inconnu », sans commandes, jamais deguise en volet). */
+  /** Type connu de la famille, ou null : montre comme « appareil inconnu », sans commandes, jamais
+   *  deguise en un autre type. */
   kind: DeviceKind | null;
-  /** Type tel que le boitier le declare (vide s'il n'en declare aucun), pour le dire a l'utilisateur. */
+  /** Type tel que le boitier le declare, pour le dire a l'utilisateur. */
   declaredType: string;
-  /** positionnel : affiche la position (slat + %). Impulsionnel (portail) : ni slat ni %. */
-  positional: boolean;
-  /** 0..100, null si inconnu/non positionnel */
-  position: number | null;
-  // Les libelles des commandes viennent du type (kind.actions) ; le boitier recoit l'action canonique.
+  /** valeurs par controle (position, releves...) */
+  values: Record<string, ControlValue>;
+  /** controles masques sur CET appareil (ex. la position d'un volet qui ne la donne pas) */
+  hidden: readonly string[];
   online: boolean;
   /** detail optionnel (derriere la roue crantee) */
   rssiDbm?: number | null;
@@ -31,9 +31,11 @@ export type Appareil = {
 export type KnownAppareil = Appareil & { kind: DeviceKind };
 export const isKnownAppareil = (a: Appareil): a is KnownAppareil => a.kind !== null;
 
-/** Un boitier OpenProfalux appaire au compte. Nommable par l'utilisateur. */
+/** Un boitier appaire au compte. Nommable par l'utilisateur. */
 export type Boitier = {
   id: string;            // ex. opf-5ec9d3968f
+  /** famille de boitiers installee pour lui (son plugin), ou false : le portail ne sait pas le lire */
+  familyKnown: boolean;
   name: string;          // nom donne par l'utilisateur (Maison 1...)
   online: boolean;
   firmware: string;      // ex. 0.2.15+cloud

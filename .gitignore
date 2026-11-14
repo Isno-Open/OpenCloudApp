@@ -21,3 +21,6 @@ supervisor/dist
 supervisor/dist-test
 web/dist
 plugins/*/dist
+
+# ACL du broker : engendree par le portail depuis les familles installees (server/src/broker-config.ts)
+config/acl

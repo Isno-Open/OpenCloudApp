@@ -25,7 +25,7 @@ interface S {
   details: string; rename: string; typeWord: string; positional: string; impulsional: string;
   unknownDevice: string; unknownDeclared: (type: string) => string; unknownNoType: string;
   lastSeen: (when: string) => string; lastSeenLabel: string;
-  posWord: string; radioState: (dbm: number) => string; offline: string; offlineSuffix: string; nameLabel: string;
+  posWord: string; unknownValue: string; on: string; off: string; radioState: (dbm: number) => string; offline: string; offlineSuffix: string; nameLabel: string;
   // etat appareil
   online: string; offlineShort: string; updAvail: string; configure: string; devicesWord: string;
   // page appareil (configuration)
@@ -95,7 +95,7 @@ export const STRINGS = {
     details: 'Détails', rename: 'Renommer', typeWord: 'Type', positional: 'positionnel', impulsional: 'impulsionnel',
     lastSeen: (when: string) => `vu ${when}`, lastSeenLabel: 'Dernière activité',
     unknownDevice: 'Appareil inconnu', unknownDeclared: (type: string) => `Type « ${type} » non géré par ce portail.`, unknownNoType: 'Le boîtier ne déclare aucun type pour cet appareil.',
-    posWord: 'Position', radioState: (d) => `reçu ${d} dBm`, offline: 'hors ligne', offlineSuffix: ' · hors ligne', nameLabel: 'Nom',
+    posWord: 'Position', unknownValue: 'inconnu', on: 'marche', off: 'arrêt', radioState: (d) => `reçu ${d} dBm`, offline: 'hors ligne', offlineSuffix: ' · hors ligne', nameLabel: 'Nom',
     online: 'en ligne', offlineShort: 'hors ligne', updAvail: 'maj dispo', configure: 'Configurer', devicesWord: 'volets',
     backBoxes: 'Mes appareils',
     leadBoitier: (id, c, up) => `${id} · ${c} volets${up ? ` · actif depuis ${up}` : ''}`,
@@ -191,7 +191,7 @@ export const STRINGS = {
     details: 'Details', rename: 'Rename', typeWord: 'Type', positional: 'positional', impulsional: 'pulsed',
     lastSeen: (when: string) => `seen ${when}`, lastSeenLabel: 'Last activity',
     unknownDevice: 'Unknown device', unknownDeclared: (type: string) => `Type "${type}" is not supported by this portal.`, unknownNoType: 'The box declares no type for this device.',
-    posWord: 'Position', radioState: (d) => `received ${d} dBm`, offline: 'offline', offlineSuffix: ' · offline', nameLabel: 'Name',
+    posWord: 'Position', unknownValue: 'unknown', on: 'on', off: 'off', radioState: (d) => `received ${d} dBm`, offline: 'offline', offlineSuffix: ' · offline', nameLabel: 'Name',
     online: 'online', offlineShort: 'offline', updAvail: 'update', configure: 'Configure', devicesWord: 'shutters',
     backBoxes: 'My devices',
     leadBoitier: (id, c, up) => `${id} · ${c} shutters${up ? ` · up for ${up}` : ''}`,

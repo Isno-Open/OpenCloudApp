@@ -1,8 +1,9 @@
 <script lang="ts">
-  // Carte d'un appareil d'un type declare (kind) : trois commandes, volet dessine pour les positionnels,
-  // roue crantee pour les details. Icone, nom et libelles viennent du TYPE ; le relais recoit l'action
-  // canonique (DEVICE_ACTION).
-  import { DEVICE_ACTION, type DeviceAction } from '@opencloudapp/core/plugin-contract.js';
+  // Carte d'un appareil d'un type connu : ses CONTROLES, tels que sa famille les declare dans le
+  // vocabulaire fixe par le coeur (family-contract.ts). Le cadre est le meme pour tous (DeviceFrame) ;
+  // seul le contenu, venu de la declaration, change. Le relais recoit la commande et la famille la
+  // traduit pour le boitier.
+  import { CONTROL, type ControlDecl, type ControlValue } from '@opencloudapp/core/family-contract.js';
   import { t, type Lang } from '#lib/i18n.ts';
   import { postJson, ignoreBody } from '#lib/api.ts';
   import type { KnownAppareil } from '#lib/types.ts';
@@ -14,46 +15,83 @@
   interface Props { appareil: KnownAppareil; boitierName: string; lang: Lang; grouped?: boolean; }
   const { appareil: a, boitierName, lang, grouped = false }: Props = $props();
   const s = $derived(t(lang));
-  const showPos = $derived(a.positional && a.position !== null);
   const SENDING_MS = 400;   // retour visuel du bouton presse
 
-  const buttons = $derived([
-    { action: DEVICE_ACTION.up, glyph: '▲', label: a.kind.actions.up[lang] },
-    { action: DEVICE_ACTION.stop, glyph: '■', label: a.kind.actions.stop[lang] },
-    { action: DEVICE_ACTION.down, glyph: '▼', label: a.kind.actions.down[lang] },
-  ]);
-  let showDetails = $state(false);
-  let sending = $state<DeviceAction | null>(null);
+  const shown = $derived(a.kind.controls.filter((c) => !a.hidden.includes(c.id)));
+  const actions = $derived(shown.filter((c) => c.kind === CONTROL.action));
+  const position = $derived(shown.find((c) => c.kind === CONTROL.position));
+  const others = $derived(shown.filter((c) => c.kind !== CONTROL.action && c.kind !== CONTROL.position));
+  const num = (v: ControlValue | undefined): number | null => (typeof v === 'number' ? v : null);
+  const pos = $derived(position ? num(a.values[position.id]) : null);
 
-  async function send(action: DeviceAction): Promise<void> {
-    sending = action;
-    await postJson('/api/cmd', { device_id: a.boitierId, slug: a.slug, action }, s.netErr, ignoreBody);
+  let showDetails = $state(false);
+  let sending = $state<string | null>(null);
+  async function send(control: string, value: ControlValue | null = null): Promise<void> {
+    sending = control;
+    await postJson('/api/cmd', { device_id: a.boitierId, slug: a.slug, control, value }, s.netErr, ignoreBody);
     setTimeout(() => { sending = null; }, SENDING_MS);
   }
+  const reading = (c: ControlDecl): string => {
+    const v = a.values[c.id];
+    if (v === undefined) return s.unknownValue;
+    const unit = 'unit' in c && c.unit ? ` ${c.unit}` : '';
+    return typeof v === 'boolean' ? (v ? s.on : s.off) : `${v}${unit}`;
+  };
+  const alerting = (c: ControlDecl): boolean => {
+    const v = num(a.values[c.id]);
+    return c.kind === CONTROL.reading && v !== null && ((c.alertBelow !== undefined && v < c.alertBelow) || (c.alertAbove !== undefined && v > c.alertAbove));
+  };
 </script>
 
 <DeviceFrame {lang} name={a.name} boxId={a.boitierId} boxName={boitierName} online={a.online} {grouped}>
   {#snippet icon()}
     <IconMark icon={a.kind.icon} label={a.kind.label[lang]} />
   {/snippet}
-  {#snippet badge()}{#if showPos}<span class="pct">{a.position} %</span>{/if}{/snippet}
-  <div class="dpad" data-device={a.boitierId} data-slug={a.slug}>
-    {#each buttons as b (b.action)}
-      <button type="button" class={{ sending: sending === b.action }} data-action={b.action} title={b.label} aria-label={b.label} disabled={!a.online} onclick={() => send(b.action)}>{b.glyph}</button>
-    {/each}
-  </div>
-  {#if a.positional}
-    <div class="slat" style={`--p:${a.position ?? 0}${a.online ? '' : ';opacity:.5'}`} title={showPos ? `${a.position} %` : undefined}></div>
+  {#snippet badge()}{#if pos !== null}<span class="pct">{pos} %</span>{/if}{/snippet}
+  {#if actions.length}
+    <div class="dpad" data-device={a.boitierId} data-slug={a.slug}>
+      {#each actions as c (c.id)}
+        <button type="button" class={{ sending: sending === c.id }} data-action={c.id} title={c.label[lang]} aria-label={c.label[lang]} disabled={!a.online} onclick={() => send(c.id)}>
+          {#if c.kind === CONTROL.action && c.icon}<IconMark icon={c.icon} label={c.label[lang]} />{:else}{c.label[lang]}{/if}
+        </button>
+      {/each}
+    </div>
   {/if}
+  {#if position}
+    <div class="slat" style={`--p:${pos ?? 0}${a.online ? '' : ';opacity:.5'}`} title={pos !== null ? `${pos} %` : undefined}></div>
+    {#if position.kind === CONTROL.position && position.settable}
+      <input class="pos-range" type="range" min="0" max="100" step="1" value={pos ?? 0} aria-label={position.label[lang]} data-control={position.id}
+        disabled={!a.online} onchange={(e) => send(position.id, Number(e.currentTarget.value))} />
+    {/if}
+  {/if}
+  {#each others as c (c.id)}
+    {#if c.kind === CONTROL.toggle}
+      <label class="ctl-toggle"><input type="checkbox" checked={a.values[c.id] === true} disabled={!a.online} data-control={c.id}
+        onchange={(e) => send(c.id, e.currentTarget.checked)} /> {c.label[lang]}</label>
+    {:else if c.kind === CONTROL.setpoint}
+      <label class="ctl-setpoint">{c.label[lang]}
+        <input type="number" min={c.min} max={c.max} step={c.step} value={num(a.values[c.id]) ?? ''} disabled={!a.online} data-control={c.id}
+          onchange={(e) => send(c.id, Number(e.currentTarget.value))} /> {c.unit}</label>
+    {:else}
+      <div class={['ctl-reading', { alert: alerting(c) }]}><KeyValue label={c.label[lang]} value={reading(c)} /></div>
+    {/if}
+  {/each}
   {#snippet action()}
     <button class="gear" type="button" data-det title={s.details} aria-label={s.details} onclick={() => { showDetails = !showDetails; }}><GearIcon /></button>
   {/snippet}
   {#snippet details()}
     <div class="hw-det" hidden={!showDetails}>
-      <KeyValue label={s.typeWord} value={`${a.kind.label[lang]} · ${a.positional ? s.positional : s.impulsional}`} />
-      {#if showPos}<KeyValue label={s.posWord} value={`${a.position} %`} />{/if}
+      <KeyValue label={s.typeWord} value={a.kind.label[lang]} />
+      {#if pos !== null}<KeyValue label={s.posWord} value={`${pos} %`} />{/if}
       {#if a.rssiDbm != null}<KeyValue label={s.wifiSignal} value={s.radioState(a.rssiDbm)} />{/if}
       {#if !a.online}<KeyValue label={s.state} value={s.offline} />{/if}
     </div>
   {/snippet}
 </DeviceFrame>
+
+<style>
+  .pos-range { width: 100%; accent-color: var(--accent); }
+  .ctl-toggle, .ctl-setpoint { display: flex; gap: 0.5rem; align-items: center; }
+  .ctl-setpoint input { width: 5rem; }
+  .ctl-reading.alert { color: var(--danger); }
+</style>

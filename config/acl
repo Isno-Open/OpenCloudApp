@@ -1,5 +1,0 @@
-# Relais backend : acces complet (propriete device<->compte verifiee cote app).
-user relay
-topic readwrite openprofalux/#
-
-pattern readwrite openprofalux/%u/#

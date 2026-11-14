@@ -1,7 +1,8 @@
 # Plugins de famille de boîtiers : proposition de contrat
 
-**Statut : proposition, à valider par Olivier avant le code** (décision du 2026-11-13 : une famille de
-boîtiers = un plugin, qui vit dans le dépôt de son firmware).
+**Statut : en place** (décision du 2026-11-13 : une famille de boîtiers = un plugin, qui vit dans le
+dépôt de son firmware ; contrat écrit le 2026-11-14 : `server/src/family-contract.ts`, registre et
+vérifications : `server/src/device-families.ts`, famille de test : `plugins/famille-test`).
 
 Une **famille** est un firmware et tout ce qu'il publie : OpenProfalux aujourd'hui, OpenXtraflame
 demain. Son plugin apprend au portail à lire ses boîtiers, à les commander et à dessiner leurs cartes.
@@ -134,6 +135,11 @@ Décidé le 2026-11-13 : **les plugins se choisissent à l'installation**. L'ass
 passe ou site externe), thème, application installable. Une instance neuve n'a donc aucune famille
 d'office ; tout reste modifiable ensuite depuis la page Plugins.
 
-## Question ouverte
+## Décidé
 
-1. La position réglable (`set_position`) apparaît-elle sur la carte dès maintenant, ou plus tard ?
+1. La position réglable (`set_position`) apparaît sur la carte dès maintenant, quand le volet se
+   déclare positionnel (Olivier, 2026-11-14).
+2. Un type d'appareil que la famille ne connaît pas (firmware plus récent que son plugin), ou aucun
+   type déclaré, est montré « appareil inconnu », sans commandes.
+3. L'ACL du broker se déduit des familles installées (`broker-config.ts`) : le relais a accès à chaque
+   racine, chaque boîtier à `<racine>/<son nom>/#` seulement.
