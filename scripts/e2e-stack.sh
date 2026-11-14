@@ -150,6 +150,14 @@ chk "derniere activite : un boitier hors ligne dit quand il a ete vu" "$(curl -s
 docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/status" -m 'online'
 sleep 2
 
+echo "== mise a jour du boitier : proposee seulement vers plus recent"
+docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/update" -m '{"installed":"0.2.16-essai","latest":"0.2.15"}'
+sleep 2
+chk "version de test plus recente que la publiee : a jour (pas de retour en arriere propose)" "$(curl -s -b "$J" "$B/boitier/$ID" | grep -c '>à jour</span>')" 1
+docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/update" -m '{"installed":"0.2.16-essai","latest":"0.2.17"}'
+sleep 2
+chk "version publiee plus recente : mise a jour proposee" "$(curl -s -b "$J" "$B/boitier/$ID" | grep -c 'mise à jour dispo')" 1
+
 echo "== reconciliation : la config change de nom, le certificat suit"
 FP1=$(docker exec isno-cloud-server openssl x509 -in /broker-certs/server.crt -noout -fingerprint -sha256)
 docker exec isno-cloud-server sh -c "sed -i 's#mqtts://$LAN:18883#mqtts://localtest.me:18883#' /data/portal.config.json"

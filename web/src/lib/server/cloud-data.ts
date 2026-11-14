@@ -4,6 +4,7 @@
 import { listDevices, countDevices, findDevice, getAccount } from '@opencloudapp/core/store.js';
 import { deviceOnline } from '@opencloudapp/core/mqtt.js';
 import { familyById, boxState } from '@opencloudapp/core/device-families.js';
+import { isNewerVersion } from '@opencloudapp/core/version.js';
 import type { Appareil, Boitier, Account } from '#lib/types.ts';
 import { boot } from '#lib/server/boot.ts';
 import { plugins } from '#lib/server/auth.ts';
@@ -14,7 +15,7 @@ const boitierOf = (d: { deviceId: string; name: string; firmware: string; lastSe
   const st = boxState(d.firmware, d.deviceId);
   return {
     id: d.deviceId, familyKnown: !!familyById(d.firmware), name: d.name, firmware: st?.firmware ?? d.firmware,
-    online: deviceOnline(d.firmware, d.deviceId), updateAvailable: !!st?.latest && !!st.firmware && st.latest !== st.firmware,
+    online: deviceOnline(d.firmware, d.deviceId), updateAvailable: !!st?.latest && !!st.firmware && isNewerVersion(st.latest, st.firmware),
     count: st?.devices.size ?? 0, lastSeenAt: d.lastSeenAt ?? null,
   };
 };

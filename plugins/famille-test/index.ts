@@ -4,6 +4,7 @@
 //   status                  online | offline (retenu, testament)
 //   cover/<id>/attrs        {"type": "volet", "positional": true}   (retenu)
 //   cover/<id>/position     0..100                                  (retenu)
+//   update                  {"installed": "0.2.16", "latest": "0.2.17"} (retenu)
 // et se commande par `cover/<id>/set` (OPEN | STOP | CLOSE) et `cover/<id>/set_position` (0..100).
 import type { Plugin } from "../../server/src/plugin-types.js";
 import { CONTROL, FACT, FAMILY_CONTRACT, type Fact, type FamilyDecl } from "../../server/src/family-contract.js";
@@ -28,6 +29,12 @@ const family: FamilyDecl = {
   }],
   read({ path, payload }): Fact[] {
     if (path === "status") return payload === "online" || payload === "offline" ? [{ fact: FACT.presence, online: payload === "online" }] : [];
+    if (path === "update") {
+      let u: unknown;
+      try { u = JSON.parse(payload); } catch { return []; }
+      const o = u && typeof u === "object" ? (u as Record<string, unknown>) : {};
+      return [{ fact: FACT.box, ...(typeof o.installed === "string" ? { firmware: o.installed } : {}), ...(typeof o.latest === "string" ? { latest: o.latest } : {}) }];
+    }
     const m = /^cover\/([^/]+)\/(attrs|position)$/.exec(path);
     if (!m) return [];
     const device = m[1]!;
