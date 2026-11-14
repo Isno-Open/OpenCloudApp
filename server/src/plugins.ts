@@ -5,11 +5,14 @@
 // - Integres (livres avec le portail) : actives par la config (`plugins`), « comptes locaux » par defaut.
 // - Ajoutes depuis le catalogue ISNO : le superviseur copie leur code dans PLUGINS_DIR/<id>/index.js.
 // - Developpement : modules charges depuis HARNESS_MODULE (chemins separes par « , »).
+//
+// Le chargement, la verification du code venu d'ailleurs et les reglages declares sont ceux du moteur
+// partage OpenPluginHost (@isno-open/plugin-host) : ce fichier ne garde que ce qui est propre au portail
+// (api donnee aux plugins, capacites, theme applique a l'activation, origine des comptes).
 import { externalAuthPlugin } from "./plugins/external-auth.js";
 import { shutterTypePlugin, gateTypePlugin } from "./plugins/device-types.js";
 import { registerDeviceType } from "./device-types.js";
 import { registerTheme, BASE_THEME, asTheme } from "./themes.js";
-import { asIcon } from "./icons.js";
 import { installableAppPlugin } from "./plugins/installable-app.js";
 import { customThemePlugin } from "./plugins/theme-custom.js";
 import type { PortalConfig } from "./config.js";
@@ -18,10 +21,9 @@ import { ensureAccount, markMissingAccounts } from "./store.js";
 import { DEFAULT_CAP } from "./entitlement.js";
 import { localAccountsPlugin } from "./plugins/local-accounts.js";
 import { loadConfig } from "./config.js";
-import { join } from "node:path";
-import { pathToFileURL } from "node:url";
-import { CAPABILITY, PLUGIN_CATEGORY, EXCLUSIVE_CATEGORIES, isPluginCategory, type Capability, type Plugin, type PluginApi, type PluginInfo, type PluginSettings, type SettingValue, type LocalizedText, type PluginCategory, type ThemeDecl } from "./plugin-types.js";
-export { CAPABILITY, type Capability, type Plugin, type PluginApi, type PluginInfo };
+import { createPluginHost, enabledIn as hostEnabledIn, withPluginOn as hostWithPluginOn, withPluginOff as hostWithPluginOff, PLUGIN_ID_RE, type EnabledRules } from "@isno-open/plugin-host";
+import { CAPABILITY, PLUGIN_CATEGORY, EXCLUSIVE_CATEGORIES, type Capability, type Plugin, type PluginApi, type PluginExtra, type PluginInfo, type PluginSettings, type SettingValue, type LocalizedText, type PluginCategory, type ThemeDecl } from "./plugin-types.js";
+export { CAPABILITY, type Capability, type Plugin, type PluginApi, type PluginInfo, PLUGIN_ID_RE };
 
 /** Greffons livres avec le portail. */
 export const BUILTIN_PLUGINS: Record<string, Plugin> = {
@@ -34,190 +36,122 @@ export const DEFAULT_PLUGINS: readonly string[] = [localAccountsPlugin.id];
 /** Integres actives D'OFFICE, meme sur une instance deja configuree (sa liste ne les nomme pas) :
  *  seul un retrait explicite (pluginsOff) les eteint. Ce sont les types d'appareils de base. */
 export const ALWAYS_ON_PLUGINS: readonly string[] = [shutterTypePlugin.id, gateTypePlugin.id];
+const RULES: EnabledRules = { defaults: DEFAULT_PLUGINS, alwaysOn: ALWAYS_ON_PLUGINS };
 /** Anciens plugins devenus partie du coeur : une config qui les nomme encore ne cherche pas a les
  *  charger (le theme ISNO, theme de base, est au coeur depuis le 2026-11-13). */
 const RETIRED_PLUGINS: readonly string[] = ["theme-isno"];
 
-const installed: PluginInfo[] = [];
-const settingsById = new Map<string, PluginSettings>();
-const sourceLabels = new Map<string, () => string>();
-/** Nom court de l'origine des comptes crees par un plugin (Utilisateurs), ou son identifiant. */
-export function accountSourceLabel(pluginId: string, lang: keyof LocalizedText): string {
-  const label = sourceLabels.get(pluginId);
-  try { return label?.() || installed.find((p) => p.id === pluginId)?.title[lang] || pluginId; } catch { return pluginId; }
-}
+/** Dossier des plugins ajoutes depuis le catalogue (volume isno-plugins, en lecture seule). */
+export const PLUGINS_DIR = process.env.PLUGINS_DIR ?? "/plugins";
+
 // La connexion par e-mail et mot de passe est NATIVE : le compte cree a l'installation peut toujours
 // entrer, quels que soient les plugins. Un plugin ajoute le reste (plusieurs comptes, SSO...).
 const capabilities = new Set<Capability>([CAPABILITY.localLogin]);
 
-/** Dossier des plugins ajoutes depuis le catalogue (volume isno-plugins, en lecture seule). */
-export const PLUGINS_DIR = process.env.PLUGINS_DIR ?? "/plugins";
-/** Identifiant de plugin = nom de dossier : la meme regle que le superviseur. */
-export const PLUGIN_ID_RE = /^[a-z0-9][a-z0-9-]{1,40}$/;
+/** Champs propres au portail lus dans la declaration d'un plugin du catalogue, VERIFIES : un theme
+ *  par son identifiant, une origine de comptes par une fonction. Le reste est ignore. */
+const THEME_ID_RE = /^[a-z0-9][a-z0-9-]{0,40}$/;
+function pluginExtra(raw: Readonly<Record<string, unknown>>): PluginExtra {
+  const out: PluginExtra = {};
+  if (typeof raw.appliesTheme === "string" && THEME_ID_RE.test(raw.appliesTheme)) out.appliesTheme = raw.appliesTheme;
+  const source = raw.accountSource;
+  if (typeof source === "function") out.accountSource = () => String(source.call(raw));
+  return out;
+}
 
-/** Enregistre un plugin. */
-async function registerOne(p: Plugin, builtin: boolean): Promise<void> {
-  const api: PluginApi = {
+const host = createPluginHost<PluginApi, PluginCategory, PluginExtra>({
+  builtins: BUILTIN_PLUGINS,
+  catalogDir: PLUGINS_DIR,
+  devModules: (process.env.HARNESS_MODULE ?? "").split(",").map((x) => x.trim()).filter(Boolean),
+  categories: Object.values(PLUGIN_CATEGORY),
+  defaultCategory: PLUGIN_CATEGORY.other,
+  exclusive: EXCLUSIVE_CATEGORIES,
+  extra: pluginExtra,
+  makeApi: ({ id }) => ({
     registerAuthProvider,
     provideCapability: (c) => { capabilities.add(c); },
     // le plugin devient la source des comptes qu'il cree ; il ne rapproche que les siens
-    ensureAccount: (id, cap, name) => ensureAccount(id, cap, name, p.id),
-    reconcileAccounts: (present) => markMissingAccounts(p.id, present, Date.now()),
+    ensureAccount: (acc, cap, name) => ensureAccount(acc, cap, name, id),
+    reconcileAccounts: (present) => markMissingAccounts(id, present, Date.now()),
     defaultCap: DEFAULT_CAP,
     registerDeviceType,
     registerTheme,
-    settings: () => loadConfig()?.pluginSettings?.[p.id],
-  };
-  await p.register(api);
-  const icon = asIcon(p.icon);
-  installed.push({ id: p.id, title: p.title, description: p.description, ...(icon ? { icon } : {}), category: p.category ?? PLUGIN_CATEGORY.other, builtin, configurable: !!p.settings, ...(p.appliesTheme ? { appliesTheme: p.appliesTheme } : {}) });
-  if (p.settings) settingsById.set(p.id, p.settings);
-  if (p.accountSource) sourceLabels.set(p.id, p.accountSource);
+    settings: () => loadConfig()?.pluginSettings?.[id],
+  }),
+  storedSettings: (id) => loadConfig()?.pluginSettings?.[id],
+  log: (m) => console.error(m),
+});
+
+/** Nom court de l'origine des comptes crees par un plugin (Utilisateurs), ou son identifiant. */
+export function accountSourceLabel(pluginId: string, lang: keyof LocalizedText): string {
+  const p = host.plugin(pluginId);
+  try { return p?.accountSource?.() || host.installed().find((i) => i.id === pluginId)?.title[lang] || pluginId; } catch { return pluginId; }
 }
 
-/** Un module charge a-t-il la forme d'un plugin ? (export par defaut, ou exports nommes). Code venu
- *  d'ailleurs : chaque morceau est verifie avant d'etre garde, rien n'est pris sur parole. */
-const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object";
-const isText = (v: unknown): v is LocalizedText => isObj(v) && typeof v.fr === "string" && typeof v.en === "string";
-const isSettings = (v: unknown): v is PluginSettings =>
-  isObj(v) && Array.isArray(v.fields) && typeof v.toForm === "function" && typeof v.fromForm === "function";
-function asPlugin(m: Record<string, unknown>, fallbackId: string): Plugin {
-  const c = isObj(m.default) ? m.default : m;
-  const register = c.register;
-  if (typeof register !== "function") throw new Error("pas de register(api)");
-  return {
-    id: typeof c.id === "string" ? c.id : fallbackId,
-    // nom dans les deux langues ; un nom simple (plugin d'avant) vaut pour les deux
-    title: isText(c.title) ? c.title : typeof c.title === "string" ? { fr: c.title, en: c.title } : { fr: fallbackId, en: fallbackId },
-    description: isText(c.description) ? c.description : undefined,
-    settings: isSettings(c.settings) ? c.settings : undefined,
-    appliesTheme: typeof c.appliesTheme === "string" ? c.appliesTheme : undefined,
-    category: isPluginCategory(c.category) ? c.category : undefined,
-    icon: asIcon(c.icon) ?? undefined,
-    register: (api: PluginApi) => register.call(c, api),
-  };
-}
-
-/** Plugin copie depuis le catalogue dans PLUGINS_DIR/<id>/index.js, verifie. */
-async function importCatalogPlugin(id: string): Promise<Plugin> {
-  return asPlugin((await import(/* @vite-ignore */ pathToFileURL(join(PLUGINS_DIR, id, "index.js")).href)) as Record<string, unknown>, id);
-}
+/** Fiche d'un plugin pour l'ecran Plugins : celle du moteur, plus le theme qu'il applique. */
+const withTheme = (info: PluginInfo, p: PluginExtra | null | undefined): PluginInfo =>
+  p?.appliesTheme ? { ...info, appliesTheme: p.appliesTheme } : info;
 
 /** Theme a appliquer a l'activation d'un plugin (integre, ou deja copie depuis le catalogue), ou null.
  *  Lu dans la declaration du plugin, sans l'enregistrer : il ne sera charge qu'au redemarrage. */
 export async function pluginAppliedTheme(id: string): Promise<string | null> {
-  const builtin = BUILTIN_PLUGINS[id];
-  if (builtin) return builtin.appliesTheme ?? null;
-  if (!PLUGIN_ID_RE.test(id)) return null;
-  try { return (await importCatalogPlugin(id)).appliesTheme ?? null; }
-  catch { return null; }
+  return (await host.peek(id))?.appliesTheme ?? null;
 }
 
 /** Categorie d'un plugin (charge, integre ou copie depuis le catalogue), sans l'enregistrer. */
-export async function pluginCategory(id: string): Promise<PluginCategory> {
-  const known = installed.find((p) => p.id === id)?.category ?? BUILTIN_PLUGINS[id]?.category;
-  if (known) return known;
-  if (!PLUGIN_ID_RE.test(id)) return PLUGIN_CATEGORY.other;
-  try { return (await importCatalogPlugin(id)).category ?? PLUGIN_CATEGORY.other; } catch { return PLUGIN_CATEGORY.other; }
-}
+export const pluginCategory = (id: string): Promise<PluginCategory> => host.categoryOf(id);
 export const isExclusiveCategory = (c: PluginCategory): boolean => EXCLUSIVE_CATEGORIES.includes(c);
 
 /** Config avec `id` active, et les autres plugins actifs de sa categorie eteints si elle est exclusive
  *  (un seul mode de connexion). Rend aussi ceux qui ont ete eteints, pour le dire. */
 export async function withPluginOnExclusive<C extends Pick<PortalConfig, "plugins" | "pluginsOff">>(cfg: C, id: string): Promise<{ cfg: C; turnedOff: string[] }> {
-  const cat = await pluginCategory(id);
-  let out = withPluginOn(cfg, id);
-  const turnedOff: string[] = [];
-  if (isExclusiveCategory(cat)) {
-    for (const other of enabledIn(out)) {
-      if (other === id) continue;
-      if ((await pluginCategory(other)) === cat) { out = withPluginOff(out, other); turnedOff.push(other); }
-    }
-  }
-  return { cfg: out, turnedOff };
+  const r = await host.withPluginOnExclusive(cfg, id, RULES);
+  return { cfg: r.state, turnedOff: r.turnedOff };
 }
 
 export const hasCapability = (c: Capability): boolean => capabilities.has(c);
-export const installedPlugins = (): readonly PluginInfo[] => installed;
+export const installedPlugins = (): readonly PluginInfo[] => host.installed().map((i) => withTheme(i, host.plugin(i.id)));
 
-/** Reglages declares par un plugin installe, avec leurs valeurs courantes (null : pas de reglages). */
-/** Reglages d'un plugin : ceux du plugin charge, sinon ceux d'un integre INACTIF (declares dans son
- *  objet) : on prepare ses reglages avant de l'activer. */
-const settingsOf = (id: string): PluginSettings | undefined => settingsById.get(id) ?? BUILTIN_PLUGINS[id]?.settings;
 /** Fiche d'un integre, charge ou non (ecran de reglages d'un integre inactif). */
 export function builtinInfo(id: string): PluginInfo | null {
-  const p = BUILTIN_PLUGINS[id];
-  const icon = p ? asIcon(p.icon) : null;
-  return p ? { id: p.id, title: p.title, description: p.description, ...(icon ? { icon } : {}), category: p.category ?? PLUGIN_CATEGORY.other, builtin: true, configurable: !!p.settings, ...(p.appliesTheme ? { appliesTheme: p.appliesTheme } : {}) } : null;
+  const info = host.builtinInfo(id);
+  return info ? withTheme(info, BUILTIN_PLUGINS[id]) : null;
 }
+/** Reglages d'un plugin : ceux du plugin charge, sinon ceux d'un integre INACTIF (on prepare ses
+ *  reglages avant de l'activer). Champs et valeurs courantes, ou null : pas de reglages. */
 export function pluginSettingsForm(id: string): { fields: PluginSettings["fields"]; values: Record<string, SettingValue>; previewable: boolean } | null {
-  const s = settingsOf(id);
-  return s ? { fields: s.fields, values: s.toForm(loadConfig()?.pluginSettings?.[id]), previewable: typeof s.preview === "function" } : null;
+  return host.settingsForm(id);
 }
 /** Apercu d'un theme depuis des valeurs non enregistrees : le theme VERIFIE, ou null (pas d'apercu,
  *  ou valeurs qui ne donnent pas un theme valable). */
 export function pluginThemePreview(id: string, input: Record<string, unknown>): ThemeDecl | null {
-  const s = settingsOf(id);
-  if (!s?.preview) return null;
-  try { return asTheme(s.preview(input)); } catch { return null; }
+  const t = host.settingsPreview(id, input);
+  if (t === null) return null;
+  try { return asTheme(t); } catch { return null; }
 }
 /** Valeur validee par le plugin, prete a enregistrer (null : plugin absent ou sans reglages). */
 export function pluginSettingsFromForm(id: string, input: Record<string, unknown>): unknown {
-  const s = settingsOf(id);
-  return s ? s.fromForm(input) : null;
+  return host.settingsFromForm(id, input);
 }
 
 let loaded: Promise<void> | null = null;
 /** Charge les plugins une seule fois : ceux de la config (integres, ou ajoutes depuis le catalogue et
  *  copies dans PLUGINS_DIR), puis ceux de HARNESS_MODULE (developpement). */
 export function loadPlugins(enabled: readonly string[] = DEFAULT_PLUGINS): Promise<void> {
-  if (!loaded) loaded = (async () => {
+  loaded ??= (async () => {
     registerAuthProvider(localProvider);   // connexion native (voir capabilities)
     registerTheme(BASE_THEME);             // theme de base, au coeur
-    for (const id of enabled) {
-      if (RETIRED_PLUGINS.includes(id)) continue;
-      try {
-        const builtin = BUILTIN_PLUGINS[id];
-        if (builtin) { await registerOne(builtin, true); continue; }
-        if (!PLUGIN_ID_RE.test(id)) throw new Error("identifiant invalide");
-        const p = await importCatalogPlugin(id);
-        if (p.id !== id) throw new Error(`le module se declare « ${p.id} »`);
-        await registerOne(p, false);
-      } catch (e) {
-        console.error(`[plugins] ${id} non charge :`, e instanceof Error ? e.message : e);
-      }
-    }
-    for (const mod of (process.env.HARNESS_MODULE ?? "").split(",").map((x) => x.trim()).filter(Boolean)) {
-      try { await registerOne(asPlugin((await import(/* @vite-ignore */ mod)) as Record<string, unknown>, mod), false); }
-      catch (e) { console.error(`[plugins] ${mod} non charge :`, e instanceof Error ? e.message : e); }
-    }
+    await host.load(enabled.filter((id) => !RETIRED_PLUGINS.includes(id)));
   })();
   return loaded;
 }
 
 /** Plugins actifs selon une config : sa liste (ou celle par defaut), plus les integres actives d'office
  *  qu'elle n'a pas eteints. */
-export function enabledIn(cfg: Pick<PortalConfig, "plugins" | "pluginsOff"> | null): readonly string[] {
-  const list = cfg?.plugins ?? DEFAULT_PLUGINS;
-  const off = cfg?.pluginsOff ?? [];
-  return [...list, ...ALWAYS_ON_PLUGINS.filter((id) => !list.includes(id) && !off.includes(id))];
-}
+export const enabledIn = (cfg: Pick<PortalConfig, "plugins" | "pluginsOff"> | null): readonly string[] => hostEnabledIn(cfg, RULES);
 /** Plugins actives par la config (ceux qui seront charges au prochain demarrage). */
 export const enabledPlugins = (): readonly string[] => enabledIn(loadConfig());
-
 /** Config avec `id` active : ajoute a la liste, retire des eteints. */
-export function withPluginOn<C extends Pick<PortalConfig, "plugins" | "pluginsOff">>(cfg: C, id: string): C {
-  // la liste ne nomme pas les integres actives d'office : ils le sont sans y etre
-  const listed = enabledIn(cfg).filter((x) => !ALWAYS_ON_PLUGINS.includes(x));
-  const plugins = ALWAYS_ON_PLUGINS.includes(id) || listed.includes(id) ? listed : [...listed, id];
-  return { ...cfg, plugins, pluginsOff: (cfg.pluginsOff ?? []).filter((x) => x !== id) };
-}
+export const withPluginOn = <C extends Pick<PortalConfig, "plugins" | "pluginsOff">>(cfg: C, id: string): C => hostWithPluginOn(cfg, id, RULES);
 /** Config avec `id` desactive : retire de la liste ; un integre actif d'office est note comme eteint. */
-export function withPluginOff<C extends Pick<PortalConfig, "plugins" | "pluginsOff">>(cfg: C, id: string): C {
-  const off = cfg.pluginsOff ?? [];
-  return {
-    ...cfg,
-    plugins: enabledIn(cfg).filter((x) => x !== id && !ALWAYS_ON_PLUGINS.includes(x)),
-    pluginsOff: ALWAYS_ON_PLUGINS.includes(id) && !off.includes(id) ? [...off, id] : off,
-  };
-}
+export const withPluginOff = <C extends Pick<PortalConfig, "plugins" | "pluginsOff">>(cfg: C, id: string): C => hostWithPluginOff(cfg, id, RULES);

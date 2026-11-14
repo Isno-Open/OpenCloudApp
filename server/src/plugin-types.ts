@@ -1,6 +1,7 @@
 // Contrat des greffons (voir plugins.ts). Fichier a part : le registre et les greffons integres en
 // dependent tous deux, sans dependre l'un de l'autre.
 import type { AuthProvider } from "./auth-provider.js";
+import type { Plugin as HostPlugin, PluginInfo as HostPluginInfo } from "@isno-open/plugin-host";
 
 /** Ce qu'un greffon peut apporter a l'app. Enumere : l'app s'y refere par son nom. */
 export const CAPABILITY = {
@@ -23,17 +24,17 @@ export type PluginApi = {
   defaultCap: number;
   settings: () => unknown;   // ses reglages tels que ranges (a relire par sa fonction de lecture), relus a chaque appel
 };
-import type { LocalizedText, PluginSettings, DeviceTypeDecl, ThemeDecl, PluginCategory, Icon } from "./plugin-contract.js";
+import type { PluginSettings, DeviceTypeDecl, ThemeDecl, PluginCategory } from "./plugin-contract.js";
 export { THEME_MODE, THEME_SHAPE, type ThemeMode, type ThemeShape, PLUGIN_CATEGORY, EXCLUSIVE_CATEGORIES, isPluginCategory, type PluginCategory, SETTING_KIND, TEXT_FORMAT, IMAGE_MAX_CHARS, IMAGE_TYPES, ICON_MIN_PX, type SettingKind, type TextFormat, type SettingField, type SettingValue, type LocalizedText, type PluginSettings, type DeviceTypeDecl, type DeviceIcon, type Icon, type ThemeDecl, type ThemeToken, type ThemePalette, THEME_TOKENS } from "./plugin-contract.js";
 
-/** appliesTheme : theme que le plugin apporte et qui devient celui du portail quand on l'active (un
- *  plugin de theme qui ne changerait rien a son activation laisserait croire qu'il ne marche pas). */
-/** category : sa place sur l'ecran Plugins (voir PLUGIN_CATEGORY). accountSource : nom court de
- *  l'origine des comptes qu'il cree (ex. « www.isno.fr »), montre dans Utilisateurs. */
-export type Plugin = {
-  id: string; title: LocalizedText; description?: LocalizedText; category?: PluginCategory; icon?: Icon; settings?: PluginSettings; appliesTheme?: string;
-  accountSource?: () => string;
-  register(api: PluginApi): void | Promise<void>;
-};
-export type PluginInfo = { id: string; title: LocalizedText; description?: LocalizedText; icon?: Icon; category: PluginCategory; builtin: boolean; configurable: boolean; appliesTheme?: string };
-
+/** Champs propres au portail, que le moteur ne connait pas (voir PLUGIN_EXTRA dans plugins.ts, qui les
+ *  verifie pour un plugin du catalogue) :
+ *  - appliesTheme : theme que le plugin apporte et qui devient celui du portail quand on l'active (un
+ *    plugin de theme qui ne changerait rien a son activation laisserait croire qu'il ne marche pas) ;
+ *  - accountSource : nom court de l'origine des comptes qu'il cree (ex. « www.isno.fr »), montre dans
+ *    Utilisateurs. */
+export type PluginExtra = { appliesTheme?: string; accountSource?: () => string };
+/** Un plugin du portail : le contrat du moteur, avec l'api du portail, ses categories et ses champs. */
+export type Plugin = Omit<HostPlugin<PluginApi, PluginCategory, PluginExtra>, "settings"> & { settings?: PluginSettings };
+/** category : sa place sur l'ecran Plugins (voir PLUGIN_CATEGORY). */
+export type PluginInfo = HostPluginInfo<PluginCategory> & { appliesTheme?: string };

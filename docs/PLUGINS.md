@@ -27,9 +27,11 @@ Le portail charge les plugins actifs au démarrage. Activer, retirer ou mettre �
 journalisé ; il ne bloque jamais le portail, et la connexion de l'admin reste toujours possible.
 
 **Un plugin n'importe pas le cœur.** Il reçoit ce dont il a besoin par `api`, et n'importe à
-l'exécution qu'un seul fichier, `plugin-contract.js` : le vocabulaire des réglages, sans aucune
-dépendance, livré à côté de son `index.js`. Tout le reste du contrat est importé **en type**
-seulement, donc effacé à la compilation.
+l'exécution qu'un seul fichier, `plugin-contract.js` : le vocabulaire des réglages et ce qui est propre
+au portail. Le vocabulaire commun (textes, icônes, réglages déclarés) appartient au moteur partagé
+[OpenPluginHost](https://github.com/Isno-Open/OpenPluginHost), dont `plugin-contract.js` le réexporte :
+les deux fichiers, sans autre dépendance, sont livrés à côté de son `index.js`. Tout le reste du contrat
+est importé **en type** seulement, donc effacé à la compilation.
 
 ## Le plus petit plugin
 
@@ -159,12 +161,13 @@ recompilez et relancez le serveur de développement : un plugin n'est chargé qu
 ## Empaqueter
 
 Un plugin se livre dans une **image** qui contient :
-- `/plugin/index.js` (le module ES compilé) et `/plugin/plugin-contract.js` à côté de lui ;
+- `/plugin/index.js` (le module ES compilé) et, à côté de lui, `/plugin/plugin-contract.js` et
+  `/plugin/contract.js` (le contrat du moteur, que le premier réexporte) ;
 - un shell (busybox suffit) : le superviseur en a besoin pour copier le dossier. Rien ne s'y exécute.
 
 Le `Dockerfile` de l'exemple fait exactement cela : il compile contre les types du cœur (le contrat est
-vérifié à la compilation), récrit l'import du contrat vers le fichier voisin, et refuse l'image si un
-autre import du cœur subsiste.
+vérifié à la compilation), récrit les imports du contrat vers les fichiers voisins, et refuse l'image
+si un autre import du cœur, ou un import de paquet, subsiste.
 
     docker build -f plugins/example/Dockerfile -t <registre>/isno-cloud-plugin-example:1.0.0 .
 
