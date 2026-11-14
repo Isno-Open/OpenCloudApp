@@ -4,12 +4,13 @@ Comment l'instance hébergée app.isno.fr est câblée sur le VPS. Le dépôt re
 `README.md`) ; ceci décrit l'instance ISNO, pas une procédure imposée au public.
 
 ## Vue d'ensemble
-- **VPS** : 146.59.45.179 (ubuntu@), dépôt cloné dans `~/isno-cloud` (branche `feat/cloud-app`).
+- **VPS** : 146.59.45.179 (ubuntu@), dépôt cloné dans `~/isno-cloud` (branche `main` depuis le 2026-11-14).
 - **Pile** : `docker compose` du dépôt (serveur, superviseur, socket-proxy), plus
   `docker-compose.override.yml` propre au VPS (non versionné) :
   - le serveur rejoint aussi le réseau `coolify`, pour que le Caddy le joigne par son nom ;
   - le superviseur monte le dossier `~/isno-cloud-local` en `/local` (catalogue local de plugins,
-    `PLUGIN_LOCAL_CATALOG_PATH=/local/plugins.json`, vide aujourd'hui).
+    `PLUGIN_LOCAL_CATALOG_PATH=/local/plugins.json`) : la famille OpenProfalux, image construite sur le
+    VPS (voir « Famille OpenProfalux »).
 - **Modules installés par le superviseur** : broker `isno-mqtt` (Mosquitto mTLS, port 8883,
   `mqtt.isno.fr`) et MongoDB `isno-mongo` (base de l'instance).
 - **app.isno.fr** : TLS par le Caddy `winnza-proxy` (`/root/winnza-proxy/Caddyfile`), qui renvoie vers
@@ -27,6 +28,23 @@ Comment l'instance hébergée app.isno.fr est câblée sur le VPS. Le dépôt re
     sudo docker compose up -d --build server supervisor
 
 Le serveur redémarre en quelques secondes ; la configuration et les données (volumes) sont gardées.
+
+## Famille OpenProfalux (plugin)
+Le portail ne connaît aucune famille de boîtiers en dur ([FAMILLES.md](docs/FAMILLES.md)) : sans ce
+plugin, plus aucun boîtier n'est visible et l'ACL du broker n'ouvre plus `openprofalux/`. Pas de
+registre d'images tant que l'instance n'a qu'un utilisateur (décision du 2026-11-14) : l'image se
+construit ici, depuis OpenProfalux à un commit figé, et le catalogue local la désigne par cette
+étiquette (version du firmware et commit du plugin ; `latest` est refusé).
+
+    git clone --filter=blob:none --no-checkout https://github.com/Isno-Open/OpenProfalux.git ~/openprofalux-plugin-src
+    cd ~/openprofalux-plugin-src && git checkout <commit> && git submodule update --init cloud-plugin/opencloudapp
+    sudo docker build -f cloud-plugin/Dockerfile -t openprofalux-cloud-plugin:<version>-<commit> .
+
+Les tests du plugin tournent pendant la construction. Puis l'étiquette dans `~/isno-cloud-local/plugins.json`
+(entrée `openprofalux`) : la page Plugins propose alors l'installation ou la mise à jour.
+
+Ordre pour un portail neuf ou une montée de version qui ajoute le contrat des familles : installer et
+activer le plugin AVANT de déployer le portail, sinon les boîtiers disparaissent le temps de le faire.
 
 ## Connexion par le compte www.isno.fr
 Plugin intégré `external-auth` (« Connexion par un site externe »), réglé dans son écrou :
@@ -46,4 +64,5 @@ gardé pour mémoire).
 ## À durcir plus tard
 - Une déconnexion faite sur la boutique n'est connue que d'elle : sur un autre navigateur, le portail
   accepte le cookie jusqu'à son échéance (30 jours au plus).
-- Registre d'images ISNO pour publier des plugins dans le catalogue officiel.
+- Registre d'images et catalogue public, le jour où d'autres utilisateurs proposeront des plugins :
+  images désignées par leur empreinte (sha256), pas seulement par leur étiquette.
