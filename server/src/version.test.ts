@@ -23,3 +23,9 @@ test("forme inconnue : pas de proposition", () => {
   assert.equal(isNewerVersion("demain", "0.2.15"), false);
   assert.equal(isNewerVersion("0.2.16", ""), false);
 });
+
+test("le moteur de plugins est a la meme version pour le serveur et le web (une seule version)", async () => {
+  const { readFileSync } = await import("node:fs");
+  const dep = (p: string): string | undefined => (JSON.parse(readFileSync(p, "utf8")) as { dependencies: Record<string, string> }).dependencies["@isno-open/plugin-host"];
+  assert.equal(dep("../web/package.json"), dep("package.json"));
+});

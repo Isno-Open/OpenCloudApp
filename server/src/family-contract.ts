@@ -4,7 +4,7 @@
 //
 // Fichier SANS dependance a l'execution : un plugin du catalogue l'importe (livre a cote de son
 // index.js, comme plugin-contract.js). Les types du moteur ne sont importes qu'en type.
-import type { Icon, LocalizedText } from "@isno-open/plugin-host/contract";
+import type { Icon, LocalizedText, SettingField, SettingValue } from "@isno-open/plugin-host/contract";
 
 /** Version du contrat que suit une famille. Le portail refuse une famille d'une autre version. */
 export const FAMILY_CONTRACT = 1;
@@ -28,8 +28,11 @@ export type ControlDecl =
   | (ControlBase & { kind: typeof CONTROL.position; settable: boolean })
   | (ControlBase & { kind: typeof CONTROL.reading; unit?: string; alertBelow?: number; alertAbove?: number });
 
-/** Un type d'appareil d'une famille et sa carte. */
-export type KindDecl = { id: string; label: LocalizedText; icon: Icon; controls: readonly ControlDecl[] };
+/** Un type d'appareil d'une famille, sa carte, et ses REGLAGES : des champs du moteur de plugins
+ *  (nombre, case, choix, texte), que le portail dessine avec l'ecran de reglages partage et que la
+ *  famille traduit pour le boitier (configure). Ex. les temps de course d'un volet. */
+export type KindDecl = { id: string; label: LocalizedText; icon: Icon; controls: readonly ControlDecl[]; settings?: readonly SettingField[] };
+// natures permises : nombre, case, choix, texte (le coeur refuse le reste, device-families.ts)
 
 /** Ce que le coeur passe a read() : un message d'un boitier, sans `<racine>/<boitier>/`. */
 export type FamilyMessage = { box: string; path: string; payload: string; retained: boolean };
@@ -45,7 +48,9 @@ export type Fact =
   | { fact: typeof FACT.presence; online: boolean }
   // appareil vu : son type (un `kinds`), son nom, et les controles masques sur CET appareil (ex. la
   // position d'un volet qui ne la donne pas)
-  | { fact: typeof FACT.device; device: string; kind: string; name?: string; hidden?: readonly string[] }
+  | { fact: typeof FACT.device; device: string; kind: string; name?: string; hidden?: readonly string[];
+      // valeurs actuelles de ses reglages (par cle de champ), telles que le boitier les publie
+      settings?: Readonly<Record<string, SettingValue>> }
   | { fact: typeof FACT.state; device: string; control: string; value: ControlValue }
   | { fact: typeof FACT.box; firmware?: string; latest?: string }
   | { fact: typeof FACT.event; level: EventLevel; code: string; text: LocalizedText; device?: string };
@@ -65,4 +70,6 @@ export type FamilyDecl = {
   kinds: readonly KindDecl[];
   read(msg: FamilyMessage): readonly Fact[];
   command(target: CommandTarget, control: string, value: ControlValue | null): FamilyCommand | null;
+  /** Reglages d'un appareil (deja verifies contre les champs de son type) -> message au boitier. */
+  configure?(target: Required<CommandTarget>, values: Readonly<Record<string, SettingValue>>): FamilyCommand | null;
 };

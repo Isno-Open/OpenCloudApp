@@ -2,7 +2,7 @@
 // boitiers. Le coeur ne connait aucune famille en dur : chacune est declaree par un plugin. Tout ce
 // qu'un plugin declare ou rend (famille, faits, commandes) est VERIFIE ici avant d'etre pris : c'est du
 // code venu d'ailleurs, et c'est le coeur qui garde l'isolation des boitiers.
-import type { LocalizedText } from "./plugin-contract.js";
+import { SETTING_KIND, TEXT_FORMAT, type LocalizedText, type SettingField, type SettingValue } from "./plugin-contract.js";
 import { asIcon } from "./icons.js";
 import {
   FAMILY_CONTRACT, CONTROL, FACT, EVENT_LEVEL,
@@ -57,6 +57,43 @@ function asControl(v: unknown, where: string): ControlDecl {
   }
 }
 
+/** Natures de reglage permises sur un appareil : pas de secret, d'image ni de JSON libre sur un boitier. */
+const DEVICE_SETTING_KINDS: readonly string[] = [SETTING_KIND.number, SETTING_KIND.toggle, SETTING_KIND.choice, SETTING_KIND.text];
+const TEXT_SETTING_MAX = 200;
+
+function asSetting(v: unknown, where: string): SettingField {
+  if (!isObj(v) || typeof v.key !== "string" || !NAME_RE.test(v.key)) throw new Error(`${where} : reglage sans cle valable`);
+  const key = v.key, at = `${where}/reglage ${key}`;
+  if (!isText(v.label)) throw new Error(`${at} : libelle fr et en requis`);
+  if (typeof v.kind !== "string" || !DEVICE_SETTING_KINDS.includes(v.kind)) throw new Error(`${at} : nature « ${String(v.kind)} » non permise sur un appareil`);
+  const base = { key, label: v.label, ...(isText(v.hint) ? { hint: v.hint } : {}) };
+  switch (v.kind) {
+    case SETTING_KIND.number:
+      if (!isNum(v.min) || !isNum(v.max) || v.min >= v.max) throw new Error(`${at} : bornes min < max requises`);
+      return { ...base, kind: SETTING_KIND.number, min: v.min, max: v.max };
+    case SETTING_KIND.toggle: return { ...base, kind: SETTING_KIND.toggle };
+    case SETTING_KIND.choice: {
+      const opts = Array.isArray(v.options) ? v.options : [];
+      if (opts.length === 0 || !opts.every((o) => isObj(o) && typeof o.value === "string" && o.value.length <= 64 && isText(o.label))) throw new Error(`${at} : options valeur et libelle requises`);
+      return { ...base, kind: SETTING_KIND.choice, options: opts as { value: string; label: LocalizedText }[] };
+    }
+    default:
+      if (!isNum(v.maxLength) || v.maxLength < 1 || v.maxLength > TEXT_SETTING_MAX) throw new Error(`${at} : longueur maximale de 1 a ${TEXT_SETTING_MAX}`);
+      return { ...base, kind: SETTING_KIND.text, format: TEXT_FORMAT.plain, maxLength: v.maxLength };
+  }
+}
+
+/** Valeur acceptable pour ce reglage ? */
+function settingFits(f: SettingField, v: unknown): v is SettingValue {
+  switch (f.kind) {
+    case SETTING_KIND.number: return isNum(v) && v >= f.min && v <= f.max;
+    case SETTING_KIND.toggle: return typeof v === "boolean";
+    case SETTING_KIND.choice: return typeof v === "string" && f.options.some((o) => o.value === v);
+    case SETTING_KIND.text: return typeof v === "string" && v.length <= f.maxLength;
+    default: return false;
+  }
+}
+
 function asKind(v: unknown, family: string): KindDecl {
   if (!isObj(v) || typeof v.id !== "string" || !NAME_RE.test(v.id)) throw new Error(`famille ${family} : type sans identifiant valable`);
   const at = `famille ${family}, type ${v.id}`;
@@ -66,7 +103,10 @@ function asKind(v: unknown, family: string): KindDecl {
   if (!Array.isArray(v.controls) || v.controls.length === 0) throw new Error(`${at} : au moins un controle`);
   const controls = v.controls.map((c) => asControl(c, at));
   if (new Set(controls.map((c) => c.id)).size !== controls.length) throw new Error(`${at} : deux controles ont le meme identifiant`);
-  return { id: v.id, label: v.label, icon, controls };
+  const settings = v.settings === undefined ? [] : Array.isArray(v.settings) ? v.settings.map((x) => asSetting(x, at)) : null;
+  if (!settings) throw new Error(`${at} : reglages en liste`);
+  if (new Set(settings.map((x) => x.key)).size !== settings.length) throw new Error(`${at} : deux reglages ont la meme cle`);
+  return { id: v.id, label: v.label, icon, controls, ...(settings.length ? { settings } : {}) };
 }
 
 /** Declaration verifiee piece par piece (elle vient d'un plugin), ou une erreur qui dit quoi. */
@@ -82,12 +122,15 @@ export function asFamily(v: unknown): FamilyDecl {
   if (!Array.isArray(v.kinds) || v.kinds.length === 0) throw new Error(`famille ${id} : au moins un type d'appareil`);
   const kinds = v.kinds.map((k) => asKind(k, id));
   if (new Set(kinds.map((k) => k.id)).size !== kinds.length) throw new Error(`famille ${id} : deux types ont le meme identifiant`);
-  const read = v.read, command = v.command;
+  const read = v.read, command = v.command, configure = v.configure;
   if (typeof read !== "function" || typeof command !== "function") throw new Error(`famille ${id} : read() et command() requis`);
+  if (configure !== undefined && typeof configure !== "function") throw new Error(`famille ${id} : configure() doit etre une fonction`);
+  if (configure === undefined && kinds.some((k) => k.settings?.length)) throw new Error(`famille ${id} : des reglages sans configure()`);
   return {
     id, label: v.label, icon, contract: FAMILY_CONTRACT, topicRoot: v.topicRoot, kinds,
     read: (msg) => read.call(v, msg) as readonly Fact[],
     command: (target, control, value) => command.call(v, target, control, value) as ReturnType<FamilyDecl["command"]>,
+    ...(typeof configure === "function" ? { configure: (target: Required<CommandTarget>, values: Readonly<Record<string, SettingValue>>) => configure.call(v, target, values) as ReturnType<NonNullable<FamilyDecl["configure"]>> } : {}),
   };
 }
 
@@ -115,7 +158,7 @@ export const clearDeviceFamilies = (): void => { families.clear(); boxes.clear()
 // ── Etat vu des boitiers, cle `<famille>/<boitier>` ──
 /** kind : le type tel que le boitier le declare ; known : la famille le connait (sinon l'appareil est
  *  montre « inconnu », sans commandes : un firmware plus recent que son plugin, par exemple). */
-export type DeviceState = { kind: string; known: boolean; name: string; hidden: ReadonlySet<string>; values: Map<string, ControlValue> };
+export type DeviceState = { kind: string; known: boolean; name: string; hidden: ReadonlySet<string>; values: Map<string, ControlValue>; settings: Map<string, SettingValue> };
 export type BoxEvent = { at: number; level: EventLevel; code: string; text: LocalizedText; device?: string };
 export type BoxState = { online: boolean | null; firmware: string | null; latest: string | null; devices: Map<string, DeviceState>; events: BoxEvent[] };
 const boxes = new Map<string, BoxState>();
@@ -154,7 +197,13 @@ export function applyFacts(f: FamilyDecl, box: string, facts: unknown, now: numb
         const name = typeof x.name === "string" && x.name.length > 0 && x.name.length <= 64 ? x.name : s.devices.get(x.device)?.name ?? x.device;
         const prev = s.devices.get(x.device);
         // un appareil qui change de type repart d'un etat vide (les valeurs d'avant ne veulent plus rien dire)
-        s.devices.set(x.device, { kind: x.kind, known: !!kind, name, hidden: new Set(hidden), values: prev && prev.kind === x.kind ? prev.values : new Map() });
+        // reglages : seulement ceux que le type declare, chacun dans ses bornes ; un reglage absent garde sa valeur
+        const settings = prev && prev.kind === x.kind ? prev.settings : new Map<string, SettingValue>();
+        if (kind && isObj(x.settings)) for (const field of kind.settings ?? []) {
+          const sv = x.settings[field.key];
+          if (sv !== undefined) { if (settingFits(field, sv)) settings.set(field.key, sv); else refused.push(`reglage refuse (${x.device}/${field.key})`); }
+        }
+        s.devices.set(x.device, { kind: x.kind, known: !!kind, name, hidden: new Set(hidden), values: prev && prev.kind === x.kind ? prev.values : new Map(), settings });
         break;
       }
       case FACT.state: {
@@ -217,10 +266,38 @@ export function buildCommand(f: FamilyDecl, target: CommandTarget, control: stri
   let cmd: unknown;
   try { cmd = f.command(target, control, v); }
   catch (e) { return { error: `la famille a refuse : ${e instanceof Error ? e.message : String(e)}` }; }
+  return checkCommand(f, target.box, cmd);
+}
+
+/** Commande traduite par une famille : bornee a `<racine>/<boitier>/` avant d'etre publiee. */
+function checkCommand(f: FamilyDecl, box: string, cmd: unknown): { topic: string; payload: string; retain: boolean } | { error: string } {
   if (!isObj(cmd)) return { error: "commande non prise en charge" };
   // segments simples, et aucun fait seulement de points (`..` remonterait vers un autre boitier)
   if (typeof cmd.path !== "string" || cmd.path.length > PATH_MAX || !PATH_RE.test(cmd.path) || cmd.path.split("/").some((s) => /^\.+$/.test(s)))
     return { error: "chemin de commande refuse" };
   if (typeof cmd.payload !== "string" || cmd.payload.length > PAYLOAD_MAX) return { error: "charge refusee" };
-  return { topic: `${f.topicRoot}/${target.box}/${cmd.path}`, payload: cmd.payload, retain: cmd.retain === true };
+  return { topic: `${f.topicRoot}/${box}/${cmd.path}`, payload: cmd.payload, retain: cmd.retain === true };
+}
+
+/** Reglages d'un utilisateur pour un appareil : chaque valeur verifiee contre les champs de son type
+ *  (cle connue, dans ses bornes), traduits par la famille, puis bornes au boitier comme une commande. */
+export function buildConfigure(f: FamilyDecl, target: Required<CommandTarget>, values: unknown): { topic: string; payload: string; retain: boolean } | { error: string } {
+  if (!NAME_RE.test(target.box)) return { error: "boitier invalide" };
+  const d = boxState(f.id, target.box)?.devices.get(target.device);
+  if (!d || !d.known) return { error: "appareil inconnu" };
+  const fields = f.kinds.find((k) => k.id === d.kind)?.settings ?? [];
+  if (!fields.length || !f.configure) return { error: "cet appareil n'a pas de reglages" };
+  if (!isObj(values)) return { error: "valeurs attendues" };
+  const out: Record<string, SettingValue> = {};
+  for (const [k, val] of Object.entries(values)) {
+    const field = fields.find((x) => x.key === k);
+    if (!field) return { error: `reglage inconnu « ${k} »` };
+    if (!settingFits(field, val)) return { error: `valeur hors bornes pour « ${k} »` };
+    out[k] = val;
+  }
+  if (!Object.keys(out).length) return { error: "aucun reglage" };
+  let cmd: unknown;
+  try { cmd = f.configure(target, out); }
+  catch (e) { return { error: `la famille a refuse : ${e instanceof Error ? e.message : String(e)}` }; }
+  return checkCommand(f, target.box, cmd);
 }

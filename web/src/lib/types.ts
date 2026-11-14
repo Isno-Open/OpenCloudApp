@@ -3,6 +3,7 @@
 // pas les types : ils viennent de ce que le DEVICE declare (profiles.json cote firmware).
 
 import type { KindDecl, ControlValue } from '@opencloudapp/core/family-contract.js';
+import type { SettingValue } from '@opencloudapp/core/plugin-contract.js';
 /** Type d'appareil tel que sa FAMILLE le declare (nom, icone, controles de sa carte). */
 export type DeviceKind = KindDecl;
 
@@ -23,6 +24,8 @@ export type Appareil = {
   values: Record<string, ControlValue>;
   /** controles masques sur CET appareil (ex. la position d'un volet qui ne la donne pas) */
   hidden: readonly string[];
+  /** valeurs actuelles de ses reglages (champs declares par son type, kind.settings) */
+  settings: Record<string, SettingValue>;
   online: boolean;
   /** detail optionnel (derriere la roue crantee) */
   rssiDbm?: number | null;

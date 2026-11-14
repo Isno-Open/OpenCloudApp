@@ -171,3 +171,56 @@ test("ACL du broker : une racine par famille, le relais partout, chaque boitier 
   assert.throws(() => brokerAcl(["a/#"]), /racine/);
   assert.throws(() => brokerAcl(["x\npattern readwrite #"]), /racine/);
 });
+
+// Reglages d'appareil : un store dont on regle la course (secondes), traduite en `store/<id>/reglages`.
+const COURSE = { key: "course", kind: "number", label: { fr: "Course (s)", en: "Travel (s)" }, min: 1, max: 180 } as const;
+const REGLABLE = {
+  ...STORE,
+  kinds: [{ ...STORE.kinds[0]!, settings: [COURSE] }],
+  read: (m: FamilyMessage): readonly Fact[] => m.path === "store/salon/type"
+    ? [{ fact: FACT.device, device: "salon", kind: "store", settings: { course: Number(m.payload) } }]
+    : STORE.read(m),
+  configure: ({ device }: { box: string; device: string }, values: Readonly<Record<string, unknown>>) => ({ path: `store/${device}/reglages`, payload: JSON.stringify(values) }),
+};
+
+test("reglages : declares par le type, valeurs lues dans le fait appareil", async () => {
+  const { buildConfigure } = await import("./device-families.js");
+  registerDeviceFamily(REGLABLE);
+  applyMessage("test-famille/b1/store/salon/type", "19", true, 1);
+  assert.equal(boxState("famille-test", "b1")!.devices.get("salon")!.settings.get("course"), 19);
+  assert.equal(applyMessage("test-famille/b1/store/salon/type", "500", true, 1)!.refused.length, 1, "valeur publiee hors bornes : refusee");
+  assert.equal(boxState("famille-test", "b1")!.devices.get("salon")!.settings.get("course"), 19, "et l'ancienne valeur reste");
+  const f = familyById("famille-test")!;
+  assert.deepEqual(buildConfigure(f, { box: "b1", device: "salon" }, { course: 21 }), { topic: "test-famille/b1/store/salon/reglages", payload: '{"course":21}', retain: false });
+});
+
+test("reglages refuses : cle inconnue, hors bornes, appareil inconnu, type sans reglages, valeurs absentes", async () => {
+  const { buildConfigure } = await import("./device-families.js");
+  registerDeviceFamily(REGLABLE);
+  applyMessage("test-famille/b1/store/salon/type", "19", true, 1);
+  const f = familyById("famille-test")!;
+  assert.ok("error" in buildConfigure(f, { box: "b1", device: "salon" }, { vitesse: 3 }));
+  assert.ok("error" in buildConfigure(f, { box: "b1", device: "salon" }, { course: 0 }));
+  assert.ok("error" in buildConfigure(f, { box: "b1", device: "salon" }, { course: "21" }), "un nombre attendu");
+  assert.ok("error" in buildConfigure(f, { box: "b1", device: "cuisine" }, { course: 21 }));
+  assert.ok("error" in buildConfigure(f, { box: "b1", device: "salon" }, {}));
+  clearDeviceFamilies();
+  registerDeviceFamily(STORE);
+  applyMessage("test-famille/b1/store/salon/type", "store", true, 1);
+  assert.ok("error" in buildConfigure(familyById("famille-test")!, { box: "b1", device: "salon" }, { course: 21 }), "type sans reglages");
+});
+
+test("reglages : declaration verifiee (nature permise, cles uniques, configure present)", () => {
+  const k = REGLABLE.kinds[0]!;
+  assert.throws(() => asFamily({ ...REGLABLE, kinds: [{ ...k, settings: [{ key: "mdp", kind: "secret", label: COURSE.label }] }] }), /non permise/);
+  assert.throws(() => asFamily({ ...REGLABLE, kinds: [{ ...k, settings: [COURSE, COURSE] }] }), /meme cle/);
+  assert.throws(() => asFamily({ ...REGLABLE, kinds: [{ ...k, settings: [{ ...COURSE, min: 5, max: 5 }] }] }), /bornes/);
+  assert.throws(() => asFamily({ ...REGLABLE, configure: undefined }), /sans configure/);
+});
+
+test("isolation : un reglage traduit hors du boitier est refuse", async () => {
+  const { buildConfigure } = await import("./device-families.js");
+  registerDeviceFamily({ ...REGLABLE, configure: () => ({ path: "../b2/reglages", payload: "x" }) });
+  applyMessage("test-famille/b1/store/salon/type", "19", true, 1);
+  assert.ok("error" in buildConfigure(familyById("famille-test")!, { box: "b1", device: "salon" }, { course: 21 }));
+});

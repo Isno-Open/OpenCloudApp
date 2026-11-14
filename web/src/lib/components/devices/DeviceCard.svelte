@@ -11,6 +11,8 @@
   import KeyValue from '#lib/components/ui/KeyValue.svelte';
   import IconMark from '#lib/components/ui/IconMark.svelte';
   import GearIcon from '#lib/components/ui/GearIcon.svelte';
+  import SettingsForm from '@isno-open/plugin-host/svelte/SettingsForm.svelte';
+  import type { SettingValue } from '@opencloudapp/core/plugin-contract.js';
 
   interface Props { appareil: KnownAppareil; boitierName: string; lang: Lang; grouped?: boolean; }
   const { appareil: a, boitierName, lang, grouped = false }: Props = $props();
@@ -30,6 +32,13 @@
     sending = control;
     await postJson('/api/cmd', { device_id: a.boitierId, slug: a.slug, control, value }, s.netErr, ignoreBody);
     setTimeout(() => { sending = null; }, SENDING_MS);
+  }
+  // reglages de l'appareil (champs declares par son type) : enregistres par le boitier, qui republie
+  // ses valeurs ; l'ecran de reglages est celui du moteur partage, le meme pour tous les plugins
+  const settingsFields = $derived(a.kind.settings ?? []);
+  async function saveSettings(values: Record<string, SettingValue>): Promise<boolean> {
+    const r = await postJson('/api/device/settings', { device_id: a.boitierId, slug: a.slug, values }, s.saveError, ignoreBody);
+    return r.ok;
   }
   const reading = (c: ControlDecl): string => {
     const v = a.values[c.id];
@@ -85,6 +94,11 @@
       {#if pos !== null}<KeyValue label={s.posWord} value={`${pos} %`} />{/if}
       {#if a.rssiDbm != null}<KeyValue label={s.wifiSignal} value={s.radioState(a.rssiDbm)} />{/if}
       {#if !a.online}<KeyValue label={s.state} value={s.offline} />{/if}
+      {#if settingsFields.length}
+        <div class="dev-settings" data-settings={a.slug}>
+          <SettingsForm fields={settingsFields} values={a.settings} {lang} onSave={saveSettings} idPrefix={`set-${a.boitierId}-${a.slug}`} />
+        </div>
+      {/if}
     </div>
   {/snippet}
 </DeviceFrame>
@@ -94,4 +108,6 @@
   .ctl-toggle, .ctl-setpoint { display: flex; gap: 0.5rem; align-items: center; }
   .ctl-setpoint input { width: 5rem; }
   .ctl-reading.alert { color: var(--danger); }
+  /* l'ecran de reglages partage, aux couleurs du portail */
+  .dev-settings { margin-top: 0.75rem; --oph-border: var(--border); --oph-input: var(--bg-elev); --oph-muted: var(--text-muted); --oph-danger: var(--danger); }
 </style>

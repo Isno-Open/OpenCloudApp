@@ -58,7 +58,7 @@ FT=$(docker create opencloudapp-famille-test:e2e) && docker cp "$FT:/plugin" "$W
 chmod -R a+rX "$WORK/famille-test"
 C=(docker compose -p isnoe2e -f docker-compose.yml -f "$WORK/override.yml")
 teardown() {
-  docker rm -f isno-mqtt isno-mongo isno-e2e-device isno-e2e-mail isno-e2e-catalog >/dev/null 2>&1
+  docker rm -f isno-mqtt isno-mongo isno-e2e-device isno-e2e-config isno-e2e-mail isno-e2e-catalog >/dev/null 2>&1
   "${C[@]}" down -v >/dev/null 2>&1
   docker volume rm isno-broker-data isno-mongo-data isno-plugins >/dev/null 2>&1
   [ "$ENV_CREATED" = 1 ] && rm -f .env
@@ -149,6 +149,17 @@ chk "presence : etat hors ligne affiche malgre les etats retenus de ses appareil
 chk "derniere activite : un boitier hors ligne dit quand il a ete vu" "$(curl -s -b "$J" "$B/" | grep -o 'class="grp-seen">vu [^<]*' | wc -l)" 1
 docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/status" -m 'online'
 sleep 2
+
+echo "== reglages d'un appareil : formulaire declare par sa famille, enregistre par le boitier"
+docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/cover/salon/attrs" -m '{"type":"volet","positional":true,"course_s":19}'
+sleep 2
+chk "reglages : le champ declare, avec la valeur publiee par le boitier" "$(curl -s -b "$J" "$B/" | grep -o "id=\"set-$ID-salon-course\"[^>]*value=\"19\"" | wc -l)" 1
+docker run -d --name isno-e2e-config -v "$WORK:/d:ro" "${SUB[@]}" -t "famille-test/$ID/cover/salon/config" -C 1 -W 20 >/dev/null; sleep 3
+chk "reglages : enregistrement accepte" "$(curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' "$B/api/device/settings" -d "{\"device_id\":\"$ID\",\"slug\":\"salon\",\"values\":{\"course\":21}}")" 200
+sleep 3; chk "reglages : recus par le boitier, traduits par sa famille" "$(docker logs isno-e2e-config 2>&1)" '{"course_s":21}'
+docker rm -f isno-e2e-config >/dev/null 2>&1
+chk "reglages : hors bornes, refuses" "$(curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' "$B/api/device/settings" -d "{\"device_id\":\"$ID\",\"slug\":\"salon\",\"values\":{\"course\":500}}")" 400
+chk "reglages : appareil sans reglages declares, refuses" "$(curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' "$B/api/device/settings" -d "{\"device_id\":\"$ID\",\"slug\":\"pergola\",\"values\":{\"course\":21}}")" 400
 
 echo "== mise a jour du boitier : proposee seulement vers plus recent"
 docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/update" -m '{"installed":"0.2.16-essai","latest":"0.2.15"}'

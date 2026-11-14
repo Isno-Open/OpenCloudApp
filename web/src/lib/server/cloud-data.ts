@@ -52,7 +52,7 @@ export async function listAppareils(accountId: string): Promise<Appareil[]> {
       out.push({
         id: `${d.deviceId}:${slug}`, boitierId: d.deviceId, slug, name: dev.name,
         kind: dev.known ? fam.kinds.find((k) => k.id === dev.kind) ?? null : null, declaredType: dev.kind,
-        values: Object.fromEntries(dev.values), hidden: [...dev.hidden], online,
+        values: Object.fromEntries(dev.values), hidden: [...dev.hidden], settings: Object.fromEntries(dev.settings), online,
       });
     }
   }
