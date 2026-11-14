@@ -6,7 +6,7 @@ import { SETTING_KIND, TEXT_FORMAT, type LocalizedText, type SettingField, type 
 import { asIcon } from "./icons.js";
 import {
   FAMILY_CONTRACT, CONTROL, FACT, EVENT_LEVEL,
-  type ControlDecl, type ControlValue, type CommandTarget, type EventLevel, type Fact, type FamilyDecl, type KindDecl, type BoxHealth, type BoxNetwork,
+  type ControlDecl, type ControlValue, type CommandTarget, type EventLevel, type Fact, type FamilyDecl, type KindDecl, type BoxHealth, type BoxNetwork, type BoxControlDecl,
 } from "./family-contract.js";
 
 /** Identifiant de famille = champ `firmware` d'un boitier ; racine de topics ; identifiants internes. */
@@ -109,6 +109,13 @@ function asKind(v: unknown, family: string): KindDecl {
   return { id: v.id, label: v.label, icon, controls, ...(settings.length ? { settings } : {}) };
 }
 
+function asBoxControl(v: unknown, family: string): BoxControlDecl {
+  if (!isObj(v) || typeof v.id !== "string" || !NAME_RE.test(v.id)) throw new Error(`famille ${family} : action du boitier sans identifiant valable`);
+  if (!isText(v.label)) throw new Error(`famille ${family}, action ${v.id} : libelle fr et en requis`);
+  if (v.confirm !== undefined && !isText(v.confirm)) throw new Error(`famille ${family}, action ${v.id} : confirmation fr et en`);
+  return { id: v.id, label: v.label, ...(isText(v.confirm) ? { confirm: v.confirm } : {}) };
+}
+
 /** Declaration verifiee piece par piece (elle vient d'un plugin), ou une erreur qui dit quoi. */
 export function asFamily(v: unknown): FamilyDecl {
   if (!isObj(v)) throw new Error("famille : objet attendu");
@@ -122,12 +129,15 @@ export function asFamily(v: unknown): FamilyDecl {
   if (!Array.isArray(v.kinds) || v.kinds.length === 0) throw new Error(`famille ${id} : au moins un type d'appareil`);
   const kinds = v.kinds.map((k) => asKind(k, id));
   if (new Set(kinds.map((k) => k.id)).size !== kinds.length) throw new Error(`famille ${id} : deux types ont le meme identifiant`);
+  const boxControls = v.boxControls === undefined ? [] : Array.isArray(v.boxControls) ? v.boxControls.map((c) => asBoxControl(c, id)) : null;
+  if (!boxControls) throw new Error(`famille ${id} : actions du boitier en liste`);
+  if (new Set(boxControls.map((c) => c.id)).size !== boxControls.length) throw new Error(`famille ${id} : deux actions du boitier ont le meme identifiant`);
   const read = v.read, command = v.command, configure = v.configure;
   if (typeof read !== "function" || typeof command !== "function") throw new Error(`famille ${id} : read() et command() requis`);
   if (configure !== undefined && typeof configure !== "function") throw new Error(`famille ${id} : configure() doit etre une fonction`);
   if (configure === undefined && kinds.some((k) => k.settings?.length)) throw new Error(`famille ${id} : des reglages sans configure()`);
   return {
-    id, label: v.label, icon, contract: FAMILY_CONTRACT, topicRoot: v.topicRoot, kinds,
+    id, label: v.label, icon, contract: FAMILY_CONTRACT, topicRoot: v.topicRoot, kinds, ...(boxControls.length ? { boxControls } : {}),
     read: (msg) => read.call(v, msg) as readonly Fact[],
     command: (target, control, value) => command.call(v, target, control, value) as ReturnType<FamilyDecl["command"]>,
     ...(typeof configure === "function" ? { configure: (target: Required<CommandTarget>, values: Readonly<Record<string, SettingValue>>) => configure.call(v, target, values) as ReturnType<NonNullable<FamilyDecl["configure"]>> } : {}),
@@ -160,7 +170,8 @@ export const clearDeviceFamilies = (): void => { families.clear(); boxes.clear()
  *  montre « inconnu », sans commandes : un firmware plus recent que son plugin, par exemple). */
 export type DeviceState = { kind: string; known: boolean; name: string; hidden: ReadonlySet<string>; values: Map<string, ControlValue>; settings: Map<string, SettingValue> };
 export type BoxEvent = { at: number; level: EventLevel; code: string; text: LocalizedText; device?: string };
-export type BoxState = { online: boolean | null; firmware: string | null; latest: string | null; health: BoxHealth; network: BoxNetwork; devices: Map<string, DeviceState>; events: BoxEvent[] };
+export type BoxState = { online: boolean | null; firmware: string | null; latest: string | null; trial: boolean | null; previous: string | null;
+  actions: Map<string, boolean>; health: BoxHealth; network: BoxNetwork; devices: Map<string, DeviceState>; events: BoxEvent[] };
 const boxes = new Map<string, BoxState>();
 const key = (family: string, box: string): string => `${family}/${box}`;
 export const boxState = (family: string, box: string): BoxState | null => boxes.get(key(family, box)) ?? null;
@@ -210,7 +221,7 @@ export function applyFacts(f: FamilyDecl, box: string, facts: unknown, now: numb
   const refused: string[] = [];
   if (!Array.isArray(facts)) return ["read() n'a pas rendu une liste"];
   let s = boxes.get(key(f.id, box));
-  if (!s) { s = { online: null, firmware: null, latest: null, health: {}, network: {}, devices: new Map(), events: [] }; boxes.set(key(f.id, box), s); }
+  if (!s) { s = { online: null, firmware: null, latest: null, trial: null, previous: null, actions: new Map(), health: {}, network: {}, devices: new Map(), events: [] }; boxes.set(key(f.id, box), s); }
   for (const x of facts) {
     if (!isObj(x)) { refused.push("fait : objet attendu"); continue; }
     switch (x.fact) {
@@ -246,6 +257,15 @@ export function applyFacts(f: FamilyDecl, box: string, facts: unknown, now: numb
         if (x.latest !== undefined) { if (typeof x.latest === "string" && x.latest.length <= 64) s.latest = x.latest; else refused.push("boitier : derniere version invalide"); }
         if (x.health !== undefined) { const h = asHealth(x.health); if (h) s.health = { ...s.health, ...h }; else refused.push("boitier : sante invalide"); }
         if (x.network !== undefined) { const n = asNetwork(x.network); if (n) s.network = { ...s.network, ...n }; else refused.push("boitier : reseau invalide"); }
+        if (x.trial !== undefined) { if (typeof x.trial === "boolean") s.trial = x.trial; else refused.push("boitier : essai booleen"); }
+        if (x.previous !== undefined) { if (typeof x.previous === "string" && x.previous.length <= 64) s.previous = x.previous || null; else refused.push("boitier : version precedente invalide"); }
+        if (x.actions !== undefined) {
+          if (!isObj(x.actions)) refused.push("boitier : actions en objet");
+          else for (const [id, on] of Object.entries(x.actions)) {
+            if (typeof on === "boolean" && (f.boxControls ?? []).some((c) => c.id === id)) s.actions.set(id, on);
+            else refused.push(`boitier : action « ${id} » non declaree`);
+          }
+        }
         break;
       case FACT.event: {
         const levelOk = Object.values(EVENT_LEVEL).some((l) => l === x.level);
@@ -282,7 +302,10 @@ export function applyMessage(topic: string, payload: string, retained: boolean, 
 export function buildCommand(f: FamilyDecl, target: CommandTarget, control: string, value: unknown): { topic: string; payload: string; retain: boolean } | { error: string } {
   if (!NAME_RE.test(target.box)) return { error: "boitier invalide" };
   let v: ControlValue | null = null;
-  if (target.device !== undefined) {
+  if (target.device === undefined) {
+    if (!(f.boxControls ?? []).some((c) => c.id === control)) return { error: "action du boitier inconnue" };
+    if (boxState(f.id, target.box)?.actions.get(control) !== true) return { error: "action du boitier impossible maintenant" };
+  } else {
     const d = boxState(f.id, target.box)?.devices.get(target.device);
     if (!d || !d.known) return { error: "appareil inconnu" };
     const c = f.kinds.find((k) => k.id === d.kind)?.controls.find((k) => k.id === control);

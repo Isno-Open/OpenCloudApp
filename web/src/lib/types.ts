@@ -50,6 +50,11 @@ export type Boitier = {
   uptimeS?: number | null;
   memory?: { free: number; min: number } | null;
   lastReset?: { fr: string; en: string } | null;
+  /** version installee encore en essai, version precedente gardee par le boitier */
+  trial?: boolean | null;
+  previous?: string | null;
+  /** actions du boitier entier POSSIBLES maintenant (declarees par sa famille), avec leur confirmation */
+  actions?: readonly { id: string; label: { fr: string; en: string }; confirm?: { fr: string; en: string } }[];
   uptime?: string;
   radios?: string;       // ex. "868 · 433"
   /** derniere activite vue par le relais (ms), null si jamais vu */

@@ -20,6 +20,7 @@ const family: FamilyDecl = {
   icon: { glyph: "T" },
   contract: FAMILY_CONTRACT,
   topicRoot: "famille-test",
+  boxControls: [{ id: "maj", label: { fr: "Installer la mise à jour", en: "Install the update" }, confirm: { fr: "Le boîtier va redémarrer.", en: "The box will restart." } }],
   kinds: [{
     id: "volet", label: { fr: "Volet", en: "Shutter" }, icon: { glyph: "V" },
     controls: [
@@ -42,7 +43,8 @@ const family: FamilyDecl = {
       let u: unknown;
       try { u = JSON.parse(payload); } catch { return []; }
       const o = u && typeof u === "object" ? (u as Record<string, unknown>) : {};
-      return [{ fact: FACT.box, ...(typeof o.installed === "string" ? { firmware: o.installed } : {}), ...(typeof o.latest === "string" ? { latest: o.latest } : {}) }];
+      return [{ fact: FACT.box, ...(typeof o.installed === "string" ? { firmware: o.installed } : {}), ...(typeof o.latest === "string" ? { latest: o.latest } : {}),
+        actions: { maj: typeof o.latest === "string" && typeof o.installed === "string" && o.latest !== o.installed && o.latest > o.installed } }];
     }
     const m = /^cover\/([^/]+)\/(attrs|position)$/.exec(path);
     if (!m) return [];
@@ -55,7 +57,7 @@ const family: FamilyDecl = {
       ...(typeof o.course_s === "number" ? { settings: { course: o.course_s } } : {}) }];
   },
   command({ device }, control, value) {
-    if (!device) return null;
+    if (!device) return control === "maj" ? { path: "update/install", payload: "INSTALL" } : null;
     if (control === "position") return { path: `cover/${device}/set_position`, payload: String(value) };
     const p = ACTION_PAYLOAD[control];
     return p ? { path: `cover/${device}/set`, payload: p } : null;

@@ -23,6 +23,8 @@ const boitierOf = (d: { deviceId: string; name: string; firmware: string; lastSe
       uptimeS: st.health.uptimeS ?? null,
       memory: st.health.freeHeap !== undefined && st.health.minFreeHeap !== undefined ? { free: st.health.freeHeap, min: st.health.minFreeHeap } : null,
       lastReset: st.health.lastReset ?? null,
+      trial: st.trial, previous: st.previous,
+      actions: (familyById(d.firmware)?.boxControls ?? []).filter((c) => st.actions.get(c.id) === true),
     } : {}),
   };
 };

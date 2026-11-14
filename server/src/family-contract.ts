@@ -52,7 +52,12 @@ export type Fact =
       // valeurs actuelles de ses reglages (par cle de champ), telles que le boitier les publie
       settings?: Readonly<Record<string, SettingValue>> }
   | { fact: typeof FACT.state; device: string; control: string; value: ControlValue }
-  | { fact: typeof FACT.box; firmware?: string; latest?: string; health?: BoxHealth; network?: BoxNetwork }
+  | { fact: typeof FACT.box; firmware?: string; latest?: string; health?: BoxHealth; network?: BoxNetwork;
+      // version installee encore en essai (pas validee) ; version precedente gardee par le boitier
+      trial?: boolean; previous?: string;
+      // actions du boitier entier (boxControls) possibles maintenant, par identifiant ; un fait partiel
+      // ne touche que celles qu'il nomme
+      actions?: Readonly<Record<string, boolean>> }
   | { fact: typeof FACT.event; level: EventLevel; code: string; text: LocalizedText; device?: string };
 
 /** Sante d'un boitier, en lecture : ce qu'il publie de lui-meme (battement, etat systeme). Chaque champ
@@ -61,6 +66,11 @@ export type BoxHealth = { rssiDbm?: number; uptimeS?: number; freeHeap?: number;
 /** Reseau d'un boitier, pour information seulement (on ne coupe pas a distance le lien qui le relie) :
  *  le Wi-Fi rejoint, son adresse, le broker local (sans identifiants). */
 export type BoxNetwork = { ssid?: string; ip?: string; broker?: string };
+
+/** Action sur le boitier ENTIER (installer une mise a jour, revenir a la version precedente...). Le
+ *  portail la montre seulement quand le boitier la dit possible (fait boitier, actions), et demande
+ *  confirmation quand `confirm` est donne. */
+export type BoxControlDecl = { id: string; label: LocalizedText; confirm?: LocalizedText };
 
 /** Cible d'une commande : un appareil d'un boitier, ou le boitier entier (mise a jour du firmware). */
 export type CommandTarget = { box: string; device?: string };
@@ -75,6 +85,7 @@ export type FamilyDecl = {
   contract: typeof FAMILY_CONTRACT;
   topicRoot: string;     // racine de ses topics : abonnement `<racine>/+/#`, ACL `<racine>/%u/#`
   kinds: readonly KindDecl[];
+  boxControls?: readonly BoxControlDecl[];
   read(msg: FamilyMessage): readonly Fact[];
   command(target: CommandTarget, control: string, value: ControlValue | null): FamilyCommand | null;
   /** Reglages d'un appareil (deja verifies contre les champs de son type) -> message au boitier. */

@@ -13,6 +13,15 @@
   interface Props { boitier: Boitier; lang: Lang; now: number; }
   const { boitier: b, lang, now }: Props = $props();
   const s = $derived(t(lang));
+  // action du boitier entier (mise a jour, retour a la version precedente) : confirmation dans la page
+  // (pas de confirm() du navigateur), puis commande au relais, que la famille traduit
+  let asking = $state<string | null>(null);
+  let actionMsg = $state('');
+  async function runAction(id: string): Promise<void> {
+    asking = null;
+    const r = await postJson('/api/cmd', { device_id: b.id, control: id }, s.actionError, ignoreBody);
+    actionMsg = r.ok ? s.actionSent : s.actionError;
+  }
 
   const TAB = { cfg: 'cfg', manage: 'manage' } as const;
   let tab = $state<string>(TAB.cfg);
@@ -53,6 +62,20 @@
       {#if b.memory}<KeyValue label={s.memory} value={s.memoryValue(b.memory.free, b.memory.min)} />{/if}
       {#if b.radios}<KeyValue label={s.radios} value={b.radios} />{/if}
       <KeyValue label={s.firmware}><span style={b.updateAvailable ? 'color:var(--warn)' : undefined}>{b.updateAvailable ? s.updateAvailable : s.upToDate}</span></KeyValue>
+      {#if b.trial}<KeyValue label={s.state} value={s.onTrial} />{/if}
+      {#if b.previous}<KeyValue label={s.previousVersion} value={b.previous} />{/if}
+      {#each b.actions ?? [] as act (act.id)}
+        <div class="box-action" data-box-action={act.id}>
+          {#if asking === act.id}
+            {#if act.confirm}<p class="note">{act.confirm[lang]}</p>{/if}
+            <button type="button" class="btn" data-confirm={act.id} onclick={() => runAction(act.id)}>{s.confirmAction}</button>
+            <button type="button" class="btn ghost" onclick={() => { asking = null; }}>{s.cancel}</button>
+          {:else}
+            <button type="button" class="btn" data-ask={act.id} disabled={!b.online} onclick={() => { asking = act.confirm ? act.id : null; if (!act.confirm) runAction(act.id); }}>{act.label[lang]}</button>
+          {/if}
+        </div>
+      {/each}
+      {#if actionMsg}<p class="note" role="status">{actionMsg}</p>{/if}
     </div>
     <div class="panel">
       <h3>{s.comingSoon} <span class="ro">{s.readonly}</span></h3>

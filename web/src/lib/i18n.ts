@@ -32,6 +32,7 @@ interface S {
   backBoxes: string; leadBoitier: (id: string, count: number, uptime?: string) => string;
   tabConfig: string; tabManage: string;
   availability: string; readonly: string; editable: string; state: string; since: string;
+  onTrial: string; previousVersion: string; confirmAction: string; actionError: string; actionSent: string;
   wifiSignal: string; wifiNetwork: string; ipAddress: string; localBroker: string; memory: string; memoryValue: (free: number, min: number) => string; lastReset: string; uptimeValue: (s: number) => string; radios: string; firmware: string; upToDate: string; updateAvailable: string;
   comingSoon: string; comingSoonNote: string;
   boxName: string; boxNameHint: string; deleteTitle: string; deleteNote: string; deleteBtn: string;
@@ -101,6 +102,7 @@ export const STRINGS = {
     leadBoitier: (id, c, up) => `${id} · ${c} volets${up ? ` · actif depuis ${up}` : ''}`,
     tabConfig: 'Configuration', tabManage: 'Gérer',
     availability: 'Disponibilité', readonly: 'lecture seule', editable: 'modifiable', state: 'État', since: 'Depuis',
+    onTrial: 'en essai (pas encore validée)', previousVersion: 'Version précédente', confirmAction: 'Confirmer', actionError: 'Action impossible.', actionSent: 'Demande envoyée au boîtier.',
     wifiSignal: 'Signal Wi-Fi', wifiNetwork: 'Réseau Wi-Fi', ipAddress: 'Adresse IP', localBroker: 'Broker local', memory: 'Mémoire libre', memoryValue: (f, m) => `${Math.round(f / 1024)} Ko (au plus bas ${Math.round(m / 1024)} Ko)`, lastReset: 'Dernier redémarrage', uptimeValue: (x) => x >= 86400 ? `${Math.floor(x / 86400)} j ${Math.floor((x % 86400) / 3600)} h` : `${Math.floor(x / 3600)} h ${Math.floor((x % 3600) / 60)} min`, radios: 'Radios', firmware: 'Firmware', upToDate: 'à jour', updateAvailable: 'mise à jour dispo',
     comingSoon: 'Bientôt',
     comingSoonNote: "Wi-Fi (lecture seule) et MQTT local (modifiable à distance) arriveront quand l'appareil publiera son état ; pour l'instant, cela se règle dans l'interface locale de l'appareil.",
@@ -197,6 +199,7 @@ export const STRINGS = {
     leadBoitier: (id, c, up) => `${id} · ${c} shutters${up ? ` · up for ${up}` : ''}`,
     tabConfig: 'Configuration', tabManage: 'Manage',
     availability: 'Availability', readonly: 'read only', editable: 'editable', state: 'State', since: 'Up for',
+    onTrial: 'on trial (not yet validated)', previousVersion: 'Previous version', confirmAction: 'Confirm', actionError: 'Action failed.', actionSent: 'Request sent to the box.',
     wifiSignal: 'Wi-Fi signal', wifiNetwork: 'Wi-Fi network', ipAddress: 'IP address', localBroker: 'Local broker', memory: 'Free memory', memoryValue: (f, m) => `${Math.round(f / 1024)} KB (lowest ${Math.round(m / 1024)} KB)`, lastReset: 'Last restart', uptimeValue: (x) => x >= 86400 ? `${Math.floor(x / 86400)} d ${Math.floor((x % 86400) / 3600)} h` : `${Math.floor(x / 3600)} h ${Math.floor((x % 3600) / 60)} min`, radios: 'Radios', firmware: 'Firmware', upToDate: 'up to date', updateAvailable: 'update available',
     comingSoon: 'Coming soon',
     comingSoonNote: 'Wi-Fi (read only) and local MQTT (remote editing) will appear once the device reports its status; for now, set these in the device’s local interface.',

@@ -100,7 +100,26 @@ test("commande : traduite par la famille, toujours sous <racine>/<boitier>/", ()
   applyMessage("test-famille/b1/store/salon/type", "store", true, 1);
   assert.deepEqual(buildCommand(f, { box: "b1", device: "salon" }, "monter", null), { topic: "test-famille/b1/store/salon/cmd", payload: "UP", retain: false });
   assert.deepEqual(buildCommand(f, { box: "b1", device: "salon" }, "pos", 30), { topic: "test-famille/b1/store/salon/aller", payload: "30", retain: false });
+});
+
+test("action du boitier entier : declaree par la famille, et seulement quand le boitier la dit possible", () => {
+  registerDeviceFamily({ ...STORE, boxControls: [{ id: "maj", label: { fr: "Mettre à jour", en: "Update" }, confirm: { fr: "Il va redémarrer.", en: "It will restart." } }],
+    read: ({ path, payload }: FamilyMessage): readonly Fact[] => path === "maj_dispo" ? [{ fact: FACT.box, actions: { maj: payload === "1" }, trial: false, previous: "0.2.15" }] : STORE.read({ box: "b1", path, payload, retained: true }) });
+  const f = familyById("famille-test")!;
+  assert.ok("error" in buildCommand(f, { box: "b1" }, "maj", null), "jamais dite possible : refusee");
+  applyMessage("test-famille/b1/maj_dispo", "1", true, 1);
   assert.deepEqual(buildCommand(f, { box: "b1" }, "maj", null), { topic: "test-famille/b1/maj", payload: "go", retain: false });
+  assert.deepEqual([boxState("famille-test", "b1")!.trial, boxState("famille-test", "b1")!.previous], [false, "0.2.15"]);
+  applyMessage("test-famille/b1/maj_dispo", "0", true, 1);
+  assert.ok("error" in buildCommand(f, { box: "b1" }, "maj", null), "plus possible : refusee");
+  assert.ok("error" in buildCommand(f, { box: "b1" }, "effacer", null), "non declaree : refusee");
+});
+
+test("actions du boitier : declaration verifiee, action non declaree refusee dans un fait", () => {
+  assert.throws(() => asFamily({ ...STORE, boxControls: [{ id: "x", label: { fr: "", en: "" } }] }), /libelle/);
+  assert.throws(() => asFamily({ ...STORE, boxControls: [{ id: "x", label: { fr: "X", en: "X" } }, { id: "x", label: { fr: "X", en: "X" } }] }), /meme identifiant/);
+  registerDeviceFamily({ ...STORE, read: (): readonly Fact[] => [{ fact: FACT.box, actions: { pirate: true } }] });
+  assert.equal(applyMessage("test-famille/b1/x", "", true, 1)!.refused.length, 1);
 });
 
 test("commande refusee : appareil ou controle inconnu, lecture seule, valeur hors bornes, controle masque", () => {

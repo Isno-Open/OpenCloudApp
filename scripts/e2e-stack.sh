@@ -58,7 +58,7 @@ FT=$(docker create opencloudapp-famille-test:e2e) && docker cp "$FT:/plugin" "$W
 chmod -R a+rX "$WORK/famille-test"
 C=(docker compose -p isnoe2e -f docker-compose.yml -f "$WORK/override.yml")
 teardown() {
-  docker rm -f isno-mqtt isno-mongo isno-e2e-device isno-e2e-config isno-e2e-mail isno-e2e-catalog >/dev/null 2>&1
+  docker rm -f isno-mqtt isno-mongo isno-e2e-device isno-e2e-config isno-e2e-maj isno-e2e-mail isno-e2e-catalog >/dev/null 2>&1
   "${C[@]}" down -v >/dev/null 2>&1
   docker volume rm isno-broker-data isno-mongo-data isno-plugins >/dev/null 2>&1
   [ "$ENV_CREATED" = 1 ] && rm -f .env
@@ -165,9 +165,16 @@ echo "== mise a jour du boitier : proposee seulement vers plus recent"
 docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/update" -m '{"installed":"0.2.16-essai","latest":"0.2.15"}'
 sleep 2
 chk "version de test plus recente que la publiee : a jour (pas de retour en arriere propose)" "$(curl -s -b "$J" "$B/boitier/$ID" | grep -c '>à jour</span>')" 1
+chk "action du boitier : pas de bouton d'installation quand rien n'est a installer" "$(curl -s -b "$J" "$B/boitier/$ID" | grep -c 'data-ask="maj"')" 0
 docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/update" -m '{"installed":"0.2.16-essai","latest":"0.2.17"}'
 sleep 2
 chk "version publiee plus recente : mise a jour proposee" "$(curl -s -b "$J" "$B/boitier/$ID" | grep -c 'mise à jour dispo')" 1
+chk "action du boitier : bouton d'installation, avec confirmation" "$(curl -s -b "$J" "$B/boitier/$ID" | grep -c 'data-ask="maj"')" 1
+docker run -d --name isno-e2e-maj -v "$WORK:/d:ro" "${SUB[@]}" -t "famille-test/$ID/update/install" -C 1 -W 20 >/dev/null; sleep 3
+chk "action du boitier : acceptee" "$(curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' "$B/api/cmd" -d "{\"device_id\":\"$ID\",\"control\":\"maj\"}")" 200
+sleep 3; chk "action du boitier : recue, traduite par sa famille" "$(docker logs isno-e2e-maj 2>&1)" "INSTALL"
+docker rm -f isno-e2e-maj >/dev/null 2>&1
+chk "action du boitier non declaree : refusee" "$(curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' "$B/api/cmd" -d "{\"device_id\":\"$ID\",\"control\":\"effacer\"}")" 400
 
 echo "== sante du boitier : en lecture, telle que sa famille la lit"
 docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/sante" -m '{"rssi":-61,"ssid":"Reseau essai"}'
