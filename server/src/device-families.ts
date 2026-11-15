@@ -121,7 +121,8 @@ function asKind(v: unknown, family: string): KindDecl {
   if (new Set(settings.map((x) => x.key)).size !== settings.length) throw new Error(`${at} : deux reglages ont la meme cle`);
   if (v.place !== undefined && v.place !== KIND_PLACE.home && v.place !== KIND_PLACE.box) throw new Error(`${at} : emplacement « ${String(v.place)} » inconnu`);
   if (v.place === KIND_PLACE.box && !isText(v.group)) throw new Error(`${at} : sur la page du boitier, un onglet (group fr et en) requis`);
-  const place = v.place === KIND_PLACE.box && isText(v.group) ? { place: KIND_PLACE.box, group: v.group } : {};
+  if (v.hint !== undefined && (!isText(v.hint) || v.place !== KIND_PLACE.box)) throw new Error(`${at} : explication (hint fr et en) seulement pour un onglet de la page du boitier`);
+  const place = v.place === KIND_PLACE.box && isText(v.group) ? { place: KIND_PLACE.box, group: v.group, ...(isText(v.hint) ? { hint: v.hint } : {}) } : {};
   return { id: v.id, label: v.label, icon, controls, ...(settings.length ? { settings } : {}), ...place };
 }
 

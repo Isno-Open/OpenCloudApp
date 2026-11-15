@@ -55,13 +55,13 @@
   // appareils que la famille range sur la page du boitier : un onglet par groupe (ex. Telecommandes),
   // dans l'ordre ou ils apparaissent
   const groups = $derived.by(() => {
-    const out: { id: string; label: string; items: Appareil[] }[] = [];
+    const out: { id: string; label: string; hint: string | null; items: Appareil[] }[] = [];
     for (const a of appareils) {
       if (a.kind?.place !== KIND_PLACE.box || !a.kind.group) continue;
       const label = a.kind.group[lang];
       let g = out.find((x) => x.label === label);
       // ancre de l'onglet : le type de sa premiere carte (lisible dans l'adresse, stable)
-      if (!g) { g = { id: a.kind.id, label, items: [] }; out.push(g); }
+      if (!g) { g = { id: a.kind.id, label, hint: a.kind.hint ? a.kind.hint[lang] : null, items: [] }; out.push(g); }
       g.items.push(a);
     }
     return out;
@@ -90,6 +90,7 @@
 
 {#each groups as g (g.id)}
   <div class="subpanel" data-panel={g.id} hidden={tab !== g.id}>
+    {#if g.hint}<p class="note group-hint" data-group-hint={g.id}>{g.hint}</p>{/if}
     <div class="hw-grid">
       {#each g.items as a (a.id)}
         {#if isKnownAppareil(a)}<DeviceCard appareil={a} siblings={appareils} boitierName={b.name} {lang} grouped />{/if}
@@ -163,3 +164,7 @@
   </div>
   <ErrorText error={error} />
 </div>
+
+<style>
+  .group-hint { margin: 0 0 .8rem; max-width: 65ch; }
+</style>

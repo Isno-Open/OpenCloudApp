@@ -425,3 +425,11 @@ test("carte declaree par le firmware : gardee si c'est un identifiant, refusee s
   assert.match(applyMessage("test-famille/b1/carte", "<script>", true, 2)!.refused.join(), /carte invalide/);
   assert.equal(boxState("famille-test", "b1")!.board, "isno-super", "un fait refuse ne change rien");
 });
+
+test("explication d'onglet : seulement pour un type range sur la page du boitier, en fr et en", () => {
+  const k = STORE.kinds[0]!;
+  const hint = { fr: "Ce que sont ces appareils.", en: "What these devices are." };
+  assert.equal(asFamily({ ...STORE, kinds: [{ ...k, place: "box", group: { fr: "Onglet", en: "Tab" }, hint }] }).kinds[0]!.hint?.fr, hint.fr);
+  assert.throws(() => asFamily({ ...STORE, kinds: [{ ...k, hint }] }), /explication/);
+  assert.throws(() => asFamily({ ...STORE, kinds: [{ ...k, place: "box", group: { fr: "Onglet", en: "Tab" }, hint: { fr: "seul" } }] }), /explication/);
+});

@@ -44,7 +44,10 @@ export type DeviceSettingField = SettingField | DevicesField;
 export type KindDecl = { id: string; label: LocalizedText; icon: Icon; controls: readonly ControlDecl[]; settings?: readonly DeviceSettingField[];
   /** Ou vivent ses cartes : sur l'accueil (par defaut), ou sur la page du boitier, dans un onglet nomme
    *  `group` (ex. les telecommandes connues d'un boitier, qu'on gere sans les piloter). */
-  place?: KindPlace; group?: LocalizedText };
+  place?: KindPlace; group?: LocalizedText;
+  /** Phrase d'explication en tete de l'onglet `group` (ce que sont ces appareils, ce que font leurs
+   *  boutons) : un ecran de gestion doit se comprendre sans mode d'emploi. */
+  hint?: LocalizedText };
 export const KIND_PLACE = { home: "home", box: "box" } as const;
 export type KindPlace = (typeof KIND_PLACE)[keyof typeof KIND_PLACE];
 // natures permises : nombre, case, choix, texte (le coeur refuse le reste, device-families.ts)
