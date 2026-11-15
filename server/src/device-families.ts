@@ -142,7 +142,8 @@ export function asFamily(v: unknown): FamilyDecl {
   const boxControls = v.boxControls === undefined ? [] : Array.isArray(v.boxControls) ? v.boxControls.map((c) => asBoxControl(c, id)) : null;
   if (!boxControls) throw new Error(`famille ${id} : actions du boitier en liste`);
   if (new Set(boxControls.map((c) => c.id)).size !== boxControls.length) throw new Error(`famille ${id} : deux actions du boitier ont le meme identifiant`);
-  const read = v.read, command = v.command, configure = v.configure;
+  const read = v.read, command = v.command, configure = v.configure, reorder = v.reorder;
+  if (reorder !== undefined && typeof reorder !== "function") throw new Error(`famille ${id} : reorder() doit etre une fonction`);
   if (typeof read !== "function" || typeof command !== "function") throw new Error(`famille ${id} : read() et command() requis`);
   if (configure !== undefined && typeof configure !== "function") throw new Error(`famille ${id} : configure() doit etre une fonction`);
   if (configure === undefined && kinds.some((k) => k.settings?.length)) throw new Error(`famille ${id} : des reglages sans configure()`);
@@ -154,6 +155,7 @@ export function asFamily(v: unknown): FamilyDecl {
     read: (msg) => read.call(v, msg) as readonly Fact[],
     command: (target, control, value) => command.call(v, target, control, value) as ReturnType<FamilyDecl["command"]>,
     ...(typeof configure === "function" ? { configure: (target: Required<CommandTarget>, values: Readonly<Record<string, SettingValue>>) => configure.call(v, target, values) as ReturnType<NonNullable<FamilyDecl["configure"]>> } : {}),
+    ...(typeof reorder === "function" ? { reorder: (target: Required<CommandTarget>, rank: number) => reorder.call(v, target, rank) as ReturnType<NonNullable<FamilyDecl["reorder"]>> } : {}),
   };
 }
 
@@ -345,6 +347,27 @@ function checkCommand(f: FamilyDecl, box: string, cmd: unknown): { topic: string
     return { error: "chemin de commande refuse" };
   if (typeof cmd.payload !== "string" || cmd.payload.length > PAYLOAD_MAX) return { error: "charge refusee" };
   return { topic: `${f.topicRoot}/${box}/${cmd.path}`, payload: cmd.payload, retain: cmd.retain === true };
+}
+
+/** Deplacer un appareil (glisser sa carte) : appareil de CE boitier, rang entier de 1 au nombre de ses
+ *  appareils, traduit par la famille puis borne au boitier comme une commande. */
+export function buildReorder(f: FamilyDecl, target: Required<CommandTarget>, rank: unknown): { topic: string; payload: string; retain: boolean } | { error: string } {
+  if (!f.reorder) return { error: "cette famille ne reorganise pas ses appareils" };
+  if (!NAME_RE.test(target.box)) return { error: "boitier invalide" };
+  const devices = boxState(f.id, target.box)?.devices;
+  if (!devices?.has(target.device)) return { error: "appareil inconnu" };
+  if (!isNum(rank) || !Number.isInteger(rank) || rank < 1 || rank > devices.size) return { error: "rang hors bornes" };
+  let cmd: unknown;
+  try { cmd = f.reorder(target, rank); }
+  catch (e) { return { error: `la famille a refuse : ${e instanceof Error ? e.message : String(e)}` }; }
+  return checkCommand(f, target.box, cmd);
+}
+
+/** Ordre d'affichage des appareils d'un boitier : par rang (1 = premier), ceux sans rang a la suite dans
+ *  l'ordre des types que la famille declare (ex. les centrales d'abord), puis par nom. */
+export function compareDevices(f: FamilyDecl, a: DeviceState, b: DeviceState): number {
+  const kindAt = (d: DeviceState): number => { const i = f.kinds.findIndex((k) => k.id === d.kind); return i < 0 ? f.kinds.length : i; };
+  return (a.rank ?? Infinity) - (b.rank ?? Infinity) || kindAt(a) - kindAt(b) || a.name.localeCompare(b.name);
 }
 
 /** Appareils choisis : chacun existe sur CE boitier, d'un type permis, et n'est pas l'appareil lui-meme. */

@@ -22,7 +22,7 @@ interface S {
   appareilsTitle: string; noCovers: string;
   leadAppareils: (n: number) => string;
   // carte volet/portail
-  details: string; rename: string; typeWord: string; positional: string; impulsional: string;
+  details: string; dragHandle: string; reorderError: string; rename: string; typeWord: string; positional: string; impulsional: string;
   unknownDevice: string; unknownDeclared: (type: string) => string; unknownNoType: string;
   lastSeen: (when: string) => string; lastSeenLabel: string;
   posWord: string; unknownValue: string; on: string; off: string; radioState: (dbm: number) => string; offline: string; offlineSuffix: string; nameLabel: string;
@@ -93,7 +93,7 @@ export const STRINGS = {
     footSponsor: 'Sponsorisé par',
     appareilsTitle: 'Mes appareils', noCovers: 'Aucun volet pour cet appareil.',
     leadAppareils: (n) => `${n} appareil${n > 1 ? 's' : ''}`,
-    details: 'Détails', rename: 'Renommer', typeWord: 'Type', positional: 'positionnel', impulsional: 'impulsionnel',
+    details: 'Détails', dragHandle: 'Glisser pour déplacer', reorderError: 'Déplacement refusé.', rename: 'Renommer', typeWord: 'Type', positional: 'positionnel', impulsional: 'impulsionnel',
     lastSeen: (when: string) => `vu ${when}`, lastSeenLabel: 'Dernière activité',
     unknownDevice: 'Appareil inconnu', unknownDeclared: (type: string) => `Type « ${type} » non géré par ce portail.`, unknownNoType: 'Le boîtier ne déclare aucun type pour cet appareil.',
     posWord: 'Position', unknownValue: 'inconnu', on: 'marche', off: 'arrêt', radioState: (d) => `reçu ${d} dBm`, offline: 'hors ligne', offlineSuffix: ' · hors ligne', nameLabel: 'Nom',
@@ -190,7 +190,7 @@ export const STRINGS = {
     footSponsor: 'Sponsored by',
     appareilsTitle: 'My devices', noCovers: 'No shutter on this device.',
     leadAppareils: (n) => `${n} device${n === 1 ? '' : 's'}`,
-    details: 'Details', rename: 'Rename', typeWord: 'Type', positional: 'positional', impulsional: 'pulsed',
+    details: 'Details', dragHandle: 'Drag to move', reorderError: 'Move refused.', rename: 'Rename', typeWord: 'Type', positional: 'positional', impulsional: 'pulsed',
     lastSeen: (when: string) => `seen ${when}`, lastSeenLabel: 'Last activity',
     unknownDevice: 'Unknown device', unknownDeclared: (type: string) => `Type "${type}" is not supported by this portal.`, unknownNoType: 'The box declares no type for this device.',
     posWord: 'Position', unknownValue: 'unknown', on: 'on', off: 'off', radioState: (d) => `received ${d} dBm`, offline: 'offline', offlineSuffix: ' · offline', nameLabel: 'Name',

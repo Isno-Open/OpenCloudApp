@@ -7,6 +7,7 @@
   import { t, type Lang } from '#lib/i18n.ts';
   import { postJson, ignoreBody } from '#lib/api.ts';
   import type { Appareil, KnownAppareil } from '#lib/types.ts';
+  import type { Snippet } from 'svelte';
   import DeviceFrame from './DeviceFrame.svelte';
   import KeyValue from '#lib/components/ui/KeyValue.svelte';
   import IconMark from '#lib/components/ui/IconMark.svelte';
@@ -15,8 +16,8 @@
   import { SETTING_KIND, type SettingField, type SettingValue } from '@opencloudapp/core/plugin-contract.js';
 
   /** siblings : les autres appareils du meme boitier (un reglage peut en choisir, ex. membres d'une centrale) */
-  interface Props { appareil: KnownAppareil; siblings: readonly Appareil[]; boitierName: string; lang: Lang; grouped?: boolean; }
-  const { appareil: a, siblings, boitierName, lang, grouped = false }: Props = $props();
+  interface Props { appareil: KnownAppareil; siblings: readonly Appareil[]; boitierName: string; lang: Lang; grouped?: boolean; grip?: Snippet; }
+  const { appareil: a, siblings, boitierName, lang, grouped = false, grip }: Props = $props();
   const s = $derived(t(lang));
   const SENDING_MS = 400;   // retour visuel du bouton presse
 
@@ -58,7 +59,7 @@
   };
 </script>
 
-<DeviceFrame {lang} name={a.name} boxId={a.boitierId} boxName={boitierName} online={a.online} {grouped}>
+<DeviceFrame {lang} name={a.name} boxId={a.boitierId} boxName={boitierName} online={a.online} {grouped} {grip}>
   {#snippet icon()}
     <IconMark icon={a.kind.icon} label={a.kind.label[lang]} />
   {/snippet}

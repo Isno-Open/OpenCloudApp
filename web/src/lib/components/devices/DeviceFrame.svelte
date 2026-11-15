@@ -1,19 +1,21 @@
 <script lang="ts">
   // Cadre d'une carte d'appareil, commun a tous : icone et nom en tete, contenu, pied (boitier, etat,
   // action), details facultatifs. Une carte de volet et une carte « inconnu » ne different que par ce
-  // qu'elles mettent dedans.
+  // qu'elles mettent dedans. La poignee (glisser pour reorganiser) est donnee par la page, la meme pour
+  // toutes les cartes d'un boitier qui se reorganise.
   import type { Snippet } from 'svelte';
   import { t, type Lang } from '#lib/i18n.ts';
   interface Props {
     lang: Lang; name: string; boxId: string; boxName: string; online: boolean; grouped: boolean; unknown?: boolean;
-    icon: Snippet; badge?: Snippet; children: Snippet; action?: Snippet; details?: Snippet;
+    icon: Snippet; badge?: Snippet; grip?: Snippet; children: Snippet; action?: Snippet; details?: Snippet;
   }
-  const { lang, name, boxId, boxName, online, grouped, unknown = false, icon, badge, children, action, details }: Props = $props();
+  const { lang, name, boxId, boxName, online, grouped, unknown = false, icon, badge, grip, children, action, details }: Props = $props();
   const s = $derived(t(lang));
 </script>
 
 <div class={['volet', { unknown, offline: !online }]} data-box={boxId}>
   <div class="top">
+    {@render grip?.()}
     <span class="ico">{@render icon()}</span>
     <span class="vname">{name}</span>
     {@render badge?.()}

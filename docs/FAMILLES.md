@@ -77,6 +77,11 @@ même boîtier** parmi des types permis (`kinds`) : les membres d'une centrale, 
 Le portail le dessine en cases à cocher, une par appareil, et vérifie à l'enregistrement que chacun
 existe sur ce boîtier, a un type permis et n'est pas l'appareil lui-même.
 
+**Ordre des cartes.** Le portail classe les appareils d'un boîtier par rang (`rank` du fait
+appareil) ; ceux sans rang suivent, dans l'ordre où la famille déclare ses types (`kinds`), puis par
+nom. Une famille qui fournit `reorder(cible, rang)` rend ses cartes déplaçables : on les glisse par
+leur poignée, et le portail envoie le nouveau rang, que le boîtier applique en décalant les autres.
+
 Le jour où un boîtier a besoin d'un contrôle absent, on l'ajoute au vocabulaire, dans le cœur, pour
 toutes les familles. C'est aussi ce vocabulaire que l'intégration Google Home traduira en « traits »
 Google, sans rien de Google dans les plugins.

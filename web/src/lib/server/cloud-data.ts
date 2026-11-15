@@ -3,7 +3,7 @@
 // (device-families.ts). La famille d'un boitier est celle qu'il a declaree a l'enrolement (firmware).
 import { listDevices, countDevices, findDevice, getAccount } from '@opencloudapp/core/store.js';
 import { deviceOnline } from '@opencloudapp/core/mqtt.js';
-import { familyById, boxState } from '@opencloudapp/core/device-families.js';
+import { familyById, boxState, compareDevices } from '@opencloudapp/core/device-families.js';
 import { isNewerVersion } from '@opencloudapp/core/version.js';
 import type { Appareil, Boitier, Account } from '#lib/types.ts';
 import { boot } from '#lib/server/boot.ts';
@@ -14,7 +14,7 @@ import { plugins } from '#lib/server/auth.ts';
 const boitierOf = (d: { deviceId: string; name: string; firmware: string; lastSeenAt?: number | null }): Boitier => {
   const st = boxState(d.firmware, d.deviceId);
   return {
-    id: d.deviceId, familyKnown: !!familyById(d.firmware), name: d.name, firmware: st?.firmware ?? d.firmware,
+    id: d.deviceId, familyKnown: !!familyById(d.firmware), reorderable: !!familyById(d.firmware)?.reorder, name: d.name, firmware: st?.firmware ?? d.firmware,
     online: deviceOnline(d.firmware, d.deviceId), updateAvailable: !!st?.latest && !!st.firmware && isNewerVersion(st.latest, st.firmware),
     count: st?.devices.size ?? 0, lastSeenAt: d.lastSeenAt ?? null,
     ...(st ? {
@@ -57,8 +57,8 @@ export async function listAppareils(accountId: string): Promise<Appareil[]> {
     const st = boxState(d.firmware, d.deviceId);
     if (!fam || !st) continue;
     const online = deviceOnline(d.firmware, d.deviceId);
-    // classes par rang d'affichage (ceux sans rang a la suite), puis par nom
-    const ordered = [...st.devices].sort(([, a], [, b]) => (a.rank ?? Infinity) - (b.rank ?? Infinity) || a.name.localeCompare(b.name));
+    // classes par rang d'affichage, ceux sans rang a la suite dans l'ordre des types de la famille
+    const ordered = [...st.devices].sort(([, a], [, b]) => compareDevices(fam, a, b));
     for (const [slug, dev] of ordered) {
       out.push({
         id: `${d.deviceId}:${slug}`, boitierId: d.deviceId, slug, name: dev.name,

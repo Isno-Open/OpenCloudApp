@@ -60,7 +60,8 @@ export type Fact =
   | { fact: typeof FACT.device; device: string; kind: string; name?: string; hidden?: readonly string[];
       // valeurs actuelles de ses reglages (par cle de champ), telles que le boitier les publie
       settings?: Readonly<Record<string, SettingValue>>;
-      // rang d'affichage parmi les appareils du boitier (1 = premier) : le portail classe les cartes ainsi
+      // rang d'affichage parmi les appareils du boitier (1 = premier) : le portail classe les cartes ainsi ;
+      // sans rang, a la suite, dans l'ordre des types de la famille (`kinds`), puis par nom
       rank?: number }
   | { fact: typeof FACT.state; device: string; control: string; value: ControlValue }
   | { fact: typeof FACT.box; firmware?: string; latest?: string; health?: BoxHealth; network?: BoxNetwork;
@@ -99,6 +100,9 @@ export type FamilyDecl = {
   boxControls?: readonly BoxControlDecl[];
   read(msg: FamilyMessage): readonly Fact[];
   command(target: CommandTarget, control: string, value: ControlValue | null): FamilyCommand | null;
+  /** Deplacer un appareil au rang donne (1 = premier) parmi ceux de son boitier, qui decale les autres.
+   *  Present = les cartes du boitier se reorganisent en les glissant. */
+  reorder?(target: Required<CommandTarget>, rank: number): FamilyCommand | null;
   /** Reglages d'un appareil (deja verifies contre les champs de son type) -> message au boitier. */
   configure?(target: Required<CommandTarget>, values: Readonly<Record<string, SettingValue>>): FamilyCommand | null;
 };

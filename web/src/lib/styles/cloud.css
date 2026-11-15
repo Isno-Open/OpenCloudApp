@@ -107,6 +107,12 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.015em; margin: 0; }
 .volet.offline { opacity: .6; }
 .volet .top { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
 .volet .ico { font-size: 1.15rem; line-height: 1; display: inline-flex; color: var(--text-soft); flex: none; }
+/* poignee pour reorganiser les cartes d'un boitier (glisser) : seule elle capte le doigt, la carte defile */
+.volet .grip { appearance: none; border: 0; background: transparent; color: var(--text-faint); font-size: 1.15rem; line-height: 1; padding: 4px 2px; margin: -4px 0; cursor: grab; touch-action: none; flex: none; }
+.volet .grip:hover { color: var(--accent); }
+.drag-item { min-width: 0; }
+.drag-item.dragging .volet { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-line), var(--shadow); opacity: .92; }
+.drag-item.dragging .grip { cursor: grabbing; color: var(--accent); }
 .volet .vname { font-weight: 650; font-size: 1rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .volet .pct { margin-left: auto; font-family: var(--font-mono); font-size: 1.05rem; font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; flex: none; }
 .dpad { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }

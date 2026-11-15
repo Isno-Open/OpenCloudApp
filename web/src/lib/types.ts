@@ -39,6 +39,8 @@ export type Boitier = {
   id: string;            // ex. opf-5ec9d3968f
   /** famille de boitiers installee pour lui (son plugin), ou false : le portail ne sait pas le lire */
   familyKnown: boolean;
+  /** ses appareils se reorganisent en glissant leurs cartes (sa famille sait les deplacer) */
+  reorderable: boolean;
   name: string;          // nom donne par l'utilisateur (Maison 1...)
   online: boolean;
   firmware: string;      // ex. 0.2.15+cloud

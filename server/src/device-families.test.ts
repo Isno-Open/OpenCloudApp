@@ -277,6 +277,33 @@ test("choix d'appareils : declaration verifiee (types choisissables connus de la
   assert.throws(() => asFamily({ ...AVEC_CENTRALE, kinds: [AVEC_CENTRALE.kinds[0]!, { ...c, settings: [{ ...MEMBRES, kinds: [] }] }] }), /choisissables/);
 });
 
+test("reorganiser : rang de 1 au nombre d'appareils du boitier, traduit par la famille ; tri par rang puis ordre des types", async () => {
+  const { buildReorder, compareDevices } = await import("./device-families.js");
+  const MOBILE = { ...AVEC_CENTRALE, reorder: ({ device }: { box: string; device: string }, rank: number) => ({ path: `store/${device}/rang`, payload: String(rank) }) };
+  registerDeviceFamily(MOBILE);
+  applyMessage("test-famille/b1/store/salon/type", "19", true, 1);
+  applyMessage("test-famille/b1/store/cuisine/type", "store", true, 1);
+  applyMessage("test-famille/b1/store/tout/type", '["salon"]', true, 1);
+  const f = familyById("famille-test")!, t = { box: "b1", device: "tout" };
+  assert.deepEqual(buildReorder(f, t, 1), { topic: "test-famille/b1/store/tout/rang", payload: "1", retain: false });
+  assert.deepEqual(buildReorder(f, t, 3), { topic: "test-famille/b1/store/tout/rang", payload: "3", retain: false });
+  assert.ok("error" in buildReorder(f, t, 4), "au-dela du nombre d'appareils");
+  assert.ok("error" in buildReorder(f, t, 0));
+  assert.ok("error" in buildReorder(f, t, 1.5));
+  assert.ok("error" in buildReorder(f, t, "1"), "un nombre attendu");
+  assert.ok("error" in buildReorder(f, { box: "b1", device: "bureau" }, 1), "appareil inconnu");
+  assert.ok("error" in buildReorder(f, { box: "b2", device: "tout" }, 1), "autre boitier");
+  // sans rang : dans l'ordre des types declares (store avant centrale ici), puis par nom
+  const devs = boxState("famille-test", "b1")!.devices;
+  assert.deepEqual([...devs.values()].sort((a, b) => compareDevices(f, a, b)).map((d) => d.name), ["cuisine", "salon", "tout"]);
+  const inverse = { ...f, kinds: [...f.kinds].reverse() };
+  assert.deepEqual([...devs.values()].sort((a, b) => compareDevices(inverse, a, b)).map((d) => d.name), ["tout", "cuisine", "salon"], "centrale declaree d'abord : en tete");
+  clearDeviceFamilies();
+  registerDeviceFamily(AVEC_CENTRALE);
+  assert.ok("error" in buildReorder(familyById("famille-test")!, t, 1), "famille sans reorder");
+  assert.throws(() => asFamily({ ...AVEC_CENTRALE, reorder: 3 }), /reorder/);
+});
+
 test("isolation : un reglage traduit hors du boitier est refuse", async () => {
   const { buildConfigure } = await import("./device-families.js");
   registerDeviceFamily({ ...REGLABLE, configure: () => ({ path: "../b2/reglages", payload: "x" }) });
