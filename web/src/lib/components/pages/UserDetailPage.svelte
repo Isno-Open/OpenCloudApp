@@ -11,7 +11,16 @@
   const a = $derived(data.account);
   const KIB = 1024;
   const when = (ms: number | null): string => (ms === null ? s.udUnknown : `${new Date(ms).toLocaleString(data.lang)} (${relativeTime(ms, data.now, data.lang)})`);
-  const kib = (n: number): string => `${Math.round(n / KIB)} Ko`;
+  // appareils sans nom montre (telecommandes) : un compte par type, pas une ligne chacun
+  const unnamed = (apps: UserDetailData['boxes'][number]['appliances']): { label: string; n: number }[] => {
+    const out: { label: string; n: number }[] = [];
+    for (const d of apps) if (!d.name) {
+      const label = d.kind ? d.kind[data.lang] : '?';
+      const g = out.find((x) => x.label === label);
+      if (g) g.n++; else out.push({ label, n: 1 });
+    }
+    return out;
+  };
 </script>
 
 <CloudLayout title={a.name} lang={data.lang} altUrl={userHref(a.id, otherLang(data.lang))} shell={data.shell}>
@@ -62,7 +71,8 @@
       </div>
       <h4>{s.udAppliances} ({b.appliances.length})</h4>
       <div class="ud-apps">
-        {#each b.appliances as d, i (i)}
+        {#each unnamed(b.appliances) as g (g.label)}<div class="ud-app"><span class="role">{g.label}</span><span class="mono">× {g.n}</span></div>{/each}
+        {#each b.appliances.filter((x) => x.name) as d, i (i)}
           <div class="ud-app"><span>{d.name}</span><span class="role">{d.kind ? d.kind[data.lang] : '?'}</span>
             {#if d.position !== null}<span class="mono">{s.udPosition(d.position)}</span>{/if}
             {#each d.settings as st (st.label.fr)}<span class="mono">{st.label[data.lang]} : {st.value}</span>{/each}

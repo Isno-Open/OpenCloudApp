@@ -64,16 +64,18 @@ export async function adminBoxDetails(accountId: string): Promise<AdminBoxDetail
   return Promise.all((await adminBoxes(accountId)).map(async (b): Promise<AdminBoxDetail> => {
     const d = (await listDevices(accountId)).find((x) => x.deviceId === b.id)!;
     const st = boxState(d.firmware, d.deviceId), fam = familyById(d.firmware);
-    // un appareil range sur la page du boitier (une telecommande) sans nom propre porte son numero de
-    // serie en guise de nom : on ne montre alors que son type (minimisation). Le nom d'un volet, lui,
-    // est celui que l'utilisateur a donne.
-    const appliances = st ? [...st.devices.entries()].sort(([, x], [, y]) => (fam ? compareDevices(fam, x, y) : x.name.localeCompare(y.name))).map(([id, a]) => {
+    // un appareil range sur la page du boitier (une telecommande) : son type seulement, ni nom ni
+    // reglage. Sans nom, sa famille peut lui donner son numero de serie, que le coeur ne sait pas
+    // reconnaitre ; et son nom n'apporte rien au support (minimisation). Le nom d'un volet, lui, est
+    // celui que l'utilisateur a donne a ce qu'il pilote.
+    const appliances = st ? [...st.devices.values()].sort((x, y) => (fam ? compareDevices(fam, x, y) : x.name.localeCompare(y.name))).map((a) => {
       const kind = fam?.kinds.find((k) => k.id === a.kind);
       const pos = kind?.controls.find((c) => c.kind === CONTROL.position);
       const v = pos ? a.values.get(pos.id) : undefined;
+      const onBox = kind?.place === KIND_PLACE.box;
       return {
-        name: kind?.place === KIND_PLACE.box && (a.name === id || a.name === id.replace(/_/g, ' ')) ? '' : a.name, kind: kind ? kind.label : null, position: typeof v === 'number' ? v : null,
-        settings: (kind?.settings ?? []).filter((f) => a.settings.has(f.key)).map((f) => {
+        name: onBox ? '' : a.name, kind: kind ? kind.label : null, position: typeof v === 'number' ? v : null,
+        settings: onBox ? [] : (kind?.settings ?? []).filter((f) => { const v0 = a.settings.get(f.key); return v0 !== undefined && v0 !== ''; }).map((f) => {
           const sv = a.settings.get(f.key);
           return { label: f.label, value: Array.isArray(sv) ? String(sv.length) : String(sv) };
         }),
