@@ -26,6 +26,30 @@
     actionMsg = r.ok ? s.actionSent : s.actionError;
   }
 
+  // fichier du boitier (sa sauvegarde) : demande au boitier par le portail, qui le remet sans le garder ;
+  // l'erreur s'affiche dans la page (le lien direct telechargerait le message d'erreur comme fichier)
+  let fileBusy = $state<string | null>(null);
+  let fileMsg = $state('');
+  async function download(id: string): Promise<void> {
+    fileBusy = id; fileMsg = s.fileWaiting;
+    try {
+      const r = await fetch(`/api/boitier/file?device_id=${encodeURIComponent(b.id)}&file=${encodeURIComponent(id)}`);
+      if (!r.ok) {
+        const body: unknown = await r.json().catch(() => null);
+        const why = body && typeof body === 'object' && 'error' in body && typeof body.error === 'string' ? body.error : '';
+        fileMsg = why ? `${s.fileError} (${why})` : s.fileError;
+        return;
+      }
+      const name = /filename="([^"]+)"/.exec(r.headers.get('content-disposition') ?? '')?.[1] ?? `${id}.json`;
+      const href = URL.createObjectURL(await r.blob());
+      const a = document.createElement('a');
+      a.href = href; a.download = name; a.click();
+      URL.revokeObjectURL(href);
+      fileMsg = s.fileDone;
+    } catch { fileMsg = s.fileError; }
+    finally { fileBusy = null; }
+  }
+
   const TAB = { cfg: 'cfg', manage: 'manage' } as const;
   let tab = $state<string>(TAB.cfg);
   // appareils que la famille range sur la page du boitier : un onglet par groupe (ex. Telecommandes),
@@ -104,10 +128,16 @@
       {/each}
       {#if actionMsg}<p class="note" role="status">{actionMsg}</p>{/if}
     </div>
-    <div class="panel">
-      <h3>{s.comingSoon} <span class="ro">{s.readonly}</span></h3>
-      <p class="note">{s.comingSoonNote}</p>
-    </div>
+    {#if b.files?.length}
+      <div class="panel" data-box-files>
+        <h3>{s.boxFiles}</h3>
+        <p class="note">{s.boxFilesNote}</p>
+        {#each b.files as f (f.id)}
+          <button type="button" class="btn" data-file={f.id} disabled={!b.online || fileBusy !== null} onclick={() => download(f.id)}>{f.label[lang]}</button>
+        {/each}
+        {#if fileMsg}<p class="note" role="status" data-file-msg>{fileMsg}</p>{/if}
+      </div>
+    {/if}
   </div>
 </div>
 

@@ -32,6 +32,7 @@ const boitierOf = (d: { deviceId: string; name: string; firmware: string; lastSe
       lastReset: st.health.lastReset ?? null,
       trial: st.trial, previous: st.previous,
       actions: (familyById(d.firmware)?.boxControls ?? []).filter((c) => st.actions.get(c.id) === true),
+      files: (familyById(d.firmware)?.boxFiles ?? []).map(({ id, label }) => ({ id, label })),
     } : {}),
   };
 };

@@ -50,6 +50,8 @@ le plugin rend une liste de faits, que le cœur vérifie avant de les appliquer 
 | `state` | valeurs de l'appareil, par contrôle | l'état sur la carte |
 | `box` | version du firmware, dernière version disponible | page boîtier, bouton de mise à jour |
 | `event` | niveau (info ou alerte), code, texte FR et EN, appareil éventuel | notifications, journal |
+| `gone` | appareil retiré du boîtier | sa carte disparaît |
+| `file` | fichier demandé au boîtier (`boxFiles`) et son contenu | téléchargement, jamais gardé |
 
 ### Commander : `command(target, control, value)`
 
@@ -58,6 +60,18 @@ Le cœur appelle le plugin avec l'appareil, le contrôle actionné et sa valeur.
 vérification : pas de joker `+` ou `#`, pas de `..`, charge bornée. La **mise à jour du firmware** est
 une commande du boîtier entier (`target` sans appareil), par exemple `ota/pull` et l'adresse de
 l'image.
+
+### Fichiers du boîtier : `boxFiles` et `requestFile(target, file)`
+
+Une famille peut déclarer des fichiers que ses boîtiers rendent à la demande, par exemple leur
+sauvegarde : `boxFiles: [{ id, label, type }]` (`type` dans `BOX_FILE_TYPE`, aujourd'hui `json`). Quand
+l'utilisateur clique, le portail publie la demande que `requestFile` traduit (jamais retenue, elle se
+rejouerait à chaque connexion), attend au plus 20 s la réponse du boîtier, que `read` rend en fait
+`file`, et la remet au navigateur. **Le portail n'en garde aucune copie** : le contenu est remis aux
+requêtes qui l'attendent, puis oublié ; une réponse arrivée en message retenu est refusée, parce
+qu'elle resterait stockée sur le broker. Une sauvegarde porte de quoi commander les appareils (les
+trames de référence des télécommandes, pour OpenProfalux) : elle ne doit vivre que chez son
+propriétaire.
 
 ### Les cartes : un vocabulaire fixé par le cœur
 

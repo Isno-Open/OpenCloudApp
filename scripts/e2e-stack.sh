@@ -58,7 +58,7 @@ FT=$(docker create opencloudapp-famille-test:e2e) && docker cp "$FT:/plugin" "$W
 chmod -R a+rX "$WORK/famille-test"
 C=(docker compose -p isnoe2e -f docker-compose.yml -f "$WORK/override.yml")
 teardown() {
-  docker rm -f isno-mqtt isno-mongo isno-e2e-device isno-e2e-config isno-e2e-maj isno-e2e-mail isno-e2e-catalog >/dev/null 2>&1
+  docker rm -f isno-mqtt isno-mongo isno-e2e-device isno-e2e-config isno-e2e-maj isno-e2e-backup isno-e2e-mail isno-e2e-catalog >/dev/null 2>&1
   "${C[@]}" down -v >/dev/null 2>&1
   docker volume rm isno-broker-data isno-mongo-data isno-plugins >/dev/null 2>&1
   [ "$ENV_CREATED" = 1 ] && rm -f .env
@@ -190,6 +190,22 @@ sleep 2
 BOX=$(curl -s -b "$J" "$B/boitier/$ID")
 chk "sante : signal Wi-Fi" "$(echo "$BOX" | grep -c -- '-61 dBm')" 1
 chk "sante : reseau Wi-Fi (lecture seule)" "$(echo "$BOX" | grep -c '>Reseau essai<')" 1
+
+echo "== sauvegarde : demandee au boitier, remise au navigateur, gardee nulle part"
+MQ=(-h "$LAN" -p 18883 --cafile /d/ca.pem --cert /d/cert.pem --key /d/key.pem)
+SAUV='{"volets":[{"id":"salon","cmd":{"up":"0101"}}]}'
+chk "sauvegarde : bouton sur la page du boitier" "$(curl -s -b "$J" "$B/boitier/$ID" | grep -c 'data-file="backup"')" 1
+# boitier simule : attend la demande, puis repond par backup/data, NON retenu (pas de -r)
+docker run -d --name isno-e2e-backup -v "$WORK:/d:ro" --entrypoint sh eclipse-mosquitto:2.0.22 -c \
+  "mosquitto_sub ${MQ[*]} -t famille-test/$ID/backup/get -C 1 -W 30 >/dev/null && mosquitto_pub ${MQ[*]} -t famille-test/$ID/backup/data -m '$SAUV'" >/dev/null
+sleep 3
+GOT=$(curl -s -b "$J" -D "$WORK/sauv.h" "$B/api/boitier/file?device_id=$ID&file=backup")
+chk "sauvegarde : le contenu envoye par le boitier" "$GOT" "$SAUV"
+chk "sauvegarde : telechargee comme fichier, jamais en cache" "$(grep -ciE '^content-disposition: attachment|^cache-control: no-store' "$WORK/sauv.h")" 2
+docker rm -f isno-e2e-backup >/dev/null 2>&1
+chk "sauvegarde : rien de retenu sur le broker" "$(docker run --rm -v "$WORK:/d:ro" "${SUB[@]}" -t "famille-test/$ID/backup/#" -W 3 -v 2>/dev/null | wc -l)" 0
+chk "sauvegarde : fichier non declare, refuse" "$(curl -s -o /dev/null -w '%{http_code}' -b "$J" "$B/api/boitier/file?device_id=$ID&file=journal")" 404
+chk "sauvegarde : boitier d'un autre compte, refuse" "$(curl -s -o /dev/null -w '%{http_code}' -b "$J" "$B/api/boitier/file?device_id=opf-inconnu&file=backup")" 403
 
 echo "== reconciliation : la config change de nom, le certificat suit"
 FP1=$(docker exec isno-cloud-server openssl x509 -in /broker-certs/server.crt -noout -fingerprint -sha256)

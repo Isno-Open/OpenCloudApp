@@ -53,7 +53,7 @@ export type KindPlace = (typeof KIND_PLACE)[keyof typeof KIND_PLACE];
 export type FamilyMessage = { box: string; path: string; payload: string; retained: boolean };
 
 /** Ce que read() rend : des FAITS, que le coeur verifie avant de les appliquer. */
-export const FACT = { presence: "presence", device: "device", state: "state", box: "box", event: "event", gone: "gone" } as const;
+export const FACT = { presence: "presence", device: "device", state: "state", box: "box", event: "event", gone: "gone", file: "file" } as const;
 export type FactKind = (typeof FACT)[keyof typeof FACT];
 export const EVENT_LEVEL = { info: "info", alert: "alert" } as const;
 export type EventLevel = (typeof EVENT_LEVEL)[keyof typeof EVENT_LEVEL];
@@ -78,7 +78,11 @@ export type Fact =
       actions?: Readonly<Record<string, boolean>> }
   | { fact: typeof FACT.event; level: EventLevel; code: string; text: LocalizedText; device?: string }
   // appareil retire du boitier (supprime, ignore) : sa carte disparait
-  | { fact: typeof FACT.gone; device: string };
+  | { fact: typeof FACT.gone; device: string }
+  // reponse du boitier a une demande de fichier (boxFiles, requestFile) : remise a la requete qui
+  // l'attend, JAMAIS gardee par le portail ; refusee si elle arrive en message retenu (elle resterait
+  // sur le broker)
+  | { fact: typeof FACT.file; file: string; content: string };
 
 /** Sante d'un boitier, en lecture : ce qu'il publie de lui-meme (battement, etat systeme). Chaque champ
  *  est facultatif ; un fait n'en porte que ceux qu'il connait, les autres gardent leur valeur. */
@@ -91,6 +95,13 @@ export type BoxNetwork = { ssid?: string; ip?: string; broker?: string };
  *  portail la montre seulement quand le boitier la dit possible (fait boitier, actions), et demande
  *  confirmation quand `confirm` est donne. */
 export type BoxControlDecl = { id: string; label: LocalizedText; confirm?: LocalizedText };
+
+/** Fichier qu'un boitier peut rendre a la demande (ex. sa sauvegarde) : le portail le demande quand
+ *  l'utilisateur clique, attend la reponse du boitier et la remet au navigateur, sans en garder de
+ *  copie. `type` fixe l'extension et le type du fichier telecharge. */
+export const BOX_FILE_TYPE = { json: "json" } as const;
+export type BoxFileType = (typeof BOX_FILE_TYPE)[keyof typeof BOX_FILE_TYPE];
+export type BoxFileDecl = { id: string; label: LocalizedText; type: BoxFileType };
 
 /** Cible d'une commande : un appareil d'un boitier, ou le boitier entier (mise a jour du firmware). */
 export type CommandTarget = { box: string; device?: string };
@@ -106,6 +117,8 @@ export type FamilyDecl = {
   topicRoot: string;     // racine de ses topics : abonnement `<racine>/+/#`, ACL `<racine>/%u/#`
   kinds: readonly KindDecl[];
   boxControls?: readonly BoxControlDecl[];
+  /** Fichiers que ses boitiers rendent a la demande ; requestFile() dit comment les demander. */
+  boxFiles?: readonly BoxFileDecl[];
   read(msg: FamilyMessage): readonly Fact[];
   command(target: CommandTarget, control: string, value: ControlValue | null): FamilyCommand | null;
   /** Deplacer un appareil au rang donne (1 = premier) parmi ceux de son boitier, qui decale les autres.
@@ -113,4 +126,6 @@ export type FamilyDecl = {
   reorder?(target: Required<CommandTarget>, rank: number): FamilyCommand | null;
   /** Reglages d'un appareil (deja verifies contre les champs de son type) -> message au boitier. */
   configure?(target: Required<CommandTarget>, values: Readonly<Record<string, SettingValue>>): FamilyCommand | null;
+  /** Demande d'un fichier (un `boxFiles`) au boitier -> message ; sa reponse revient par read(), fait `file`. */
+  requestFile?(target: { box: string }, file: string): FamilyCommand | null;
 };

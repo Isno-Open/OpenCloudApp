@@ -5,8 +5,8 @@
 import { SETTING_KIND, TEXT_FORMAT, type LocalizedText, type SettingValue } from "./plugin-contract.js";
 import { asIcon } from "./icons.js";
 import {
-  FAMILY_CONTRACT, CONTROL, FACT, EVENT_LEVEL, DEVICE_SETTING, KIND_PLACE,
-  type ControlDecl, type ControlValue, type CommandTarget, type EventLevel, type Fact, type FamilyDecl, type KindDecl, type BoxHealth, type BoxNetwork, type BoxControlDecl, type DeviceSettingField, type DevicesField,
+  FAMILY_CONTRACT, CONTROL, FACT, EVENT_LEVEL, DEVICE_SETTING, KIND_PLACE, BOX_FILE_TYPE,
+  type BoxFileDecl, type ControlDecl, type ControlValue, type CommandTarget, type EventLevel, type Fact, type FamilyDecl, type KindDecl, type BoxHealth, type BoxNetwork, type BoxControlDecl, type DeviceSettingField, type DevicesField,
 } from "./family-contract.js";
 
 /** Identifiant de famille = champ `firmware` d'un boitier ; racine de topics ; identifiants internes. */
@@ -20,6 +20,8 @@ const PATH_MAX = 128;
 const PAYLOAD_MAX = 512;
 const TEXT_MAX = 200;
 const EVENTS_MAX = 50;
+/** Fichier rendu par un boitier (sa sauvegarde : 24 appareils, trames comprises, tiennent en 24 Ko). */
+export const BOX_FILE_MAX = 64 * 1024;
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object";
 const isText = (v: unknown): v is LocalizedText =>
@@ -130,6 +132,14 @@ function asBoxControl(v: unknown, family: string): BoxControlDecl {
   return { id: v.id, label: v.label, ...(isText(v.confirm) ? { confirm: v.confirm } : {}) };
 }
 
+function asBoxFile(v: unknown, family: string): BoxFileDecl {
+  if (!isObj(v) || typeof v.id !== "string" || !NAME_RE.test(v.id)) throw new Error(`famille ${family} : fichier du boitier sans identifiant valable`);
+  if (!isText(v.label)) throw new Error(`famille ${family}, fichier ${v.id} : libelle fr et en requis`);
+  const type = Object.values(BOX_FILE_TYPE).find((t) => t === v.type);
+  if (!type) throw new Error(`famille ${family}, fichier ${v.id} : type « ${String(v.type)} » inconnu`);
+  return { id: v.id, label: v.label, type };
+}
+
 /** Declaration verifiee piece par piece (elle vient d'un plugin), ou une erreur qui dit quoi. */
 export function asFamily(v: unknown): FamilyDecl {
   if (!isObj(v)) throw new Error("famille : objet attendu");
@@ -146,6 +156,12 @@ export function asFamily(v: unknown): FamilyDecl {
   const boxControls = v.boxControls === undefined ? [] : Array.isArray(v.boxControls) ? v.boxControls.map((c) => asBoxControl(c, id)) : null;
   if (!boxControls) throw new Error(`famille ${id} : actions du boitier en liste`);
   if (new Set(boxControls.map((c) => c.id)).size !== boxControls.length) throw new Error(`famille ${id} : deux actions du boitier ont le meme identifiant`);
+  const boxFiles = v.boxFiles === undefined ? [] : Array.isArray(v.boxFiles) ? v.boxFiles.map((x) => asBoxFile(x, id)) : null;
+  if (!boxFiles) throw new Error(`famille ${id} : fichiers du boitier en liste`);
+  if (new Set(boxFiles.map((x) => x.id)).size !== boxFiles.length) throw new Error(`famille ${id} : deux fichiers du boitier ont le meme identifiant`);
+  const requestFile = v.requestFile;
+  if (requestFile !== undefined && typeof requestFile !== "function") throw new Error(`famille ${id} : requestFile() doit etre une fonction`);
+  if (boxFiles.length && typeof requestFile !== "function") throw new Error(`famille ${id} : des fichiers du boitier sans requestFile()`);
   const read = v.read, command = v.command, configure = v.configure, reorder = v.reorder;
   if (reorder !== undefined && typeof reorder !== "function") throw new Error(`famille ${id} : reorder() doit etre une fonction`);
   if (typeof read !== "function" || typeof command !== "function") throw new Error(`famille ${id} : read() et command() requis`);
@@ -155,11 +171,12 @@ export function asFamily(v: unknown): FamilyDecl {
   for (const k of kinds) for (const st of k.settings ?? []) if (st.kind === DEVICE_SETTING.devices)
     for (const t of st.kinds) if (!kinds.some((x) => x.id === t)) throw new Error(`famille ${id}, type ${k.id}/reglage ${st.key} : type « ${t} » inconnu`);
   return {
-    id, label: v.label, icon, contract: FAMILY_CONTRACT, topicRoot: v.topicRoot, kinds, ...(boxControls.length ? { boxControls } : {}),
+    id, label: v.label, icon, contract: FAMILY_CONTRACT, topicRoot: v.topicRoot, kinds, ...(boxControls.length ? { boxControls } : {}), ...(boxFiles.length ? { boxFiles } : {}),
     read: (msg) => read.call(v, msg) as readonly Fact[],
     command: (target, control, value) => command.call(v, target, control, value) as ReturnType<FamilyDecl["command"]>,
     ...(typeof configure === "function" ? { configure: (target: Required<CommandTarget>, values: Readonly<Record<string, SettingValue>>) => configure.call(v, target, values) as ReturnType<NonNullable<FamilyDecl["configure"]>> } : {}),
     ...(typeof reorder === "function" ? { reorder: (target: Required<CommandTarget>, rank: number) => reorder.call(v, target, rank) as ReturnType<NonNullable<FamilyDecl["reorder"]>> } : {}),
+    ...(typeof requestFile === "function" ? { requestFile: (target: { box: string }, file: string) => requestFile.call(v, target, file) as ReturnType<NonNullable<FamilyDecl["requestFile"]>> } : {}),
   };
 }
 
@@ -234,9 +251,37 @@ function asNetwork(v: unknown): BoxNetwork | null {
   return out;
 }
 
+// ── Fichiers demandes a un boitier : remis a qui les attend, jamais gardes ──
+type FileWaiter = (content: string) => void;
+const fileWaiters = new Map<string, FileWaiter[]>();
+const fileKey = (family: string, box: string, file: string): string => `${family}/${box}/${file}`;
+
+/** Attendre le fichier `file` du boitier, au plus `timeoutMs` : son contenu, ou null. S'inscrire AVANT
+ *  de publier la demande (la reponse peut arriver aussitot). */
+export function awaitBoxFile(family: string, box: string, file: string, timeoutMs: number): Promise<string | null> {
+  return new Promise((resolve) => {
+    const k = fileKey(family, box, file);
+    const timer = setTimeout(() => {
+      const rest = (fileWaiters.get(k) ?? []).filter((w) => w !== done);
+      if (rest.length) fileWaiters.set(k, rest); else fileWaiters.delete(k);
+      resolve(null);
+    }, timeoutMs);
+    const done: FileWaiter = (content) => { clearTimeout(timer); resolve(content); };
+    fileWaiters.set(k, [...(fileWaiters.get(k) ?? []), done]);
+  });
+}
+
+/** Le contenu a-t-il la forme de son type ? (un JSON qui ne se lit pas n'est pas une sauvegarde) */
+function fileContentFits(type: BoxFileDecl["type"], content: string): boolean {
+  switch (type) {
+    case BOX_FILE_TYPE.json: try { JSON.parse(content); return true; } catch { return false; }
+  }
+}
+
 /** Applique les faits rendus par une famille pour un boitier. Un fait mal forme est ecarte seul, et
- *  rendu dans la liste des refus (journal) : il ne casse ni les autres faits, ni le relais. */
-export function applyFacts(f: FamilyDecl, box: string, facts: unknown, now: number): string[] {
+ *  rendu dans la liste des refus (journal) : il ne casse ni les autres faits, ni le relais. `retained` :
+ *  le message venait d'un retenu du broker (un fichier ne doit pas y etre garde, il est refuse). */
+export function applyFacts(f: FamilyDecl, box: string, facts: unknown, now: number, retained = false): string[] {
   const refused: string[] = [];
   if (!Array.isArray(facts)) return ["read() n'a pas rendu une liste"];
   let s = boxes.get(key(f.id, box));
@@ -299,6 +344,18 @@ export function applyFacts(f: FamilyDecl, box: string, facts: unknown, now: numb
         s.events.length = Math.min(s.events.length, EVENTS_MAX);
         break;
       }
+      case FACT.file: {
+        const decl = (f.boxFiles ?? []).find((d) => d.id === x.file);
+        if (!decl || typeof x.content !== "string") { refused.push(`fichier non declare ou sans contenu (${String(x.file)})`); break; }
+        if (retained) { refused.push(`fichier ${decl.id} retenu sur le broker : refuse (il y resterait)`); break; }
+        if (x.content.length > BOX_FILE_MAX || !fileContentFits(decl.type, x.content)) { refused.push(`fichier ${decl.id} : trop gros ou mal forme`); break; }
+        // remis a chaque requete qui l'attend, puis oublie ; personne ne l'attend : rien a faire
+        const k = fileKey(f.id, box, decl.id);
+        const waiting = fileWaiters.get(k) ?? [];
+        fileWaiters.delete(k);
+        for (const w of waiting) w(x.content);
+        break;
+      }
       default: refused.push(`fait inconnu « ${String(x.fact)} »`);
     }
   }
@@ -317,7 +374,7 @@ export function applyMessage(topic: string, payload: string, retained: boolean, 
   let facts: unknown;
   try { facts = f.read({ box, path: m[3]!, payload, retained }); }
   catch (e) { return { family: f, box, refused: [`read() a echoue : ${e instanceof Error ? e.message : String(e)}`] }; }
-  return { family: f, box, refused: applyFacts(f, box, facts, now) };
+  return { family: f, box, refused: applyFacts(f, box, facts, now, retained) };
 }
 
 /** Commande d'un utilisateur vers un appareil (ou le boitier entier) : verifiee contre ce que la famille
@@ -354,6 +411,19 @@ function checkCommand(f: FamilyDecl, box: string, cmd: unknown): { topic: string
     return { error: "chemin de commande refuse" };
   if (typeof cmd.payload !== "string" || cmd.payload.length > PAYLOAD_MAX) return { error: "charge refusee" };
   return { topic: `${f.topicRoot}/${box}/${cmd.path}`, payload: cmd.payload, retain: cmd.retain === true };
+}
+
+/** Demande d'un fichier au boitier entier (un `boxFiles` de sa famille), traduite par la famille puis
+ *  bornee au boitier comme une commande. Jamais retenue : elle se rejouerait a chaque connexion. */
+export function buildFileRequest(f: FamilyDecl, box: string, file: string): { topic: string; payload: string; retain: boolean } | { error: string } {
+  if (!NAME_RE.test(box)) return { error: "boitier invalide" };
+  if (!(f.boxFiles ?? []).some((d) => d.id === file) || !f.requestFile) return { error: "fichier du boitier inconnu" };
+  let cmd: unknown;
+  try { cmd = f.requestFile({ box }, file); }
+  catch (e) { return { error: `la famille a refuse : ${e instanceof Error ? e.message : String(e)}` }; }
+  const r = checkCommand(f, box, cmd);
+  if ("error" in r) return r;
+  return r.retain ? { error: "demande de fichier retenue : refusee" } : r;
 }
 
 /** Deplacer un appareil (glisser sa carte) : appareil de CE boitier, rang entier de 1 au nombre de ses

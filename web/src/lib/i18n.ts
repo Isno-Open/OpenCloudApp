@@ -34,7 +34,7 @@ interface S {
   availability: string; readonly: string; editable: string; state: string; since: string;
   onTrial: string; previousVersion: string; confirmAction: string; actionError: string; actionSent: string;
   wifiSignal: string; wifiNetwork: string; ipAddress: string; localBroker: string; memory: string; memoryValue: (free: number, min: number) => string; lastReset: string; uptimeValue: (s: number) => string; radios: string; firmware: string; upToDate: string; updateAvailable: string;
-  comingSoon: string; comingSoonNote: string;
+  boxFiles: string; boxFilesNote: string; fileWaiting: string; fileDone: string; fileError: string;
   boxName: string; boxNameHint: string; deleteTitle: string; deleteNote: string; deleteBtn: string;
   confirmDelete: (name: string) => string; yesDelete: string; cancel: string; renameError: string; deleteError: string;
   // vue ajouter
@@ -104,8 +104,9 @@ export const STRINGS = {
     availability: 'Disponibilité', readonly: 'lecture seule', editable: 'modifiable', state: 'État', since: 'Depuis',
     onTrial: 'en essai (pas encore validée)', previousVersion: 'Version précédente', confirmAction: 'Confirmer', actionError: 'Action impossible.', actionSent: 'Demande envoyée au boîtier.',
     wifiSignal: 'Signal Wi-Fi', wifiNetwork: 'Réseau Wi-Fi', ipAddress: 'Adresse IP', localBroker: 'Broker local', memory: 'Mémoire libre', memoryValue: (f, m) => `${Math.round(f / 1024)} Ko (au plus bas ${Math.round(m / 1024)} Ko)`, lastReset: 'Dernier redémarrage', uptimeValue: (x) => x >= 86400 ? `${Math.floor(x / 86400)} j ${Math.floor((x % 86400) / 3600)} h` : `${Math.floor(x / 3600)} h ${Math.floor((x % 3600) / 60)} min`, radios: 'Radios', firmware: 'Firmware', upToDate: 'à jour', updateAvailable: 'mise à jour dispo',
-    comingSoon: 'Bientôt',
-    comingSoonNote: "Wi-Fi (lecture seule) et MQTT local (modifiable à distance) arriveront quand l'appareil publiera son état ; pour l'instant, cela se règle dans l'interface locale de l'appareil.",
+    boxFiles: 'Sauvegarde',
+    boxFilesNote: "Le boîtier envoie le fichier au moment où vous le demandez ; le portail vous le transmet sans en garder de copie. La restauration se fait dans l'interface locale du boîtier.",
+    fileWaiting: 'Demande au boîtier…', fileDone: 'Fichier téléchargé.', fileError: 'Le boîtier n’a pas envoyé le fichier.',
     boxName: "Nom de l'appareil", boxNameHint: 'Nom affiché (ex. Maison 1, Résidence…)',
     deleteTitle: "Supprimer l'appareil",
     deleteNote: "Retire l'appareil et ses volets de ce compte. Le matériel local et Home Assistant ne sont pas touchés. L'appairage cloud devra être refait.",
@@ -201,8 +202,9 @@ export const STRINGS = {
     availability: 'Availability', readonly: 'read only', editable: 'editable', state: 'State', since: 'Up for',
     onTrial: 'on trial (not yet validated)', previousVersion: 'Previous version', confirmAction: 'Confirm', actionError: 'Action failed.', actionSent: 'Request sent to the box.',
     wifiSignal: 'Wi-Fi signal', wifiNetwork: 'Wi-Fi network', ipAddress: 'IP address', localBroker: 'Local broker', memory: 'Free memory', memoryValue: (f, m) => `${Math.round(f / 1024)} KB (lowest ${Math.round(m / 1024)} KB)`, lastReset: 'Last restart', uptimeValue: (x) => x >= 86400 ? `${Math.floor(x / 86400)} d ${Math.floor((x % 86400) / 3600)} h` : `${Math.floor(x / 3600)} h ${Math.floor((x % 3600) / 60)} min`, radios: 'Radios', firmware: 'Firmware', upToDate: 'up to date', updateAvailable: 'update available',
-    comingSoon: 'Coming soon',
-    comingSoonNote: 'Wi-Fi (read only) and local MQTT (remote editing) will appear once the device reports its status; for now, set these in the device’s local interface.',
+    boxFiles: 'Backup',
+    boxFilesNote: 'The box sends the file when you ask for it; the portal passes it on without keeping a copy. Restoring is done in the box’s local interface.',
+    fileWaiting: 'Asking the box…', fileDone: 'File downloaded.', fileError: 'The box did not send the file.',
     boxName: 'Device name', boxNameHint: 'Display name (e.g. Home 1, Seaside…)',
     deleteTitle: 'Delete the device',
     deleteNote: 'Removes the device and its shutters from this account. Local hardware and Home Assistant are untouched. Cloud pairing will need to be redone.',

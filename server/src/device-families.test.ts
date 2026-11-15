@@ -1,7 +1,7 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { CONTROL, FACT, EVENT_LEVEL, FAMILY_CONTRACT, type FamilyDecl, type FamilyMessage, type Fact } from "./family-contract.js";
-import { asFamily, registerDeviceFamily, clearDeviceFamilies, applyMessage, buildCommand, boxState, familyById, onFamilyRegistered } from "./device-families.js";
+import { CONTROL, FACT, EVENT_LEVEL, FAMILY_CONTRACT, BOX_FILE_TYPE, type FamilyDecl, type FamilyMessage, type Fact } from "./family-contract.js";
+import { asFamily, registerDeviceFamily, clearDeviceFamilies, applyMessage, buildCommand, boxState, familyById, onFamilyRegistered, buildFileRequest, awaitBoxFile, BOX_FILE_MAX } from "./device-families.js";
 import { isLiveActivity } from "./mqtt.js";
 
 // Petite famille de test : « store » publie `<boitier>/en_ligne` et `<boitier>/store/<id>/{type,pos,etat}` ;
@@ -355,4 +355,54 @@ test("rang d'affichage : entier dans ses bornes, garde quand un fait ne le dit p
   applyMessage("test-famille/b1/r", "", true, 1);
   assert.equal(boxState("famille-test", "b1")!.devices.get("salon")!.rank, 2, "fait sans rang : le rang reste");
   assert.equal(applyMessage("test-famille/b1/r", "1.5", true, 1)!.refused.length, 1, "un rang est un entier");
+});
+
+// Famille qui rend sa sauvegarde a la demande : `sauvegarde/demande` -> `sauvegarde/contenu`.
+const AVEC_FICHIER: FamilyDecl = {
+  ...STORE,
+  boxFiles: [{ id: "sauvegarde", label: { fr: "Sauvegarde", en: "Backup" }, type: BOX_FILE_TYPE.json }],
+  requestFile: (_t, file) => (file === "sauvegarde" ? { path: "sauvegarde/demande", payload: "GET" } : null),
+  read(msg: FamilyMessage): Fact[] {
+    return msg.path === "sauvegarde/contenu" ? [{ fact: FACT.file, file: "sauvegarde", content: msg.payload }] : [...STORE.read(msg)];
+  },
+};
+
+test("fichiers du boitier : declaration verifiee (type connu, requestFile requis, identifiants uniques)", () => {
+  const f = AVEC_FICHIER.boxFiles![0]!;
+  assert.throws(() => asFamily({ ...AVEC_FICHIER, requestFile: undefined }), /sans requestFile/);
+  assert.throws(() => asFamily({ ...AVEC_FICHIER, boxFiles: [{ ...f, type: "exe" }] }), /type « exe » inconnu/);
+  assert.throws(() => asFamily({ ...AVEC_FICHIER, boxFiles: [f, f] }), /meme identifiant/);
+  assert.throws(() => asFamily({ ...AVEC_FICHIER, boxFiles: [{ ...f, label: { fr: "Sauvegarde" } }] }), /libelle/);
+  assert.equal(asFamily(AVEC_FICHIER).boxFiles?.length, 1);
+});
+
+test("fichiers du boitier : demande bornee au boitier, jamais retenue ; fichier inconnu refuse", () => {
+  registerDeviceFamily(AVEC_FICHIER);
+  const f = familyById("famille-test")!;
+  assert.deepEqual(buildFileRequest(f, "b1", "sauvegarde"), { topic: "test-famille/b1/sauvegarde/demande", payload: "GET", retain: false });
+  assert.ok("error" in buildFileRequest(f, "b1", "journal"), "fichier non declare");
+  assert.ok("error" in buildFileRequest(f, "../b2", "sauvegarde"), "boitier invalide");
+  clearDeviceFamilies();
+  registerDeviceFamily({ ...AVEC_FICHIER, requestFile: () => ({ path: "sauvegarde/demande", payload: "GET", retain: true }) });
+  assert.match(String((buildFileRequest(familyById("famille-test")!, "b1", "sauvegarde") as { error: string }).error), /retenue/);
+  clearDeviceFamilies();
+  registerDeviceFamily({ ...AVEC_FICHIER, requestFile: () => ({ path: "../b2/sauvegarde/demande", payload: "GET" }) });
+  assert.ok("error" in buildFileRequest(familyById("famille-test")!, "b1", "sauvegarde"), "hors du boitier : refuse");
+});
+
+test("fichiers du boitier : remis a qui l'attend, puis oublie ; retenu, mal forme ou d'un autre boitier : refuse", async () => {
+  registerDeviceFamily(AVEC_FICHIER);
+  const attente = awaitBoxFile("famille-test", "b1", "sauvegarde", 1000);
+  const autre = awaitBoxFile("famille-test", "b2", "sauvegarde", 50);
+  // retenu sur le broker : refuse, et l'attente continue
+  assert.match(applyMessage("test-famille/b1/sauvegarde/contenu", '{"v":0}', true, 1)!.refused.join(), /retenu/);
+  assert.match(applyMessage("test-famille/b1/sauvegarde/contenu", "pas du json", false, 1)!.refused.join(), /mal forme/);
+  assert.match(applyMessage("test-famille/b1/sauvegarde/contenu", JSON.stringify({ x: "a".repeat(BOX_FILE_MAX) }), false, 1)!.refused.join(), /trop gros/);
+  assert.deepEqual(applyMessage("test-famille/b1/sauvegarde/contenu", '{"volets":[]}', false, 1)!.refused, []);
+  assert.equal(await attente, '{"volets":[]}');
+  assert.equal(await autre, null, "la sauvegarde de b1 n'est pas remise a qui attend b2");
+  // rien n'est garde : une nouvelle attente n'obtient pas l'ancienne reponse
+  assert.equal(await awaitBoxFile("famille-test", "b1", "sauvegarde", 30), null);
+  // personne n'attend : rien a faire, aucun refus
+  assert.deepEqual(applyMessage("test-famille/b1/sauvegarde/contenu", '{"volets":[]}', false, 1)!.refused, []);
 });

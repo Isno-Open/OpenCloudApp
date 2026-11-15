@@ -6,10 +6,11 @@
 //   cover/<id>/position     0..100                                  (retenu)
 //   update                  {"installed": "0.2.16", "latest": "0.2.17"} (retenu)
 //   sante                   {"rssi": -60, "ssid": "Essai"}          (retenu)
+//   backup/data             sa sauvegarde (JSON, NON retenu), en reponse a `backup/get`
 // et se commande par `cover/<id>/set` (OPEN | STOP | CLOSE) et `cover/<id>/set_position` (0..100) ;
 // son reglage « course » (secondes) s'envoie sur `cover/<id>/config` ({"course_s": N}).
 import type { Plugin } from "../../server/src/plugin-types.js";
-import { CONTROL, FACT, FAMILY_CONTRACT, type Fact, type FamilyDecl } from "../../server/src/family-contract.js";
+import { CONTROL, FACT, FAMILY_CONTRACT, BOX_FILE_TYPE, type Fact, type FamilyDecl } from "../../server/src/family-contract.js";
 import { PLUGIN_CATEGORY, SETTING_KIND } from "../../server/src/plugin-contract.js";
 
 const ACTION_PAYLOAD: Record<string, string> = { up: "OPEN", stop: "STOP", down: "CLOSE" };
@@ -21,6 +22,8 @@ const family: FamilyDecl = {
   contract: FAMILY_CONTRACT,
   topicRoot: "famille-test",
   boxControls: [{ id: "maj", label: { fr: "Installer la mise à jour", en: "Install the update" }, confirm: { fr: "Le boîtier va redémarrer.", en: "The box will restart." } }],
+  boxFiles: [{ id: "backup", label: { fr: "Télécharger la sauvegarde", en: "Download the backup" }, type: BOX_FILE_TYPE.json }],
+  requestFile: (_target, file) => (file === "backup" ? { path: "backup/get", payload: "GET" } : null),
   kinds: [{
     id: "volet", label: { fr: "Volet", en: "Shutter" }, icon: { glyph: "V" },
     controls: [
@@ -33,6 +36,7 @@ const family: FamilyDecl = {
   }],
   read({ path, payload }): Fact[] {
     if (path === "status") return payload === "online" || payload === "offline" ? [{ fact: FACT.presence, online: payload === "online" }] : [];
+    if (path === "backup/data") return [{ fact: FACT.file, file: "backup", content: payload }];
     if (path === "sante") {
       let h: unknown;
       try { h = JSON.parse(payload); } catch { return []; }
