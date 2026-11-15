@@ -47,7 +47,7 @@ export async function adminBoxes(accountId: string): Promise<AdminBox[]> {
   return (await listDevices(accountId)).map((d): AdminBox => {
     const st = boxState(d.firmware, d.deviceId), fam = familyById(d.firmware);
     return {
-      id: d.deviceId, name: d.name, family: fam ? fam.label : null,
+      id: d.deviceId, name: d.name, family: fam ? fam.label : null, board: st?.board ?? null,
       firmware: st?.firmware ?? d.firmware, latest: st?.latest ?? null,
       updateAvailable: !!st?.latest && !!st.firmware && isNewerVersion(st.latest, st.firmware), trial: st?.trial === true,
       online: deviceOnline(d.firmware, d.deviceId), cloudDisabled: st?.disabled === true,

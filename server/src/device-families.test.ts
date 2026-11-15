@@ -417,3 +417,11 @@ test("fichiers du boitier : remis a qui l'attend, puis oublie ; retenu, mal form
   // personne n'attend : rien a faire, aucun refus
   assert.deepEqual(applyMessage("test-famille/b1/sauvegarde/contenu", '{"volets":[]}', false, 1)!.refused, []);
 });
+
+test("carte declaree par le firmware : gardee si c'est un identifiant, refusee sinon", () => {
+  registerDeviceFamily({ ...STORE, read: ({ path, payload }: FamilyMessage): Fact[] => (path === "carte" ? [{ fact: FACT.box, board: payload }] : []) });
+  applyMessage("test-famille/b1/carte", "isno-super", true, 1);
+  assert.equal(boxState("famille-test", "b1")!.board, "isno-super");
+  assert.match(applyMessage("test-famille/b1/carte", "<script>", true, 2)!.refused.join(), /carte invalide/);
+  assert.equal(boxState("famille-test", "b1")!.board, "isno-super", "un fait refuse ne change rien");
+});

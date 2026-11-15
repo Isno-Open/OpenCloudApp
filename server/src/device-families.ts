@@ -207,7 +207,7 @@ export const clearDeviceFamilies = (): void => { families.clear(); boxes.clear()
 export type DeviceState = { kind: string; known: boolean; name: string; hidden: ReadonlySet<string>; values: Map<string, ControlValue>; settings: Map<string, SettingValue>; rank: number | null };
 export type BoxEvent = { at: number; level: EventLevel; code: string; text: LocalizedText; device?: string };
 /** disabled : hors ligne parce que le boitier a coupe le cloud lui-meme (fait presence) */
-export type BoxState = { online: boolean | null; disabled: boolean; firmware: string | null; latest: string | null; trial: boolean | null; previous: string | null;
+export type BoxState = { online: boolean | null; disabled: boolean; firmware: string | null; board: string | null; latest: string | null; trial: boolean | null; previous: string | null;
   actions: Map<string, boolean>; health: BoxHealth; network: BoxNetwork; devices: Map<string, DeviceState>; events: BoxEvent[] };
 const boxes = new Map<string, BoxState>();
 const key = (family: string, box: string): string => `${family}/${box}`;
@@ -286,7 +286,7 @@ export function applyFacts(f: FamilyDecl, box: string, facts: unknown, now: numb
   const refused: string[] = [];
   if (!Array.isArray(facts)) return ["read() n'a pas rendu une liste"];
   let s = boxes.get(key(f.id, box));
-  if (!s) { s = { online: null, disabled: false, firmware: null, latest: null, trial: null, previous: null, actions: new Map(), health: {}, network: {}, devices: new Map(), events: [] }; boxes.set(key(f.id, box), s); }
+  if (!s) { s = { online: null, disabled: false, firmware: null, board: null, latest: null, trial: null, previous: null, actions: new Map(), health: {}, network: {}, devices: new Map(), events: [] }; boxes.set(key(f.id, box), s); }
   for (const x of facts) {
     if (!isObj(x)) { refused.push("fait : objet attendu"); continue; }
     switch (x.fact) {
@@ -326,6 +326,7 @@ export function applyFacts(f: FamilyDecl, box: string, facts: unknown, now: numb
       }
       case FACT.box:
         if (x.firmware !== undefined) { if (typeof x.firmware === "string" && x.firmware.length <= 64) s.firmware = x.firmware; else refused.push("boitier : version invalide"); }
+        if (x.board !== undefined) { if (typeof x.board === "string" && NAME_RE.test(x.board)) s.board = x.board; else refused.push("boitier : carte invalide"); }
         if (x.latest !== undefined) { if (typeof x.latest === "string" && x.latest.length <= 64) s.latest = x.latest; else refused.push("boitier : derniere version invalide"); }
         if (x.health !== undefined) { const h = asHealth(x.health); if (h) s.health = { ...s.health, ...h }; else refused.push("boitier : sante invalide"); }
         if (x.network !== undefined) { const n = asNetwork(x.network); if (n) s.network = { ...s.network, ...n }; else refused.push("boitier : reseau invalide"); }

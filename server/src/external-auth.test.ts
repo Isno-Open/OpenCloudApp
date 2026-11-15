@@ -30,3 +30,20 @@ test("annuaire : chaque entree cree son compte, puis les absents sont rapproches
   assert.equal(await readDirectory(api, "https://site.fr/annuaire", "cle", 0, down), null);
   assert.equal(present, null);
 });
+
+test("annuaire : materiel achete garde en memoire par compte ; incomplet ecarte ; une lecture en echec ne l'efface pas", async () => {
+  const { readDirectory, accountHardware } = await import("./plugins/external-auth.js");
+  const api = { defaultCap: 5, ensureAccount: (): Promise<void> => Promise.resolve(), reconcileAccounts: (): Promise<number> => Promise.resolve(0) };
+  const super1 = { sku: "ISNO-SUPER", label: "ISNO Super", quantity: 1, invoice: "FA2610-0001", date: "2026-10-07T10:00:00.000Z", status: "delivered" };
+  const body = { accounts: [
+    { email: "Client@Site.fr", hardware: [super1, { sku: "ISNO-SUPER", invoice: "", date: "2026-10-07" }, { sku: "X", invoice: "F", date: "pas une date" }] },
+    { email: "rien@site.fr" },
+  ] };
+  const get = (): Promise<Response> => Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+  assert.equal(await readDirectory(api, "https://site.fr/annuaire", "cle", 0, get), 2);
+  assert.deepEqual(accountHardware("client@site.fr"), [super1], "seule la ligne complete est gardee, e-mail sans casse");
+  assert.deepEqual(accountHardware("rien@site.fr"), []);
+  const down = (): Promise<Response> => Promise.resolve(new Response("", { status: 502 }));
+  await readDirectory(api, "https://site.fr/annuaire", "cle", 0, down);
+  assert.equal(accountHardware("client@site.fr").length, 1, "annuaire injoignable : la derniere lecture reste");
+});

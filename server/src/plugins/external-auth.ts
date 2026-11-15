@@ -80,14 +80,42 @@ let directoryApi: PluginApi | null = null;
 let lastSync = 0;
 let inflight: Promise<number | null> | null = null;   // lecture en cours : on l'attend plutot que de la sauter
 
-type DirectoryEntry = { email: string; name?: string };
+/** Materiel achete sur le site externe (ex. une carte ISNO), tel que son annuaire le donne : pour le
+ *  support et la garantie, sur la fiche operateur d'un compte. Garde EN MEMOIRE seulement, jamais ecrit
+ *  dans la base du portail (minimisation : la boutique en reste la source), relu avec l'annuaire. */
+/** Statut de la commande, tel que l'annuaire l'ecrit (vocabulaire du format, fixe ici) ; un statut
+ *  inconnu est montre tel quel. */
+export const HARDWARE_STATUS = { preorder: "preorder", processing: "processing", shipped: "shipped", delivered: "delivered" } as const;
+export type HardwareStatus = (typeof HARDWARE_STATUS)[keyof typeof HARDWARE_STATUS];
+export type AccountHardware = { sku: string; label: string; quantity: number; invoice: string; date: string; status: string };
+const HARDWARE_MAX = 50;
+const HW_TEXT_MAX = 80;
+let hardware = new Map<string, readonly AccountHardware[]>();
+/** Materiel achete par ce compte (e-mail), d'apres la derniere lecture de l'annuaire. */
+export const accountHardware = (email: string): readonly AccountHardware[] => hardware.get(email.toLowerCase()) ?? [];
+
+function parseHardware(v: unknown): AccountHardware[] {
+  if (!Array.isArray(v)) return [];
+  const out: AccountHardware[] = [];
+  for (const h of v.slice(0, HARDWARE_MAX)) {
+    const sku = str(h, "sku").slice(0, HW_TEXT_MAX), invoice = str(h, "invoice").slice(0, HW_TEXT_MAX), date = str(h, "date");
+    const q = h !== null && typeof h === "object" ? Object.getOwnPropertyDescriptor(h, "quantity")?.value : undefined;
+    if (!sku || !invoice || Number.isNaN(Date.parse(date))) continue;   // incomplet : ecarte, pas devine
+    out.push({ sku, label: str(h, "label").slice(0, HW_TEXT_MAX) || sku, quantity: typeof q === "number" && Number.isInteger(q) && q > 0 ? q : 1,
+      invoice, date, status: str(h, "status").slice(0, HW_TEXT_MAX) });
+  }
+  return out;
+}
+
+type DirectoryEntry = { email: string; name?: string; hardware: AccountHardware[] };
 function parseDirectory(body: unknown): DirectoryEntry[] {
   const list = body !== null && typeof body === "object" ? Object.getOwnPropertyDescriptor(body, "accounts")?.value : undefined;
   if (!Array.isArray(list)) return [];
   const out: DirectoryEntry[] = [];
   for (const a of list.slice(0, DIRECTORY_MAX)) {
     const email = str(a, "email").toLowerCase(), name = str(a, "name").slice(0, 80);
-    if (EMAIL_RE.test(email)) out.push(name ? { email, name } : { email });
+    const hw = parseHardware(a !== null && typeof a === "object" ? Object.getOwnPropertyDescriptor(a, "hardware")?.value : undefined);
+    if (EMAIL_RE.test(email)) out.push({ email, ...(name ? { name } : {}), hardware: hw });
   }
   return out;
 }
@@ -111,6 +139,7 @@ export async function readDirectory(api: Pick<PluginApi, "ensureAccount" | "reco
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const entries = parseDirectory(await r.json());
     for (const e of entries) await api.ensureAccount(e.email, api.defaultCap, e.name);
+    hardware = new Map(entries.filter((e) => e.hardware.length).map((e) => [e.email, e.hardware]));
     // ses comptes que le site ne liste plus : marques, jamais supprimes (ils peuvent avoir des boitiers)
     await api.reconcileAccounts(entries.map((e) => e.email));
     return entries.length;

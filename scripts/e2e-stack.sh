@@ -40,7 +40,7 @@ printf 'subjectAltName=DNS:isno-e2e-catalog\n' > "$WORK/san.ext"
 openssl x509 -req -in "$WORK/src.csr" -CA "$WORK/e2e-ca.pem" -CAkey "$WORK/e2e-ca.key" -CAcreateserial -days 1 -extfile "$WORK/san.ext" -out "$WORK/src.pem" 2>/dev/null
 # annuaire d'un site externe (plugin de connexion externe) : servi seulement avec un en-tete signe
 cat > "$WORK/directory.json" <<'JSON'
-{ "accounts": [ { "email": "annie@exemple.fr", "name": "Annie Annuaire" }, { "email": "pas-un-email" } ] }
+{ "accounts": [ { "email": "annie@exemple.fr", "name": "Annie Annuaire", "hardware": [ { "sku": "ISNO-SUPER", "label": "ISNO Super", "quantity": 1, "invoice": "FA2610-0042", "date": "2026-10-07T10:00:00.000Z", "status": "delivered" } ] }, { "email": "pas-un-email" } ] }
 JSON
 cat > "$WORK/third.json" <<'JSON'
 { "tiers": { "title": "Plugin tiers", "description": { "fr": "Venu d'une source ajoutee.", "en": "From an added source." }, "image": "tiers/plugin:1.0.0" },
@@ -185,7 +185,7 @@ docker rm -f isno-e2e-maj >/dev/null 2>&1
 chk "action du boitier non declaree : refusee" "$(curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' "$B/api/cmd" -d "{\"device_id\":\"$ID\",\"control\":\"effacer\"}")" 400
 
 echo "== sante du boitier : en lecture, telle que sa famille la lit"
-docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/sante" -m '{"rssi":-61,"ssid":"Reseau essai"}'
+docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/sante" -m '{"rssi":-61,"ssid":"Reseau essai","board":"isno-super"}'
 sleep 2
 BOX=$(curl -s -b "$J" "$B/boitier/$ID")
 chk "sante : signal Wi-Fi" "$(echo "$BOX" | grep -c -- '-61 dBm')" 1
@@ -229,6 +229,7 @@ echo "== fiche d'un compte pour l'operateur : detail des boitiers, minimisee, co
 FICHE=$(curl -s -b "$J" "$B/utilisateurs/operateur%40exemple.fr")
 chk "fiche : le boitier du compte, en detail" "$(echo "$FICHE" | grep -c "data-user-box=\"$ID\"")" 1
 chk "fiche : ses appareils et sa sante" "$(echo "$FICHE" | grep -c '>-61 dBm<')" 1
+chk "fiche : carte declaree, signalee non verifiee" "$(echo "$FICHE" | grep -c 'isno-super (déclarée par le firmware, non vérifiée)')" 1
 chk "fiche : pas de nom de reseau Wi-Fi (RGPD)" "$(echo "$FICHE" | grep -c 'Reseau essai')" 0
 chk "fiche : aucune commande ni sauvegarde" "$(echo "$FICHE" | grep -cE 'data-file=|data-ask=|data-action=')" 0
 chk "fiche : consultation journalisee" "$(docker logs isno-cloud-server 2>&1 | grep -c '\[operateur\] operateur@exemple.fr consulte la fiche du compte operateur@exemple.fr')" 1
@@ -403,6 +404,9 @@ UL=$(curl -s -b "$J" "$B/utilisateurs")
 chk "annuaire : compte du site externe cree d'avance, avec son nom" "$(echo "$UL" | grep -o '<b>Annie Annuaire</b>' | wc -l)" 1
 chk "Utilisateurs : par ordre alphabetique" "$(echo "$UL" | grep -o '<b>[^<]*</b>' | sed 's/<[^>]*>//g' | python3 -c "import sys;l=[x.strip() for x in sys.stdin if x.strip()];print(len(l)>2 and l==sorted(l,key=str.casefold))")" True
 chk "annuaire : entree sans e-mail valide ignoree" "$(echo "$UL" | grep -o 'class="mono">pas-un-email<' | wc -l)" 0
+ANNIE=$(curl -s -b "$J" "$B/utilisateurs/annie%40exemple.fr")
+chk "annuaire : materiel achete sur la fiche (facture, statut traduit)" "$(echo "$ANNIE" | sed 's/<!--[^>]*-->//g' | grep -cE 'facture FA2610-0042 du 07/10/2026</span> ?<span class="role">livrée<')" 1
+chk "annuaire : materiel jamais ecrit dans la base du portail" "$(docker exec isno-cloud-server sh -c 'grep -rl FA2610-0042 /data 2>/dev/null | wc -l')" 0
 # secret partage : cree par le plugin a sa premiere activation (pas de SSO_SECRET dans cet environnement)
 SEC=$(docker exec isno-cloud-server node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync("/data/plugin-secrets.json","utf8"))["external-auth"]||"")')
 chk "secret partage cree a la premiere activation" "$(echo -n "$SEC" | wc -c | awk '{print ($1>=40)}')" 1

@@ -41,6 +41,15 @@
     <KeyValue label={s.udActive} value={when(a.lastActiveAt)} />
   </div>
 
+  <div class="panel" data-user-hardware>
+    <h3>{s.udHardware}</h3>
+    {#if !data.hardware.length}<p class="note">{s.udNoHardware}</p>{/if}
+    {#each data.hardware as h, i (i)}
+      <div class="ud-app"><strong>{h.label}</strong><span class="mono">× {h.quantity}</span><span class="mono">{h.sku}</span>
+        <span>{s.udInvoice(h.invoice, new Date(h.date).toLocaleDateString(data.lang))}</span><span class="role">{h.status}</span></div>
+    {/each}
+  </div>
+
   <h2 class="ud-h">{s.udBoxes} ({data.boxes.length})</h2>
   {#if !data.boxes.length}<p class="note">{s.udNoBox}</p>{/if}
   {#each data.boxes as b (b.id)}
@@ -60,6 +69,7 @@
           <KeyValue label={s.localBroker} value={b.localBroker ? s.udYes : s.udNo} />
         </div>
         <div>
+          {#if b.board}<KeyValue label={s.udBoard} value={`${b.board} (${s.udBoardHint})`} />{/if}
           <KeyValue label={s.firmware} value={b.firmware + (b.trial ? ` · ${s.onTrial}` : '')} />
           {#if b.latest}<KeyValue label={s.udLatest} value={b.latest} />{/if}
           {#if b.previous}<KeyValue label={s.previousVersion} value={b.previous} />{/if}

@@ -5,6 +5,7 @@
 // Vocabulaire : « appareil » = le boitier OpenProfalux (ce qu'on ajoute, nomme, configure). Un appareil
 // contient ses volets/portails.
 import type { PluginCategory } from '@opencloudapp/core/plugin-contract.js';
+import type { HardwareStatus } from '@opencloudapp/core/plugins/external-auth.js';
 
 export const LANG = { fr: 'fr', en: 'en' } as const;
 export type Lang = (typeof LANG)[keyof typeof LANG];
@@ -61,6 +62,8 @@ interface S {
   backUsers: string; udAccount: string; udEmail: string; udSource: string; udRole: string; ud2fa: string; udLocked: string; udCreated: string; udActive: string;
   udUnknown: string; udYes: string; udNo: string; udBoxes: string; udNoBox: string; udLatest: string; udPaired: string; udLastSeen: string;
   udAppliances: string; udPosition: (p: number) => string; udEvents: string; udNoEvents: string; udPrivacy: string;
+  udBoard: string; udBoardHint: string; udHardware: string; udNoHardware: string; udInvoice: (ref: string, date: string) => string;
+  hardwareStatus: Record<HardwareStatus, string>;
   roleAdmin: string; roleUser: string; youTag: string; removeUser: string; confirmRemoveUser: (id: string) => string;
   createUserError: string; removeUserError: string; makeAdmin: string; unmakeAdmin: string; roleError: string;
   // liaison d'un appareil (device grant) + onboarding utilisateur
@@ -146,6 +149,9 @@ export const STRINGS = {
     backUsers: 'Utilisateurs', udAccount: 'Compte', udEmail: 'E-mail', udSource: 'Origine', udRole: 'Rôle', ud2fa: 'Double authentification', udLocked: 'Bloqué', udCreated: 'Créé le', udActive: 'Dernière activité',
     udUnknown: 'inconnu (avant le suivi)', udYes: 'oui', udNo: 'non', udBoxes: 'Boîtiers', udNoBox: 'Aucun boîtier appairé.', udLatest: 'Dernière version publiée', udPaired: 'Appairé le', udLastSeen: 'Dernière activité du boîtier',
     udAppliances: 'Appareils du boîtier', udPosition: (p) => `fermé à ${p} %`, udEvents: 'Événements récents', udNoEvents: 'Aucun événement depuis le dernier démarrage du portail.',
+    udBoard: 'Carte', udBoardHint: 'déclarée par le firmware, non vérifiée', udHardware: 'Matériel acheté', udNoHardware: 'Aucun achat de carte connu de la boutique.',
+    udInvoice: (r, d) => `facture ${r} du ${d}`,
+    hardwareStatus: { preorder: 'précommande', processing: 'en préparation', shipped: 'expédiée', delivered: 'livrée' },
     udPrivacy: 'Fiche en lecture seule, pour le support. Volontairement absents : sauvegarde et trames des télécommandes, nom du réseau Wi-Fi, identifiants des télécommandes. Chaque consultation est inscrite au journal du portail.',
     roleAdmin: 'admin', roleUser: 'utilisateur', youTag: 'vous', removeUser: 'Supprimer',
     confirmRemoveUser: (id) => `Supprimer le compte « ${id} » et ses appareils ?`,
@@ -254,6 +260,9 @@ export const STRINGS = {
     backUsers: 'Users', udAccount: 'Account', udEmail: 'E-mail', udSource: 'Origin', udRole: 'Role', ud2fa: 'Two-factor authentication', udLocked: 'Locked', udCreated: 'Created', udActive: 'Last activity',
     udUnknown: 'unknown (before tracking)', udYes: 'yes', udNo: 'no', udBoxes: 'Boxes', udNoBox: 'No box paired.', udLatest: 'Latest published version', udPaired: 'Paired', udLastSeen: 'Box last activity',
     udAppliances: 'Box devices', udPosition: (p) => `${p} % closed`, udEvents: 'Recent events', udNoEvents: 'No event since the portal last started.',
+    udBoard: 'Board', udBoardHint: 'declared by the firmware, not verified', udHardware: 'Hardware purchased', udNoHardware: 'No board purchase known to the shop.',
+    udInvoice: (r, d) => `invoice ${r} of ${d}`,
+    hardwareStatus: { preorder: 'pre-order', processing: 'being prepared', shipped: 'shipped', delivered: 'delivered' },
     udPrivacy: 'Read-only record, for support. Deliberately left out: backup and remote frames, Wi-Fi network name, remote identifiers. Each view is written to the portal log.',
     colLogin: 'Account', colRole: 'Role', colCap: 'Limit', colDevices: 'Devices',
     roleAdmin: 'admin', roleUser: 'user', youTag: 'you', removeUser: 'Remove',

@@ -15,7 +15,8 @@ import { resolveAccountId, requireAdmin, accountCreationEnabled, loginRedirect, 
 import { theme, activeTheme, BASE_THEME } from '@opencloudapp/core/themes.js';
 import type { Icon } from '@opencloudapp/core/plugin-contract.js';
 import { PLUGIN_CATEGORY } from '@opencloudapp/core/plugin-contract.js';
-import { syncExternalDirectory } from '@opencloudapp/core/plugins/external-auth.js';
+import { syncExternalDirectory, accountHardware, HARDWARE_STATUS, type HardwareStatus } from '@opencloudapp/core/plugins/external-auth.js';
+import type { AdminHardware } from '#lib/users-view.ts';
 import { getAccountInfo, listBoitiers, listAppareils, getBoitier, adminBoxes, adminBoxDetails } from '#lib/server/cloud-data.ts';
 import type { FleetSummary } from '#lib/users-view.ts';
 import { listCatalogPlugins } from '#lib/server/supervisor.ts';
@@ -123,13 +124,18 @@ export async function userDetailScreen(lang: Lang, request: Request, id: string)
   const a = await getAccount(id);
   if (!a) redirect(302, ROUTES.utilisateurs[lang]);
   await plugins();
+  await syncExternalDirectory();   // achats a jour (au plus une lecture par minute)
+  const known = (x: string): x is HardwareStatus => Object.values(HARDWARE_STATUS).some((v) => v === x);
+  const tr = t(lang);
+  const hardware: AdminHardware[] = accountHardware(a.id).map((h) => ({ label: h.label, sku: h.sku, quantity: h.quantity, invoice: h.invoice,
+    date: Date.parse(h.date), status: known(h.status) ? tr.hardwareStatus[h.status] : h.status }));
   console.log(`[operateur] ${self} consulte la fiche du compte ${a.id} (${new Date().toISOString()})`);
   const now = Date.now();
   return {
     account: { id: a.id, name: a.name ?? a.id, admin: a.admin, totpEnabled: !!a.totpEnabled, locked: !!a.lockedUntil && a.lockedUntil > now,
       invited: !a.passHash && a.source === null, cap: a.deviceCap, source: a.source ? accountSourceLabel(a.source, lang) : null,
       missing: a.missingSince !== null, createdAt: a.createdAt, lastActiveAt: a.lastActiveAt, isSelf: a.id === self },
-    boxes: await adminBoxDetails(a.id), now,
+    boxes: await adminBoxDetails(a.id), hardware, now,
   };
 }
 

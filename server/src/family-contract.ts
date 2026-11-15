@@ -72,7 +72,9 @@ export type Fact =
       // sans rang, a la suite, dans l'ordre des types de la famille (`kinds`), puis par nom
       rank?: number }
   | { fact: typeof FACT.state; device: string; control: string; value: ControlValue }
-  | { fact: typeof FACT.box; firmware?: string; latest?: string; health?: BoxHealth; network?: BoxNetwork;
+  // board : la carte pour laquelle le firmware a ete construit (ex. isno-super), DECLAREE par lui, donc
+  // une information de support, pas une preuve d'origine (n'importe qui peut flasher n'importe quelle image)
+  | { fact: typeof FACT.box; firmware?: string; latest?: string; board?: string; health?: BoxHealth; network?: BoxNetwork;
       // version installee encore en essai (pas validee) ; version precedente gardee par le boitier
       trial?: boolean; previous?: string;
       // actions du boitier entier (boxControls) possibles maintenant, par identifiant ; un fait partiel

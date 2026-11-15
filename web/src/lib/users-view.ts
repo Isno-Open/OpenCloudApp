@@ -16,6 +16,7 @@ export type UserRow = {
 /** Un boitier vu par l'operateur : ce que le portail en sait, sans rien pour le commander. */
 export type AdminBox = {
   id: string; name: string; family: { fr: string; en: string } | null;   // null : famille non installee
+  board: string | null;   // carte DECLAREE par le firmware (ex. isno-super) : information, pas preuve
   firmware: string; latest: string | null; updateAvailable: boolean; trial: boolean;
   online: boolean; cloudDisabled: boolean; lastSeenAt: number | null; pairedAt: number | null;
   devices: number; rssiDbm: number | null; minFreeHeap: number | null; uptimeS: number | null;
@@ -27,6 +28,9 @@ export type AdminBox = {
  *  permette d'agir chez l'utilisateur ni qui dise plus que necessaire (RGPD, minimisation) :
  *  pas de sauvegarde ni de trames, pas de nom de reseau Wi-Fi (il porte souvent un nom de famille),
  *  pas d'identifiant de telecommande, aucune commande. */
+/** Materiel achete sur le site externe, montre sur la fiche (statut deja traduit). */
+export type AdminHardware = { label: string; sku: string; quantity: number; invoice: string; date: number; status: string };
+
 export type AdminBoxDetail = AdminBox & {
   previous: string | null; freeHeap: number | null; localBroker: boolean;
   appliances: readonly { name: string; kind: { fr: string; en: string } | null; position: number | null; settings: readonly { label: { fr: string; en: string }; value: string }[] }[];

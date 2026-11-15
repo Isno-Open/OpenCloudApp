@@ -5,7 +5,7 @@
 //   cover/<id>/attrs        {"type": "volet", "positional": true, "course_s": 19}   (retenu)
 //   cover/<id>/position     0..100                                  (retenu)
 //   update                  {"installed": "0.2.16", "latest": "0.2.17"} (retenu)
-//   sante                   {"rssi": -60, "ssid": "Essai"}          (retenu)
+//   sante                   {"rssi": -60, "ssid": "Essai", "board": "isno-super"} (retenu)
 //   backup/data             sa sauvegarde (JSON, NON retenu), en reponse a `backup/get`
 // et se commande par `cover/<id>/set` (OPEN | STOP | CLOSE) et `cover/<id>/set_position` (0..100) ;
 // son reglage « course » (secondes) s'envoie sur `cover/<id>/config` ({"course_s": N}).
@@ -44,7 +44,8 @@ const family: FamilyDecl = {
       let h: unknown;
       try { h = JSON.parse(payload); } catch { return []; }
       const o = h && typeof h === "object" ? (h as Record<string, unknown>) : {};
-      return [{ fact: FACT.box, health: typeof o.rssi === "number" ? { rssiDbm: o.rssi } : {}, network: typeof o.ssid === "string" ? { ssid: o.ssid } : {} }];
+      return [{ fact: FACT.box, health: typeof o.rssi === "number" ? { rssiDbm: o.rssi } : {}, network: typeof o.ssid === "string" ? { ssid: o.ssid } : {},
+        ...(typeof o.board === "string" ? { board: o.board } : {}) }];
     }
     if (path === "update") {
       let u: unknown;
