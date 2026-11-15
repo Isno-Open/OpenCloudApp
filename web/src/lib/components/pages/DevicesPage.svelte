@@ -33,7 +33,11 @@
   function startDrag(box: string, slug: string, e: PointerEvent): void {
     if (e.button !== 0) return;
     e.preventDefault();
-    if (e.currentTarget instanceof HTMLElement) e.currentTarget.setPointerCapture(e.pointerId);
+    // suivi sur la fenetre, pas sur la poignee : la carte se redessine pendant le glisser et la poignee
+    // recreee perdrait le pointeur (constate le 2026-11-15)
+    window.addEventListener('pointermove', moveDrag);
+    window.addEventListener('pointerup', endDrag, { once: true });
+    window.addEventListener('pointercancel', endDrag, { once: true });
     const slugs = coversOf(box).map((a) => a.slug);
     localOrder[box] = slugs;
     drag = { box, slug, from: slugs.indexOf(slug) };
@@ -52,6 +56,9 @@
     localOrder[d.box] = list;
   }
   async function endDrag(): Promise<void> {
+    window.removeEventListener('pointermove', moveDrag);
+    window.removeEventListener('pointerup', endDrag);
+    window.removeEventListener('pointercancel', endDrag);
     const d = drag;
     drag = null;
     if (!d) return;
@@ -87,7 +94,7 @@
             {@const movable = b.reorderable && covers.length > 1}
             <div class={['drag-item', { dragging: drag?.box === b.id && drag.slug === a.slug }]} data-drag-box={b.id} data-drag-slug={a.slug} animate:flip={{ duration: 160 }}>
               {#snippet grip()}{#if movable}<button type="button" class="grip" title={s.dragHandle} aria-label={s.dragHandle}
-                onpointerdown={(e) => startDrag(b.id, a.slug, e)} onpointermove={moveDrag} onpointerup={endDrag} onpointercancel={endDrag}>⠿</button>{/if}{/snippet}
+                onpointerdown={(e) => startDrag(b.id, a.slug, e)}>⠿</button>{/if}{/snippet}
               {#if isKnownAppareil(a)}<DeviceCard appareil={a} siblings={covers} boitierName={b.name} lang={data.lang} grouped {grip} />
               {:else}<UnknownDeviceCard appareil={a} boitierName={b.name} lang={data.lang} grouped {grip} />{/if}
             </div>
