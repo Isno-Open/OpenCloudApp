@@ -45,7 +45,7 @@ le plugin rend une liste de faits, que le cœur vérifie avant de les appliquer 
 
 | Fait | Contenu | Sert à |
 |---|---|---|
-| `presence` | en ligne ou non | pastille, commandes actives ou grisées, « vu il y a » |
+| `presence` | en ligne ou non ; `disabled` : hors ligne parce que le boîtier a coupé lui-même le cloud (et l'a annoncé) | pastille, commandes actives ou grisées, « vu il y a », « cloud désactivé sur le boîtier » |
 | `device` | appareil vu : identifiant, type (`kinds`), nom, contrôles masqués ou renommés | la carte de l'appareil |
 | `state` | valeurs de l'appareil, par contrôle | l'état sur la carte |
 | `box` | version du firmware, dernière version disponible | page boîtier, bouton de mise à jour |
