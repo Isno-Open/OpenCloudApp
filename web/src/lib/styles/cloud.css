@@ -160,6 +160,13 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.015em; margin: 0; }
 .btn.danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); border-color: var(--danger); }
 .btn.sm { font-size: .8rem; padding: .35rem .6rem; }
 .btn svg { width: 14px; height: 14px; }
+/* boutons de l'ecran de reglages partage (OpenPluginHost, classes oph-*) : la charte des .btn, une seule fois
+   pour toutes les pages qui l'utilisent (reglages d'un plugin, reglages d'un appareil) */
+.oph-btn, .oph-submit { appearance: none; font: inherit; font-weight: 600; font-size: .86rem; padding: .5rem .9rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-elev); color: var(--text); transition: .14s; }
+.oph-btn:hover { border-color: var(--accent-line); background: var(--accent-weak); }
+.oph-submit { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.oph-submit:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.oph-submit:disabled { opacity: .6; cursor: progress; }
 
 /* ===== page boitier : panneaux (onglets : composant SubTabs) ===== */
 .subpanel[hidden] { display: none; }
