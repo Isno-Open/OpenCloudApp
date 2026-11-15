@@ -20,6 +20,10 @@ const PATH_MAX = 128;
 const PAYLOAD_MAX = 512;
 const TEXT_MAX = 200;
 const EVENTS_MAX = 50;
+/** Explication d'un onglet (hint) : quelques phrases, plus qu'un libelle. */
+const HINT_MAX = 600;
+const isHint = (v: unknown): v is LocalizedText =>
+  isObj(v) && typeof v.fr === "string" && !!v.fr && v.fr.length <= HINT_MAX && typeof v.en === "string" && !!v.en && v.en.length <= HINT_MAX;
 /** Fichier rendu par un boitier (sa sauvegarde : 24 appareils, trames comprises, tiennent en 24 Ko). */
 export const BOX_FILE_MAX = 64 * 1024;
 
@@ -121,8 +125,9 @@ function asKind(v: unknown, family: string): KindDecl {
   if (new Set(settings.map((x) => x.key)).size !== settings.length) throw new Error(`${at} : deux reglages ont la meme cle`);
   if (v.place !== undefined && v.place !== KIND_PLACE.home && v.place !== KIND_PLACE.box) throw new Error(`${at} : emplacement « ${String(v.place)} » inconnu`);
   if (v.place === KIND_PLACE.box && !isText(v.group)) throw new Error(`${at} : sur la page du boitier, un onglet (group fr et en) requis`);
-  if (v.hint !== undefined && (!isText(v.hint) || v.place !== KIND_PLACE.box)) throw new Error(`${at} : explication (hint fr et en) seulement pour un onglet de la page du boitier`);
-  const place = v.place === KIND_PLACE.box && isText(v.group) ? { place: KIND_PLACE.box, group: v.group, ...(isText(v.hint) ? { hint: v.hint } : {}) } : {};
+  if (v.hint !== undefined && v.place !== KIND_PLACE.box) throw new Error(`${at} : explication (hint) seulement pour un onglet de la page du boitier`);
+  if (v.hint !== undefined && !isHint(v.hint)) throw new Error(`${at} : explication (hint) en fr et en, ${HINT_MAX} caracteres au plus`);
+  const place = v.place === KIND_PLACE.box && isText(v.group) ? { place: KIND_PLACE.box, group: v.group, ...(isHint(v.hint) ? { hint: v.hint } : {}) } : {};
   return { id: v.id, label: v.label, icon, controls, ...(settings.length ? { settings } : {}), ...place };
 }
 

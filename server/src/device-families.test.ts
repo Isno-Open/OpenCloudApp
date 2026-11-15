@@ -431,5 +431,7 @@ test("explication d'onglet : seulement pour un type range sur la page du boitier
   const hint = { fr: "Ce que sont ces appareils.", en: "What these devices are." };
   assert.equal(asFamily({ ...STORE, kinds: [{ ...k, place: "box", group: { fr: "Onglet", en: "Tab" }, hint }] }).kinds[0]!.hint?.fr, hint.fr);
   assert.throws(() => asFamily({ ...STORE, kinds: [{ ...k, hint }] }), /explication/);
-  assert.throws(() => asFamily({ ...STORE, kinds: [{ ...k, place: "box", group: { fr: "Onglet", en: "Tab" }, hint: { fr: "seul" } }] }), /explication/);
+  assert.throws(() => asFamily({ ...STORE, kinds: [{ ...k, place: "box", group: { fr: "Onglet", en: "Tab" }, hint: { fr: "seul" } }] }), /fr et en/);
+  assert.throws(() => asFamily({ ...STORE, kinds: [{ ...k, place: "box", group: { fr: "Onglet", en: "Tab" }, hint: { fr: "x".repeat(601), en: "y" } }] }), /600/);
+  assert.equal(asFamily({ ...STORE, kinds: [{ ...k, place: "box", group: { fr: "Onglet", en: "Tab" }, hint: { fr: "x".repeat(400), en: "y" } }] }).kinds[0]!.hint?.fr.length, 400, "plus long qu'un libelle");
 });
