@@ -2,11 +2,11 @@
 // boitiers. Le coeur ne connait aucune famille en dur : chacune est declaree par un plugin. Tout ce
 // qu'un plugin declare ou rend (famille, faits, commandes) est VERIFIE ici avant d'etre pris : c'est du
 // code venu d'ailleurs, et c'est le coeur qui garde l'isolation des boitiers.
-import { SETTING_KIND, TEXT_FORMAT, type LocalizedText, type SettingField, type SettingValue } from "./plugin-contract.js";
+import { SETTING_KIND, TEXT_FORMAT, type LocalizedText, type SettingValue } from "./plugin-contract.js";
 import { asIcon } from "./icons.js";
 import {
-  FAMILY_CONTRACT, CONTROL, FACT, EVENT_LEVEL,
-  type ControlDecl, type ControlValue, type CommandTarget, type EventLevel, type Fact, type FamilyDecl, type KindDecl, type BoxHealth, type BoxNetwork, type BoxControlDecl,
+  FAMILY_CONTRACT, CONTROL, FACT, EVENT_LEVEL, DEVICE_SETTING,
+  type ControlDecl, type ControlValue, type CommandTarget, type EventLevel, type Fact, type FamilyDecl, type KindDecl, type BoxHealth, type BoxNetwork, type BoxControlDecl, type DeviceSettingField, type DevicesField,
 } from "./family-contract.js";
 
 /** Identifiant de famille = champ `firmware` d'un boitier ; racine de topics ; identifiants internes. */
@@ -58,10 +58,12 @@ function asControl(v: unknown, where: string): ControlDecl {
 }
 
 /** Natures de reglage permises sur un appareil : pas de secret, d'image ni de JSON libre sur un boitier. */
-const DEVICE_SETTING_KINDS: readonly string[] = [SETTING_KIND.number, SETTING_KIND.toggle, SETTING_KIND.choice, SETTING_KIND.text];
+const DEVICE_SETTING_KINDS: readonly string[] = [SETTING_KIND.number, SETTING_KIND.toggle, SETTING_KIND.choice, SETTING_KIND.text, DEVICE_SETTING.devices];
+/** Plus longue liste d'appareils choisis (borne de taille, le boitier a ses propres limites). */
+const PICKED_DEVICES_MAX = 64;
 const TEXT_SETTING_MAX = 200;
 
-function asSetting(v: unknown, where: string): SettingField {
+function asSetting(v: unknown, where: string): DeviceSettingField {
   if (!isObj(v) || typeof v.key !== "string" || !NAME_RE.test(v.key)) throw new Error(`${where} : reglage sans cle valable`);
   const key = v.key, at = `${where}/reglage ${key}`;
   if (!isText(v.label)) throw new Error(`${at} : libelle fr et en requis`);
@@ -77,6 +79,11 @@ function asSetting(v: unknown, where: string): SettingField {
       if (opts.length === 0 || !opts.every((o) => isObj(o) && typeof o.value === "string" && o.value.length <= 64 && isText(o.label))) throw new Error(`${at} : options valeur et libelle requises`);
       return { ...base, kind: SETTING_KIND.choice, options: opts as { value: string; label: LocalizedText }[] };
     }
+    case DEVICE_SETTING.devices: {
+      const kinds = Array.isArray(v.kinds) ? v.kinds : [];
+      if (kinds.length === 0 || !kinds.every((k) => typeof k === "string" && NAME_RE.test(k))) throw new Error(`${at} : types choisissables requis`);
+      return { ...base, kind: DEVICE_SETTING.devices, kinds: kinds as string[] };
+    }
     default:
       if (!isNum(v.maxLength) || v.maxLength < 1 || v.maxLength > TEXT_SETTING_MAX) throw new Error(`${at} : longueur maximale de 1 a ${TEXT_SETTING_MAX}`);
       return { ...base, kind: SETTING_KIND.text, format: TEXT_FORMAT.plain, maxLength: v.maxLength };
@@ -84,12 +91,15 @@ function asSetting(v: unknown, where: string): SettingField {
 }
 
 /** Valeur acceptable pour ce reglage ? */
-function settingFits(f: SettingField, v: unknown): v is SettingValue {
+function settingFits(f: DeviceSettingField, v: unknown): v is SettingValue {
   switch (f.kind) {
     case SETTING_KIND.number: return isNum(v) && v >= f.min && v <= f.max;
     case SETTING_KIND.toggle: return typeof v === "boolean";
     case SETTING_KIND.choice: return typeof v === "string" && f.options.some((o) => o.value === v);
     case SETTING_KIND.text: return typeof v === "string" && v.length <= f.maxLength;
+    // forme seulement : l'existence des appareils se verifie a l'enregistrement (pickedDevicesOk), un
+    // boitier pouvant annoncer une centrale avant ses membres
+    case DEVICE_SETTING.devices: return Array.isArray(v) && v.length <= PICKED_DEVICES_MAX && v.every((x) => typeof x === "string" && NAME_RE.test(x)) && new Set(v).size === v.length;
     default: return false;
   }
 }
@@ -136,6 +146,9 @@ export function asFamily(v: unknown): FamilyDecl {
   if (typeof read !== "function" || typeof command !== "function") throw new Error(`famille ${id} : read() et command() requis`);
   if (configure !== undefined && typeof configure !== "function") throw new Error(`famille ${id} : configure() doit etre une fonction`);
   if (configure === undefined && kinds.some((k) => k.settings?.length)) throw new Error(`famille ${id} : des reglages sans configure()`);
+  // un choix d'appareils ne nomme que des types de la famille
+  for (const k of kinds) for (const st of k.settings ?? []) if (st.kind === DEVICE_SETTING.devices)
+    for (const t of st.kinds) if (!kinds.some((x) => x.id === t)) throw new Error(`famille ${id}, type ${k.id}/reglage ${st.key} : type « ${t} » inconnu`);
   return {
     id, label: v.label, icon, contract: FAMILY_CONTRACT, topicRoot: v.topicRoot, kinds, ...(boxControls.length ? { boxControls } : {}),
     read: (msg) => read.call(v, msg) as readonly Fact[],
@@ -334,6 +347,15 @@ function checkCommand(f: FamilyDecl, box: string, cmd: unknown): { topic: string
   return { topic: `${f.topicRoot}/${box}/${cmd.path}`, payload: cmd.payload, retain: cmd.retain === true };
 }
 
+/** Appareils choisis : chacun existe sur CE boitier, d'un type permis, et n'est pas l'appareil lui-meme. */
+function pickedDevicesOk(f: FamilyDecl, target: Required<CommandTarget>, field: DevicesField, v: SettingValue): boolean {
+  const devices = boxState(f.id, target.box)?.devices;
+  return Array.isArray(v) && !!devices && v.every((id) => {
+    const d = id === target.device ? undefined : devices.get(id);
+    return !!d && field.kinds.includes(d.kind);
+  });
+}
+
 /** Reglages d'un utilisateur pour un appareil : chaque valeur verifiee contre les champs de son type
  *  (cle connue, dans ses bornes), traduits par la famille, puis bornes au boitier comme une commande. */
 export function buildConfigure(f: FamilyDecl, target: Required<CommandTarget>, values: unknown): { topic: string; payload: string; retain: boolean } | { error: string } {
@@ -348,6 +370,7 @@ export function buildConfigure(f: FamilyDecl, target: Required<CommandTarget>, v
     const field = fields.find((x) => x.key === k);
     if (!field) return { error: `reglage inconnu « ${k} »` };
     if (!settingFits(field, val)) return { error: `valeur hors bornes pour « ${k} »` };
+    if (field.kind === DEVICE_SETTING.devices && !pickedDevicesOk(f, target, field, val)) return { error: `appareil non permis dans « ${k} »` };
     out[k] = val;
   }
   if (!Object.keys(out).length) return { error: "aucun reglage" };

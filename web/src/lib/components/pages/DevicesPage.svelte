@@ -32,7 +32,7 @@
       {#if covers.length}
         <div class="hw-grid">
           {#each covers as a (a.id)}
-            {#if isKnownAppareil(a)}<DeviceCard appareil={a} boitierName={b.name} lang={data.lang} grouped />
+            {#if isKnownAppareil(a)}<DeviceCard appareil={a} siblings={covers} boitierName={b.name} lang={data.lang} grouped />
             {:else}<UnknownDeviceCard appareil={a} boitierName={b.name} lang={data.lang} grouped />{/if}
           {/each}
         </div>

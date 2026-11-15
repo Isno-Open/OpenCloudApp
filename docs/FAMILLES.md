@@ -71,6 +71,12 @@ Chaque type d'appareil (`kinds`) décrit sa carte comme une liste de contrôles 
 | `position` | réglable ou non | fermeture d'un volet, de 0 % (ouvert) à 100 % (fermé), comme l'interface du boîtier |
 | `reading` | unité, seuils d'alerte | température des fumées ; pile d'une télécommande |
 
+Un type peut aussi déclarer des **réglages** d'appareil : nombre, case, choix, texte (champs du moteur
+de plugins), et un réglage propre aux familles, `devices`, qui choisit plusieurs **autres appareils du
+même boîtier** parmi des types permis (`kinds`) : les membres d'une centrale, les suiveurs d'une zone.
+Le portail le dessine en cases à cocher, une par appareil, et vérifie à l'enregistrement que chacun
+existe sur ce boîtier, a un type permis et n'est pas l'appareil lui-même.
+
 Le jour où un boîtier a besoin d'un contrôle absent, on l'ajoute au vocabulaire, dans le cœur, pour
 toutes les familles. C'est aussi ce vocabulaire que l'intégration Google Home traduira en « traits »
 Google, sans rien de Google dans les plugins.

@@ -237,6 +237,46 @@ test("reglages : declaration verifiee (nature permise, cles uniques, configure p
   assert.throws(() => asFamily({ ...REGLABLE, configure: undefined }), /sans configure/);
 });
 
+// Choix d'appareils : une « centrale » choisit ses membres parmi les stores du meme boitier.
+const MEMBRES = { key: "membres", kind: "devices", label: { fr: "Membres", en: "Members" }, kinds: ["store"] } as const;
+const AVEC_CENTRALE = {
+  ...REGLABLE,
+  kinds: [REGLABLE.kinds[0]!, { id: "centrale", label: { fr: "Centrale", en: "Central" }, icon: { glyph: "C" }, controls: [STORE.kinds[0]!.controls[0]!], settings: [MEMBRES] }],
+  read: (m: FamilyMessage): readonly Fact[] => {
+    const c = /^store\/(tout|autre)\/type$/.exec(m.path);
+    return c ? [{ fact: FACT.device, device: c[1]!, kind: "centrale", settings: { membres: JSON.parse(m.payload) as string[] } }] : REGLABLE.read(m);
+  },
+};
+
+test("choix d'appareils : membres lus, et a l'enregistrement seulement des appareils du boitier d'un type permis", async () => {
+  const { buildConfigure } = await import("./device-families.js");
+  registerDeviceFamily(AVEC_CENTRALE);
+  applyMessage("test-famille/b1/store/salon/type", "19", true, 1);
+  applyMessage("test-famille/b1/store/cuisine/type", "store", true, 1);
+  applyMessage("test-famille/b2/store/chambre/type", "store", true, 1);
+  // une centrale annoncee AVANT un de ses membres garde la liste (forme seulement a la lecture)
+  applyMessage("test-famille/b1/store/tout/type", '["salon","bureau"]', true, 1);
+  assert.deepEqual(boxState("famille-test", "b1")!.devices.get("tout")!.settings.get("membres"), ["salon", "bureau"]);
+  assert.equal(applyMessage("test-famille/b1/store/tout/type", '["salon","salon"]', true, 1)!.refused.length, 1, "doublon refuse");
+  const f = familyById("famille-test")!, t = { box: "b1", device: "tout" };
+  assert.deepEqual(buildConfigure(f, t, { membres: ["salon", "cuisine"] }), { topic: "test-famille/b1/store/tout/reglages", payload: '{"membres":["salon","cuisine"]}', retain: false });
+  assert.deepEqual(buildConfigure(f, t, { membres: [] }), { topic: "test-famille/b1/store/tout/reglages", payload: '{"membres":[]}', retain: false }, "vider la liste est permis");
+  assert.ok("error" in buildConfigure(f, t, { membres: ["bureau"] }), "appareil absent du boitier");
+  assert.ok("error" in buildConfigure(f, t, { membres: ["chambre"] }), "appareil d'un AUTRE boitier");
+  assert.ok("error" in buildConfigure(f, t, { membres: ["tout"] }), "lui-meme");
+  applyMessage("test-famille/b1/store/autre/type", '["salon"]', true, 1);
+  assert.equal(boxState("famille-test", "b1")!.devices.get("autre")!.kind, "centrale");
+  assert.ok("error" in buildConfigure(f, t, { membres: ["autre"] }), "type non permis (une centrale)");
+  assert.ok("error" in buildConfigure(f, t, { membres: "salon" }), "une liste attendue");
+});
+
+test("choix d'appareils : declaration verifiee (types choisissables connus de la famille)", () => {
+  const c = AVEC_CENTRALE.kinds[1]!;
+  assert.doesNotThrow(() => asFamily(AVEC_CENTRALE), "la declaration valable passe");
+  assert.throws(() => asFamily({ ...AVEC_CENTRALE, kinds: [AVEC_CENTRALE.kinds[0]!, { ...c, settings: [{ ...MEMBRES, kinds: ["inconnu"] }] }] }), /inconnu/);
+  assert.throws(() => asFamily({ ...AVEC_CENTRALE, kinds: [AVEC_CENTRALE.kinds[0]!, { ...c, settings: [{ ...MEMBRES, kinds: [] }] }] }), /choisissables/);
+});
+
 test("isolation : un reglage traduit hors du boitier est refuse", async () => {
   const { buildConfigure } = await import("./device-families.js");
   registerDeviceFamily({ ...REGLABLE, configure: () => ({ path: "../b2/reglages", payload: "x" }) });

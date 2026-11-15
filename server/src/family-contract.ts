@@ -28,10 +28,19 @@ export type ControlDecl =
   | (ControlBase & { kind: typeof CONTROL.position; settable: boolean })
   | (ControlBase & { kind: typeof CONTROL.reading; unit?: string; alertBelow?: number; alertAbove?: number });
 
+/** Reglage propre aux familles : choisir PLUSIEURS AUTRES appareils du meme boitier (membres d'une
+ *  centrale, suiveurs d'une zone). `kinds` : les types qu'on peut choisir. Valeur = la liste de leurs
+ *  identifiants (`device` des faits). Le portail le dessine en choix multiple, une case par appareil,
+ *  et verifie a l'enregistrement que chacun existe sur ce boitier et a un type permis. */
+export const DEVICE_SETTING = { devices: "devices" } as const;
+export type DevicesField = { kind: typeof DEVICE_SETTING.devices; key: string; label: LocalizedText; hint?: LocalizedText; kinds: readonly string[] };
+export type DeviceSettingField = SettingField | DevicesField;
+
 /** Un type d'appareil d'une famille, sa carte, et ses REGLAGES : des champs du moteur de plugins
- *  (nombre, case, choix, texte), que le portail dessine avec l'ecran de reglages partage et que la
- *  famille traduit pour le boitier (configure). Ex. les temps de course d'un volet. */
-export type KindDecl = { id: string; label: LocalizedText; icon: Icon; controls: readonly ControlDecl[]; settings?: readonly SettingField[] };
+ *  (nombre, case, choix, texte) ou un choix d'appareils du boitier, que le portail dessine avec l'ecran
+ *  de reglages partage et que la famille traduit pour le boitier (configure). Ex. les temps de course
+ *  d'un volet, les membres d'une centrale. */
+export type KindDecl = { id: string; label: LocalizedText; icon: Icon; controls: readonly ControlDecl[]; settings?: readonly DeviceSettingField[] };
 // natures permises : nombre, case, choix, texte (le coeur refuse le reste, device-families.ts)
 
 /** Ce que le coeur passe a read() : un message d'un boitier, sans `<racine>/<boitier>/`. */

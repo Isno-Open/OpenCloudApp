@@ -3,19 +3,20 @@
   // vocabulaire fixe par le coeur (family-contract.ts). Le cadre est le meme pour tous (DeviceFrame) ;
   // seul le contenu, venu de la declaration, change. Le relais recoit la commande et la famille la
   // traduit pour le boitier.
-  import { CONTROL, type ControlDecl, type ControlValue } from '@opencloudapp/core/family-contract.js';
+  import { CONTROL, DEVICE_SETTING, type ControlDecl, type ControlValue } from '@opencloudapp/core/family-contract.js';
   import { t, type Lang } from '#lib/i18n.ts';
   import { postJson, ignoreBody } from '#lib/api.ts';
-  import type { KnownAppareil } from '#lib/types.ts';
+  import type { Appareil, KnownAppareil } from '#lib/types.ts';
   import DeviceFrame from './DeviceFrame.svelte';
   import KeyValue from '#lib/components/ui/KeyValue.svelte';
   import IconMark from '#lib/components/ui/IconMark.svelte';
   import GearIcon from '#lib/components/ui/GearIcon.svelte';
   import SettingsForm from '@isno-open/plugin-host/svelte/SettingsForm.svelte';
-  import type { SettingValue } from '@opencloudapp/core/plugin-contract.js';
+  import { SETTING_KIND, type SettingField, type SettingValue } from '@opencloudapp/core/plugin-contract.js';
 
-  interface Props { appareil: KnownAppareil; boitierName: string; lang: Lang; grouped?: boolean; }
-  const { appareil: a, boitierName, lang, grouped = false }: Props = $props();
+  /** siblings : les autres appareils du meme boitier (un reglage peut en choisir, ex. membres d'une centrale) */
+  interface Props { appareil: KnownAppareil; siblings: readonly Appareil[]; boitierName: string; lang: Lang; grouped?: boolean; }
+  const { appareil: a, siblings, boitierName, lang, grouped = false }: Props = $props();
   const s = $derived(t(lang));
   const SENDING_MS = 400;   // retour visuel du bouton presse
 
@@ -35,7 +36,12 @@
   }
   // reglages de l'appareil (champs declares par son type) : enregistres par le boitier, qui republie
   // ses valeurs ; l'ecran de reglages est celui du moteur partage, le meme pour tous les plugins
-  const settingsFields = $derived(a.kind.settings ?? []);
+  // un choix d'appareils devient un choix multiple : une case par appareil du boitier d'un type permis,
+  // par son nom (l'ecran partage ne connait pas les boitiers)
+  const settingsFields = $derived((a.kind.settings ?? []).map((f): SettingField => f.kind !== DEVICE_SETTING.devices ? f : {
+    kind: SETTING_KIND.multi, key: f.key, label: f.label, ...(f.hint ? { hint: f.hint } : {}),
+    options: siblings.filter((o) => o.slug !== a.slug && o.kind !== null && f.kinds.includes(o.kind.id)).map((o) => ({ value: o.slug, label: { fr: o.name, en: o.name } })),
+  }));
   async function saveSettings(values: Record<string, SettingValue>): Promise<boolean> {
     const r = await postJson('/api/device/settings', { device_id: a.boitierId, slug: a.slug, values }, s.saveError, ignoreBody);
     return r.ok;
