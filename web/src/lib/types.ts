@@ -43,6 +43,8 @@ export type Boitier = {
   reorderable: boolean;
   name: string;          // nom donne par l'utilisateur (Maison 1...)
   online: boolean;
+  /** hors ligne parce que le cloud a ete coupe SUR le boitier (il l'a annonce), pas une panne */
+  cloudDisabled: boolean;
   firmware: string;      // ex. 0.2.15+cloud
   updateAvailable: boolean;
   count: number;         // nombre d'appareils

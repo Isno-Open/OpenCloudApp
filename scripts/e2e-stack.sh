@@ -207,6 +207,17 @@ chk "sauvegarde : rien de retenu sur le broker" "$(docker run --rm -v "$WORK:/d:
 chk "sauvegarde : fichier non declare, refuse" "$(curl -s -o /dev/null -w '%{http_code}' -b "$J" "$B/api/boitier/file?device_id=$ID&file=journal")" 404
 chk "sauvegarde : boitier d'un autre compte, refuse" "$(curl -s -o /dev/null -w '%{http_code}' -b "$J" "$B/api/boitier/file?device_id=opf-inconnu&file=backup")" 403
 
+echo "== cloud coupe sur le boitier : annonce, dit tel quel (pas une panne)"
+docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/status" -m disabled
+sleep 2
+BOX=$(curl -s -b "$J" "$B/boitier/$ID")
+chk "cloud coupe : etat du boitier" "$(echo "$BOX" | grep -c '>cloud désactivé sur le boîtier<')" 1
+chk "cloud coupe : mode cloud en lecture" "$(echo "$BOX" | grep -c '>désactivé sur le boîtier<')" 1
+chk "cloud coupe : signale sur l'accueil" "$(curl -s -b "$J" "$B/" | grep -c 'data-cloud-off')" 1
+docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/status" -m online
+sleep 2
+chk "cloud reactive : de nouveau en ligne, mode cloud active" "$(curl -s -b "$J" "$B/boitier/$ID" | grep -c '>activé<')" 1
+
 echo "== reconciliation : la config change de nom, le certificat suit"
 FP1=$(docker exec isno-cloud-server openssl x509 -in /broker-certs/server.crt -noout -fingerprint -sha256)
 docker exec isno-cloud-server sh -c "sed -i 's#mqtts://$LAN:18883#mqtts://localtest.me:18883#' /data/portal.config.json"

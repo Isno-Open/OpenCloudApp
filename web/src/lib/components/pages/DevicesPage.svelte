@@ -83,6 +83,7 @@
       <div class="grp-head" style={b.online ? undefined : 'opacity:.75'}>
         <span class={['dot', { off: !b.online }]}></span>
         <span class="grp-name">{b.name}</span>
+        {#if b.cloudDisabled}<span class="grp-seen" data-cloud-off>{s.presence(false, true)}</span>{/if}
         {#if !b.online && b.lastSeenAt !== null}<span class="grp-seen">{s.lastSeen(relativeTime(b.lastSeenAt, data.now, data.lang))}</span>{/if}
         {#if b.updateAvailable}<span class="pill upd">{s.updAvail}</span>{/if}
         <span class="grp-sub">{covers.length} {s.devicesWord}</span>

@@ -1,7 +1,7 @@
 // Famille de boitiers DE TEST, livree avec les tests d'OpenCloudApp (docs/FAMILLES.md) : le cœur
 // s'eprouve sur elle, sans dependre d'aucun firmware reel. Un boitier de test publie sous
 // `famille-test/<boitier>/` :
-//   status                  online | offline (retenu, testament)
+//   status                  online | offline (retenu, testament) | disabled (cloud coupe sur le boitier)
 //   cover/<id>/attrs        {"type": "volet", "positional": true, "course_s": 19}   (retenu)
 //   cover/<id>/position     0..100                                  (retenu)
 //   update                  {"installed": "0.2.16", "latest": "0.2.17"} (retenu)
@@ -35,7 +35,10 @@ const family: FamilyDecl = {
     settings: [{ kind: SETTING_KIND.number, key: "course", label: { fr: "Temps de course (s)", en: "Travel time (s)" }, min: 1, max: 180 }],
   }],
   read({ path, payload }): Fact[] {
-    if (path === "status") return payload === "online" || payload === "offline" ? [{ fact: FACT.presence, online: payload === "online" }] : [];
+    if (path === "status") {
+      if (payload === "disabled") return [{ fact: FACT.presence, online: false, disabled: true }];
+      return payload === "online" || payload === "offline" ? [{ fact: FACT.presence, online: payload === "online" }] : [];
+    }
     if (path === "backup/data") return [{ fact: FACT.file, file: "backup", content: payload }];
     if (path === "sante") {
       let h: unknown;

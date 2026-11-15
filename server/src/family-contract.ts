@@ -60,7 +60,9 @@ export type EventLevel = (typeof EVENT_LEVEL)[keyof typeof EVENT_LEVEL];
 
 export type ControlValue = number | boolean | string;
 export type Fact =
-  | { fact: typeof FACT.presence; online: boolean }
+  // disabled : hors ligne PARCE QUE le boitier a coupe lui-meme sa liaison au portail (et l'a annonce
+  // avant de partir) ; le portail dit « cloud desactive sur le boitier », pas une panne
+  | { fact: typeof FACT.presence; online: boolean; disabled?: boolean }
   // appareil vu : son type (un `kinds`), son nom, et les controles masques sur CET appareil (ex. la
   // position d'un volet qui ne la donne pas)
   | { fact: typeof FACT.device; device: string; kind: string; name?: string; hidden?: readonly string[];

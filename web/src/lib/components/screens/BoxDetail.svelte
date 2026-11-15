@@ -102,7 +102,8 @@
   <div class="cfg-grid">
     <div class="panel">
       <h3>{s.availability} <span class="ro">{s.readonly}</span></h3>
-      <KeyValue label={s.state} value={b.online ? s.online : s.offlineShort} />
+      <KeyValue label={s.state} value={s.presence(b.online, b.cloudDisabled)} />
+      <KeyValue label={s.cloudMode} value={s.cloudModeValue(b.online, b.cloudDisabled)} />
       {#if !b.online && b.lastSeenAt !== null}<KeyValue label={s.lastSeenLabel} value={relativeTime(b.lastSeenAt, now, lang)} />{/if}
       {#if b.uptimeS != null}<KeyValue label={s.since} value={s.uptimeValue(b.uptimeS)} />{:else if b.uptime}<KeyValue label={s.since} value={b.uptime} />{/if}
       {#if b.lastReset}<KeyValue label={s.lastReset} value={b.lastReset[lang]} />{/if}

@@ -13,7 +13,7 @@
   <a class="back" href={ROUTES.appareils[data.lang]}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 6l-6 6 6 6"></path></svg> {s.backBoxes}</a>
   <div class="page-head">
     <h1>{b.name}</h1>
-    <span class={['pill', { 'state-off': !b.online }]}><span class="dot"></span>{b.online ? s.online : s.offlineShort}</span>
+    <span class={['pill', { 'state-off': !b.online }]}><span class="dot"></span>{s.presence(b.online, b.cloudDisabled)}</span>
     <span class="pill mono">{b.firmware}</span>
   </div>
   <p class="lead">{s.leadBoitier(b.id, b.count, b.uptime)}</p>

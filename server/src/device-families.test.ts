@@ -357,6 +357,17 @@ test("rang d'affichage : entier dans ses bornes, garde quand un fait ne le dit p
   assert.equal(applyMessage("test-famille/b1/r", "1.5", true, 1)!.refused.length, 1, "un rang est un entier");
 });
 
+test("presence : cloud coupe sur le boitier, dit tel quel ; repasse en ligne, l'indication s'efface", () => {
+  registerDeviceFamily({ ...STORE, read: ({ path, payload }: FamilyMessage): Fact[] =>
+    path === "en_ligne" ? [{ fact: FACT.presence, online: payload === "1", ...(payload === "coupe" ? { disabled: true } : {}) }] : [] });
+  applyMessage("test-famille/b1/en_ligne", "coupe", true, 1);
+  assert.deepEqual([boxState("famille-test", "b1")!.online, boxState("famille-test", "b1")!.disabled], [false, true]);
+  applyMessage("test-famille/b1/en_ligne", "1", true, 2);
+  assert.deepEqual([boxState("famille-test", "b1")!.online, boxState("famille-test", "b1")!.disabled], [true, false]);
+  applyMessage("test-famille/b1/en_ligne", "0", true, 3);
+  assert.equal(boxState("famille-test", "b1")!.disabled, false, "simple panne : pas « desactive »");
+});
+
 // Famille qui rend sa sauvegarde a la demande : `sauvegarde/demande` -> `sauvegarde/contenu`.
 const AVEC_FICHIER: FamilyDecl = {
   ...STORE,

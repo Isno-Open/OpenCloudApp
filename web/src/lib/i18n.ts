@@ -27,7 +27,10 @@ interface S {
   lastSeen: (when: string) => string; lastSeenLabel: string;
   posWord: string; unknownValue: string; on: string; off: string; radioState: (dbm: number) => string; offline: string; offlineSuffix: string; nameLabel: string;
   // etat appareil
-  online: string; offlineShort: string; updAvail: string; configure: string; devicesWord: string;
+  online: string; offlineShort: string;
+  /** etat d'un boitier en un mot : en ligne, cloud coupe sur le boitier, ou hors ligne (panne) */
+  presence: (online: boolean, cloudDisabled: boolean) => string;
+  cloudMode: string; cloudModeValue: (online: boolean, cloudDisabled: boolean) => string; updAvail: string; configure: string; devicesWord: string;
   // page appareil (configuration)
   backBoxes: string; leadBoitier: (id: string, count: number, uptime?: string) => string;
   tabConfig: string; tabManage: string;
@@ -97,7 +100,9 @@ export const STRINGS = {
     lastSeen: (when: string) => `vu ${when}`, lastSeenLabel: 'Dernière activité',
     unknownDevice: 'Appareil inconnu', unknownDeclared: (type: string) => `Type « ${type} » non géré par ce portail.`, unknownNoType: 'Le boîtier ne déclare aucun type pour cet appareil.',
     posWord: 'Position', unknownValue: 'inconnu', on: 'marche', off: 'arrêt', radioState: (d) => `reçu ${d} dBm`, offline: 'hors ligne', offlineSuffix: ' · hors ligne', nameLabel: 'Nom',
-    online: 'en ligne', offlineShort: 'hors ligne', updAvail: 'maj dispo', configure: 'Configurer', devicesWord: 'volets',
+    online: 'en ligne', offlineShort: 'hors ligne',
+    presence: (on, dis) => (on ? 'en ligne' : dis ? 'cloud désactivé sur le boîtier' : 'hors ligne'),
+    cloudMode: 'Mode cloud', cloudModeValue: (on, dis) => (on ? 'activé' : dis ? 'désactivé sur le boîtier' : 'inconnu (boîtier injoignable)'), updAvail: 'maj dispo', configure: 'Configurer', devicesWord: 'volets',
     backBoxes: 'Mes appareils',
     leadBoitier: (id, c, up) => `${id} · ${c} volets${up ? ` · actif depuis ${up}` : ''}`,
     tabConfig: 'Configuration', tabManage: 'Gérer',
@@ -195,7 +200,9 @@ export const STRINGS = {
     lastSeen: (when: string) => `seen ${when}`, lastSeenLabel: 'Last activity',
     unknownDevice: 'Unknown device', unknownDeclared: (type: string) => `Type "${type}" is not supported by this portal.`, unknownNoType: 'The box declares no type for this device.',
     posWord: 'Position', unknownValue: 'unknown', on: 'on', off: 'off', radioState: (d) => `received ${d} dBm`, offline: 'offline', offlineSuffix: ' · offline', nameLabel: 'Name',
-    online: 'online', offlineShort: 'offline', updAvail: 'update', configure: 'Configure', devicesWord: 'shutters',
+    online: 'online', offlineShort: 'offline',
+    presence: (on, dis) => (on ? 'online' : dis ? 'cloud turned off on the box' : 'offline'),
+    cloudMode: 'Cloud mode', cloudModeValue: (on, dis) => (on ? 'on' : dis ? 'turned off on the box' : 'unknown (box unreachable)'), updAvail: 'update', configure: 'Configure', devicesWord: 'shutters',
     backBoxes: 'My devices',
     leadBoitier: (id, c, up) => `${id} · ${c} shutters${up ? ` · up for ${up}` : ''}`,
     tabConfig: 'Configuration', tabManage: 'Manage',

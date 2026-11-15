@@ -22,7 +22,7 @@ const boitierOf = (d: { deviceId: string; name: string; firmware: string; lastSe
   const st = boxState(d.firmware, d.deviceId);
   return {
     id: d.deviceId, familyKnown: !!familyById(d.firmware), reorderable: !!familyById(d.firmware)?.reorder, name: d.name, firmware: st?.firmware ?? d.firmware,
-    online: deviceOnline(d.firmware, d.deviceId), updateAvailable: !!st?.latest && !!st.firmware && isNewerVersion(st.latest, st.firmware),
+    online: deviceOnline(d.firmware, d.deviceId), cloudDisabled: st?.disabled === true, updateAvailable: !!st?.latest && !!st.firmware && isNewerVersion(st.latest, st.firmware),
     count: countHome(d.firmware, st?.devices), lastSeenAt: d.lastSeenAt ?? null,
     ...(st ? {
       wifi: { ssid: st.network.ssid ?? null, ip: st.network.ip ?? null, rssiDbm: st.health.rssiDbm ?? null },
