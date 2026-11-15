@@ -160,13 +160,16 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.015em; margin: 0; }
 .btn.danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); border-color: var(--danger); }
 .btn.sm { font-size: .8rem; padding: .35rem .6rem; }
 .btn svg { width: 14px; height: 14px; }
-/* boutons de l'ecran de reglages partage (OpenPluginHost, classes oph-*) : la charte des .btn, une seule fois
-   pour toutes les pages qui l'utilisent (reglages d'un plugin, reglages d'un appareil) */
-.oph-btn, .oph-submit { appearance: none; font: inherit; font-weight: 600; font-size: .86rem; padding: .5rem .9rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-elev); color: var(--text); transition: .14s; }
+/* boutons de l'ecran de reglages partage (OpenPluginHost, classes oph-*) : habilles comme les boutons du
+   site isno.fr (fond accent, sans bordure, 8px, .8rem 1.4rem), une seule fois pour toutes les pages qui
+   l'utilisent (reglages d'un plugin, reglages d'un appareil) */
+.oph-btn, .oph-submit { appearance: none; font-family: var(--font-sans); font-weight: 600; font-size: .95rem; border-radius: 8px; padding: .8rem 1.4rem; cursor: pointer; transition: background .12s ease; }
+.oph-submit { background: var(--accent); color: var(--accent-fg); border: 0; }
+.oph-submit:hover { background: var(--accent-hover); }
+.oph-btn { background: transparent; color: var(--text); border: 1px solid var(--border); }
 .oph-btn:hover { border-color: var(--accent-line); background: var(--accent-weak); }
-.oph-submit { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
-.oph-submit:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
-.oph-submit:disabled { opacity: .6; cursor: progress; }
+.oph-btn:focus-visible, .oph-submit:focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; }
+.oph-submit:disabled { opacity: .6; cursor: default; }
 
 /* ===== page boitier : panneaux (onglets : composant SubTabs) ===== */
 .subpanel[hidden] { display: none; }
