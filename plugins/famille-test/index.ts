@@ -54,7 +54,8 @@ const family: FamilyDecl = {
     try { a = JSON.parse(payload); } catch { return []; }
     const o = a && typeof a === "object" ? (a as Record<string, unknown>) : {};
     return [{ fact: FACT.device, device, kind: typeof o.type === "string" ? o.type : "", hidden: o.positional === true ? [] : ["position"],
-      ...(typeof o.course_s === "number" ? { settings: { course: o.course_s } } : {}) }];
+      ...(typeof o.course_s === "number" ? { settings: { course: o.course_s } } : {}),
+      ...(typeof o.rank === "number" ? { rank: o.rank } : {}) }];
   },
   command({ device }, control, value) {
     if (!device) return control === "maj" ? { path: "update/install", payload: "INSTALL" } : null;

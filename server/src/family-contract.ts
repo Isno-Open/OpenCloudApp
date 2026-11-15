@@ -50,7 +50,9 @@ export type Fact =
   // position d'un volet qui ne la donne pas)
   | { fact: typeof FACT.device; device: string; kind: string; name?: string; hidden?: readonly string[];
       // valeurs actuelles de ses reglages (par cle de champ), telles que le boitier les publie
-      settings?: Readonly<Record<string, SettingValue>> }
+      settings?: Readonly<Record<string, SettingValue>>;
+      // rang d'affichage parmi les appareils du boitier (1 = premier) : le portail classe les cartes ainsi
+      rank?: number }
   | { fact: typeof FACT.state; device: string; control: string; value: ControlValue }
   | { fact: typeof FACT.box; firmware?: string; latest?: string; health?: BoxHealth; network?: BoxNetwork;
       // version installee encore en essai (pas validee) ; version precedente gardee par le boitier

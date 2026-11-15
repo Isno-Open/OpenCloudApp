@@ -168,7 +168,7 @@ export const clearDeviceFamilies = (): void => { families.clear(); boxes.clear()
 // ── Etat vu des boitiers, cle `<famille>/<boitier>` ──
 /** kind : le type tel que le boitier le declare ; known : la famille le connait (sinon l'appareil est
  *  montre « inconnu », sans commandes : un firmware plus recent que son plugin, par exemple). */
-export type DeviceState = { kind: string; known: boolean; name: string; hidden: ReadonlySet<string>; values: Map<string, ControlValue>; settings: Map<string, SettingValue> };
+export type DeviceState = { kind: string; known: boolean; name: string; hidden: ReadonlySet<string>; values: Map<string, ControlValue>; settings: Map<string, SettingValue>; rank: number | null };
 export type BoxEvent = { at: number; level: EventLevel; code: string; text: LocalizedText; device?: string };
 export type BoxState = { online: boolean | null; firmware: string | null; latest: string | null; trial: boolean | null; previous: string | null;
   actions: Map<string, boolean>; health: BoxHealth; network: BoxNetwork; devices: Map<string, DeviceState>; events: BoxEvent[] };
@@ -242,7 +242,9 @@ export function applyFacts(f: FamilyDecl, box: string, facts: unknown, now: numb
           const sv = x.settings[field.key];
           if (sv !== undefined) { if (settingFits(field, sv)) settings.set(field.key, sv); else refused.push(`reglage refuse (${x.device}/${field.key})`); }
         }
-        s.devices.set(x.device, { kind: x.kind, known: !!kind, name, hidden: new Set(hidden), values: prev && prev.kind === x.kind ? prev.values : new Map(), settings });
+        const rank = isNum(x.rank) && Number.isInteger(x.rank) && x.rank >= 1 && x.rank <= 999 ? x.rank : x.rank === undefined ? prev?.rank ?? null : null;
+        if (x.rank !== undefined && rank === null) refused.push(`rang refuse (${x.device})`);
+        s.devices.set(x.device, { kind: x.kind, known: !!kind, name, hidden: new Set(hidden), values: prev && prev.kind === x.kind ? prev.values : new Map(), settings, rank });
         break;
       }
       case FACT.state: {

@@ -10,7 +10,7 @@
     "types": "svelte-kit sync && node node_modules/@typescript/native/bin/tsc --noEmit"
   },
   "dependencies": {
-    "@isno-open/plugin-host": "github:Isno-Open/OpenPluginHost#v0.3.0",
+    "@isno-open/plugin-host": "github:Isno-Open/OpenPluginHost#v0.3.1",
     "@opencloudapp/core": "file:../server",
     "better-sqlite3": "13.1.1",
     "mongodb": "7.9.0",

@@ -57,7 +57,9 @@ export async function listAppareils(accountId: string): Promise<Appareil[]> {
     const st = boxState(d.firmware, d.deviceId);
     if (!fam || !st) continue;
     const online = deviceOnline(d.firmware, d.deviceId);
-    for (const [slug, dev] of st.devices) {
+    // classes par rang d'affichage (ceux sans rang a la suite), puis par nom
+    const ordered = [...st.devices].sort(([, a], [, b]) => (a.rank ?? Infinity) - (b.rank ?? Infinity) || a.name.localeCompare(b.name));
+    for (const [slug, dev] of ordered) {
       out.push({
         id: `${d.deviceId}:${slug}`, boitierId: d.deviceId, slug, name: dev.name,
         kind: dev.known ? fam.kinds.find((k) => k.id === dev.kind) ?? null : null, declaredType: dev.kind,

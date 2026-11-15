@@ -161,6 +161,14 @@ docker rm -f isno-e2e-config >/dev/null 2>&1
 chk "reglages : hors bornes, refuses" "$(curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' "$B/api/device/settings" -d "{\"device_id\":\"$ID\",\"slug\":\"salon\",\"values\":{\"course\":500}}")" 400
 chk "reglages : appareil sans reglages declares, refuses" "$(curl -s -o /dev/null -w '%{http_code}' -b "$J" -X POST -H 'content-type: application/json' "$B/api/device/settings" -d "{\"device_id\":\"$ID\",\"slug\":\"pergola\",\"values\":{\"course\":21}}")" 400
 
+echo "== ordre d'affichage : les cartes suivent le rang publie par le boitier"
+docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/cover/volet/attrs" -m '{"type":"volet","positional":true,"rank":1}'
+docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/cover/salon/attrs" -m '{"type":"volet","positional":true,"course_s":19,"rank":2}'
+sleep 2
+ORDRE=$(curl -s -b "$J" "$B/" | grep -o 'data-slug="\(salon\|volet\)"' | head -2 | tr '\n' ' ')
+# rangs a l'inverse de l'ordre alphabetique : seul le rang peut expliquer l'ordre affiche
+chk "ordre : le rang 1 (volet) avant le rang 2 (salon), contre l'ordre alphabetique" "$ORDRE" 'data-slug="volet" data-slug="salon" '
+
 echo "== mise a jour du boitier : proposee seulement vers plus recent"
 docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/update" -m '{"installed":"0.2.16-essai","latest":"0.2.15"}'
 sleep 2

@@ -257,3 +257,13 @@ test("sante et reseau du boitier : verifies, et un fait partiel garde les autres
   assert.equal(applyMessage("test-famille/b1/hb", "12", true, 1)!.refused.length, 1, "un signal positif n'existe pas");
   assert.equal(s.health.rssiDbm, -67, "la valeur d'avant reste");
 });
+
+test("rang d'affichage : entier dans ses bornes, garde quand un fait ne le dit pas", () => {
+  registerDeviceFamily({ ...STORE, read: ({ path, payload }: FamilyMessage): readonly Fact[] =>
+    path === "r" ? [{ fact: FACT.device, device: "salon", kind: "store", ...(payload ? { rank: Number(payload) } : {}) }] : [] });
+  applyMessage("test-famille/b1/r", "2", true, 1);
+  assert.equal(boxState("famille-test", "b1")!.devices.get("salon")!.rank, 2);
+  applyMessage("test-famille/b1/r", "", true, 1);
+  assert.equal(boxState("famille-test", "b1")!.devices.get("salon")!.rank, 2, "fait sans rang : le rang reste");
+  assert.equal(applyMessage("test-famille/b1/r", "1.5", true, 1)!.refused.length, 1, "un rang est un entier");
+});
