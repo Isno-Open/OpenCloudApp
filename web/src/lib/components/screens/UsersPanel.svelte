@@ -86,8 +86,8 @@
   {#if !canCreate}<p class="hint" style="margin:0 0 .6rem">{s.usersFromSource}</p>{/if}
   <ErrorText error={rowError} />
   <div class="fleet" data-fleet>
-    <span><strong>{summary.accounts}</strong> {s.fleetAccounts}</span>
-    <span><strong>{summary.boxes}</strong> {s.fleetBoxes}</span>
+    <span><strong>{summary.accounts}</strong> {s.fleetAccounts(summary.accounts)}</span>
+    <span><strong>{summary.boxes}</strong> {s.fleetBoxes(summary.boxes)}</span>
     <span><strong data-fleet-online>{summary.online}</strong> {s.fleetOnline}</span>
     {#if summary.cloudDisabled}<span><strong>{summary.cloudDisabled}</strong> {s.fleetCloudOff}</span>{/if}
     {#if summary.updates}<span><strong>{summary.updates}</strong> {s.fleetUpdates}</span>{/if}
@@ -126,14 +126,14 @@
           {#each a.boxes as b (b.id)}
             <div class="admin-box" data-admin-box={b.id}>
               <div class="ab-head">
-                <span class={['dot', { off: !b.online }]}></span><strong>{b.name}</strong><span class="mono">{b.id}</span>
+                <span class={['dot', { off: !b.online }]}></span><strong>{b.name}</strong>{#if b.name !== b.id}<span class="mono">{b.id}</span>{/if}
                 <span class="role">{b.family ? b.family[lang] : s.boxFamilyMissing}</span>
                 <span class="role mono">{b.firmware}</span>
                 {#if b.updateAvailable}<span class="role pending">{s.updAvail}</span>{/if}
                 {#if b.trial}<span class="role pending">{s.fleetTrial}</span>{/if}
               </div>
               <KeyValue label={s.state} value={s.presence(b.online, b.cloudDisabled) + (!b.online && b.lastSeenAt !== null ? ` · ${s.boxSeen(ago(b.lastSeenAt))}` : '')} />
-              <KeyValue label={s.devicesWord} value={s.boxDevices(b.devices) + (b.pairedAt !== null ? ` · ${s.boxPaired(day(b.pairedAt))}` : '')} />
+              <KeyValue label={s.colDevices} value={s.boxDevices(b.devices) + (b.pairedAt !== null ? ` · ${s.boxPaired(day(b.pairedAt))}` : '')} />
               {#if b.rssiDbm !== null}<KeyValue label={s.wifiSignal} value={`${b.rssiDbm} dBm`} />{/if}
               {#if b.minFreeHeap !== null}<KeyValue label={s.memory} value={s.boxMinHeap(Math.round(b.minFreeHeap / KIB))} />{/if}
               {#if b.uptimeS !== null}<KeyValue label={s.since} value={s.uptimeValue(b.uptimeS)} />{/if}

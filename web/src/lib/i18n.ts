@@ -54,7 +54,7 @@ interface S {
   // vue utilisateurs (admin)
   usersTitle: string; usersLead: string; userNewTitle: string; userLogin: string; userName: string; userPassword: string; userCap: string;
   userMakeAdmin: string; createUserBtn: string; usersListTitle: string; colLogin: string; colRole: string; colCap: string; colDevices: string;
-  fleetAccounts: string; fleetBoxes: string; fleetOnline: string; fleetCloudOff: string; fleetUpdates: string; fleetTrial: string;
+  fleetAccounts: (n: number) => string; fleetBoxes: (n: number) => string; fleetOnline: string; fleetCloudOff: string; fleetUpdates: string; fleetTrial: string;
   createdOn: (d: string) => string; activeAgo: (r: string) => string; neverActive: string; boxesToggle: (n: number) => string;
   boxPaired: (d: string) => string; boxSeen: (r: string) => string; boxDevices: (n: number) => string; boxFamilyMissing: string;
   boxMinHeap: (ko: number) => string; boxReset: string; boxAlerts: string; boxesReadonly: string;
@@ -135,7 +135,7 @@ export const STRINGS = {
     userNewTitle: 'Nouvel utilisateur', userLogin: 'E-mail', userName: 'Nom', userPassword: 'Mot de passe', userCap: "Plafond d'appareils",
     userMakeAdmin: 'Admin (accès Paramètres, Utilisateurs et Plugins)', createUserBtn: 'Créer', usersListTitle: 'Comptes',
     colLogin: 'Compte', colRole: 'Rôle', colCap: 'Plafond', colDevices: 'Appareils',
-    fleetAccounts: 'comptes', fleetBoxes: 'boîtiers', fleetOnline: 'en ligne', fleetCloudOff: 'cloud coupé', fleetUpdates: 'mise à jour dispo', fleetTrial: 'en essai',
+    fleetAccounts: (n) => (n > 1 ? 'comptes' : 'compte'), fleetBoxes: (n) => (n > 1 ? 'boîtiers' : 'boîtier'), fleetOnline: 'en ligne', fleetCloudOff: 'cloud coupé', fleetUpdates: 'mise à jour dispo', fleetTrial: 'en essai',
     createdOn: (d) => `créé le ${d}`, activeAgo: (r) => `actif ${r}`, neverActive: 'jamais actif depuis le suivi', boxesToggle: (n) => (n > 1 ? `${n} boîtiers` : `${n} boîtier`),
     boxPaired: (d) => `appairé le ${d}`, boxSeen: (r) => `vu ${r}`, boxDevices: (n) => (n > 1 ? `${n} appareils` : `${n} appareil`), boxFamilyMissing: 'famille non installée',
     boxMinHeap: (ko) => `mémoire au plus bas ${ko} Ko`, boxReset: 'Dernier redémarrage', boxAlerts: 'Alertes récentes',
@@ -239,7 +239,7 @@ export const STRINGS = {
     usersTitle: 'Users', usersLead: 'Create and manage the accounts that control devices on this portal.',
     userNewTitle: 'New user', userLogin: 'Email', userName: 'Name', userPassword: 'Password', userCap: 'Device limit',
     userMakeAdmin: 'Admin (access to Settings, Users and Plugins)', createUserBtn: 'Create', usersListTitle: 'Accounts',
-    fleetAccounts: 'accounts', fleetBoxes: 'boxes', fleetOnline: 'online', fleetCloudOff: 'cloud off', fleetUpdates: 'update available', fleetTrial: 'on trial',
+    fleetAccounts: (n) => (n === 1 ? 'account' : 'accounts'), fleetBoxes: (n) => (n === 1 ? 'box' : 'boxes'), fleetOnline: 'online', fleetCloudOff: 'cloud off', fleetUpdates: 'update available', fleetTrial: 'on trial',
     createdOn: (d) => `created ${d}`, activeAgo: (r) => `active ${r}`, neverActive: 'not active since tracking began', boxesToggle: (n) => (n > 1 ? `${n} boxes` : `${n} box`),
     boxPaired: (d) => `paired ${d}`, boxSeen: (r) => `seen ${r}`, boxDevices: (n) => (n > 1 ? `${n} devices` : `${n} device`), boxFamilyMissing: 'family not installed',
     boxMinHeap: (ko) => `lowest memory ${ko} KB`, boxReset: 'Last restart', boxAlerts: 'Recent alerts',
