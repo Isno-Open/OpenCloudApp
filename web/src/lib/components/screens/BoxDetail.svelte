@@ -36,7 +36,8 @@
       if (a.kind?.place !== KIND_PLACE.box || !a.kind.group) continue;
       const label = a.kind.group[lang];
       let g = out.find((x) => x.label === label);
-      if (!g) { g = { id: `group-${out.length}`, label, items: [] }; out.push(g); }
+      // ancre de l'onglet : le type de sa premiere carte (lisible dans l'adresse, stable)
+      if (!g) { g = { id: a.kind.id, label, items: [] }; out.push(g); }
       g.items.push(a);
     }
     return out;
