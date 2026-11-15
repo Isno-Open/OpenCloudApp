@@ -304,6 +304,28 @@ test("reorganiser : rang de 1 au nombre d'appareils du boitier, traduit par la f
   assert.throws(() => asFamily({ ...AVEC_CENTRALE, reorder: 3 }), /reorder/);
 });
 
+test("appareil disparu : sa carte s'en va ; types sur la page du boitier : onglet requis ; bouton a confirmer verifie", () => {
+  const GERE = {
+    ...STORE,
+    kinds: [...STORE.kinds, { id: "tel", label: { fr: "Télécommande", en: "Remote" }, icon: { glyph: "R" }, place: "box", group: { fr: "Télécommandes", en: "Remotes" },
+      controls: [{ kind: CONTROL.action, id: "oublier", label: { fr: "Supprimer", en: "Delete" }, confirm: { fr: "Supprimer ?", en: "Delete?" } }] }],
+    read: (m: FamilyMessage): readonly Fact[] => m.path === "parti/salon" ? [{ fact: FACT.gone, device: "salon" }] : STORE.read(m),
+  };
+  registerDeviceFamily(GERE);
+  const f = familyById("famille-test")!;
+  const tel = f.kinds.find((k) => k.id === "tel")!;
+  assert.deepEqual([tel.place, tel.group?.fr, tel.controls[0]!.kind === CONTROL.action ? tel.controls[0]!.confirm?.fr : null], ["box", "Télécommandes", "Supprimer ?"]);
+  assert.equal(f.kinds.find((k) => k.id === "store")!.place, undefined, "par defaut : l'accueil");
+  applyMessage("test-famille/b1/store/salon/type", "store", true, 1);
+  applyMessage("test-famille/b1/store/cuisine/type", "store", true, 1);
+  assert.deepEqual(applyMessage("test-famille/b1/parti/salon", "", true, 1)!.refused, []);
+  assert.deepEqual([...boxState("famille-test", "b1")!.devices.keys()], ["cuisine"]);
+  const k = GERE.kinds[1]!;
+  assert.throws(() => asFamily({ ...GERE, kinds: [STORE.kinds[0]!, { ...k, group: undefined }] }), /onglet/);
+  assert.throws(() => asFamily({ ...GERE, kinds: [STORE.kinds[0]!, { ...k, place: "cave" }] }), /emplacement/);
+  assert.throws(() => asFamily({ ...GERE, kinds: [STORE.kinds[0]!, { ...k, controls: [{ ...k.controls[0]!, confirm: "Supprimer ?" }] }] }), /confirmation/);
+});
+
 test("isolation : un reglage traduit hors du boitier est refuse", async () => {
   const { buildConfigure } = await import("./device-families.js");
   registerDeviceFamily({ ...REGLABLE, configure: () => ({ path: "../b2/reglages", payload: "x" }) });

@@ -15,12 +15,14 @@
   import { invalidateAll } from '$app/navigation';
   import { postJson, ignoreBody } from '#lib/api.ts';
   import type { Appareil } from '#lib/types.ts';
+  import { KIND_PLACE } from '@opencloudapp/core/family-contract.js';
 
   // Ordre affiche pendant et juste apres un glisser (par boitier : ses slugs), avant que le boitier
   // n'ait republie le sien ; sinon l'ordre du serveur.
   let localOrder = $state<Record<string, readonly string[]>>({});
   const coversOf = (id: string): Appareil[] => {
-    const base = data.appareils.filter((a) => a.boitierId === id), o = localOrder[id];
+    // l'accueil montre ce qu'on pilote ; ce que la famille range sur la page du boitier y reste
+    const base = data.appareils.filter((a) => a.boitierId === id && a.kind?.place !== KIND_PLACE.box), o = localOrder[id];
     return o ? [...base].sort((a, b) => o.indexOf(a.slug) - o.indexOf(b.slug)) : base;
   };
 

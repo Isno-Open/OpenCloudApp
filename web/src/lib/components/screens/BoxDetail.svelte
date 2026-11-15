@@ -7,11 +7,14 @@
   import SubTabs from '#lib/components/ui/SubTabs.svelte';
   import { t, ROUTES, type Lang } from '#lib/i18n.ts';
   import { postJson, ignoreBody } from '#lib/api.ts';
-  import type { Boitier } from '#lib/types.ts';
+  import type { Appareil, Boitier } from '#lib/types.ts';
+  import { isKnownAppareil } from '#lib/types.ts';
+  import { KIND_PLACE } from '@opencloudapp/core/family-contract.js';
+  import DeviceCard from '#lib/components/devices/DeviceCard.svelte';
   import { relativeTime } from '#lib/time.ts';
 
-  interface Props { boitier: Boitier; lang: Lang; now: number; }
-  const { boitier: b, lang, now }: Props = $props();
+  interface Props { boitier: Boitier; appareils: readonly Appareil[]; lang: Lang; now: number; }
+  const { boitier: b, appareils, lang, now }: Props = $props();
   const s = $derived(t(lang));
   // action du boitier entier (mise a jour, retour a la version precedente) : confirmation dans la page
   // (pas de confirm() du navigateur), puis commande au relais, que la famille traduit
@@ -25,6 +28,19 @@
 
   const TAB = { cfg: 'cfg', manage: 'manage' } as const;
   let tab = $state<string>(TAB.cfg);
+  // appareils que la famille range sur la page du boitier : un onglet par groupe (ex. Telecommandes),
+  // dans l'ordre ou ils apparaissent
+  const groups = $derived.by(() => {
+    const out: { id: string; label: string; items: Appareil[] }[] = [];
+    for (const a of appareils) {
+      if (a.kind?.place !== KIND_PLACE.box || !a.kind.group) continue;
+      const label = a.kind.group[lang];
+      let g = out.find((x) => x.label === label);
+      if (!g) { g = { id: `group-${out.length}`, label, items: [] }; out.push(g); }
+      g.items.push(a);
+    }
+    return out;
+  });
   const initialName = (): string => b.name;
   let name = $state(initialName());
   let confirming = $state(false);
@@ -45,7 +61,17 @@
   }
 </script>
 
-<SubTabs label={s.tabConfig} bind:current={tab} items={[{ id: TAB.cfg, label: s.tabConfig }, { id: TAB.manage, label: s.tabManage }]} />
+<SubTabs label={s.tabConfig} bind:current={tab} items={[{ id: TAB.cfg, label: s.tabConfig }, ...groups.map((g) => ({ id: g.id, label: g.label })), { id: TAB.manage, label: s.tabManage }]} />
+
+{#each groups as g (g.id)}
+  <div class="subpanel" data-panel={g.id} hidden={tab !== g.id}>
+    <div class="hw-grid">
+      {#each g.items as a (a.id)}
+        {#if isKnownAppareil(a)}<DeviceCard appareil={a} siblings={appareils} boitierName={b.name} {lang} grouped />{/if}
+      {/each}
+    </div>
+  </div>
+{/each}
 
 <div class="subpanel" data-panel={TAB.cfg} hidden={tab !== TAB.cfg}>
   <div class="cfg-grid">

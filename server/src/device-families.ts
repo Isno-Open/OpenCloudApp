@@ -5,7 +5,7 @@
 import { SETTING_KIND, TEXT_FORMAT, type LocalizedText, type SettingValue } from "./plugin-contract.js";
 import { asIcon } from "./icons.js";
 import {
-  FAMILY_CONTRACT, CONTROL, FACT, EVENT_LEVEL, DEVICE_SETTING,
+  FAMILY_CONTRACT, CONTROL, FACT, EVENT_LEVEL, DEVICE_SETTING, KIND_PLACE,
   type ControlDecl, type ControlValue, type CommandTarget, type EventLevel, type Fact, type FamilyDecl, type KindDecl, type BoxHealth, type BoxNetwork, type BoxControlDecl, type DeviceSettingField, type DevicesField,
 } from "./family-contract.js";
 
@@ -35,7 +35,8 @@ function asControl(v: unknown, where: string): ControlDecl {
     case CONTROL.action: {
       const icon = v.icon === undefined ? null : asIcon(v.icon);
       if (v.icon !== undefined && !icon) throw new Error(`${at} : icone invalide`);
-      return icon ? { kind: CONTROL.action, id, label, icon } : { kind: CONTROL.action, id, label };
+      if (v.confirm !== undefined && !isText(v.confirm)) throw new Error(`${at} : confirmation fr et en`);
+      return { kind: CONTROL.action, id, label, ...(icon ? { icon } : {}), ...(v.confirm !== undefined ? { confirm: v.confirm } : {}) };
     }
     case CONTROL.toggle: return { kind: CONTROL.toggle, id, label };
     case CONTROL.setpoint:
@@ -116,7 +117,10 @@ function asKind(v: unknown, family: string): KindDecl {
   const settings = v.settings === undefined ? [] : Array.isArray(v.settings) ? v.settings.map((x) => asSetting(x, at)) : null;
   if (!settings) throw new Error(`${at} : reglages en liste`);
   if (new Set(settings.map((x) => x.key)).size !== settings.length) throw new Error(`${at} : deux reglages ont la meme cle`);
-  return { id: v.id, label: v.label, icon, controls, ...(settings.length ? { settings } : {}) };
+  if (v.place !== undefined && v.place !== KIND_PLACE.home && v.place !== KIND_PLACE.box) throw new Error(`${at} : emplacement « ${String(v.place)} » inconnu`);
+  if (v.place === KIND_PLACE.box && !isText(v.group)) throw new Error(`${at} : sur la page du boitier, un onglet (group fr et en) requis`);
+  const place = v.place === KIND_PLACE.box && isText(v.group) ? { place: KIND_PLACE.box, group: v.group } : {};
+  return { id: v.id, label: v.label, icon, controls, ...(settings.length ? { settings } : {}), ...place };
 }
 
 function asBoxControl(v: unknown, family: string): BoxControlDecl {
@@ -262,6 +266,9 @@ export function applyFacts(f: FamilyDecl, box: string, facts: unknown, now: numb
         s.devices.set(x.device, { kind: x.kind, known: !!kind, name, hidden: new Set(hidden), values: prev && prev.kind === x.kind ? prev.values : new Map(), settings, rank });
         break;
       }
+      case FACT.gone:
+        if (typeof x.device === "string" && NAME_RE.test(x.device)) s.devices.delete(x.device); else refused.push("disparu : identifiant invalide");
+        break;
       case FACT.state: {
         const d = typeof x.device === "string" ? s.devices.get(x.device) : undefined;
         const c = d?.known ? f.kinds.find((k) => k.id === d.kind)?.controls.find((k) => k.id === x.control) : undefined;

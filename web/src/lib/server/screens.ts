@@ -224,7 +224,9 @@ export async function boxScreen(lang: Lang, request: Request, id: string) {
   const acc = await requireAccount(request, lang);
   const b = await getBoitier(id, acc);
   if (!b) redirect(302, ROUTES.appareils[lang]);
-  return { boitier: b, now: Date.now() };
+  // ses appareils : ceux que sa famille range sur la page du boitier y ont leurs onglets
+  const appareils = (await listAppareils(acc)).filter((a) => a.boitierId === id);
+  return { boitier: b, appareils, now: Date.now() };
 }
 
 /** Installation : tant que l'instance n'est pas configuree. */

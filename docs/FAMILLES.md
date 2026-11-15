@@ -77,6 +77,12 @@ même boîtier** parmi des types permis (`kinds`) : les membres d'une centrale, 
 Le portail le dessine en cases à cocher, une par appareil, et vérifie à l'enregistrement que chacun
 existe sur ce boîtier, a un type permis et n'est pas l'appareil lui-même.
 
+**Où vivent les cartes.** Par défaut sur l'accueil. Un type déclaré `place: "box"` avec un `group`
+(ex. « Télécommandes ») a ses cartes sur la page du boîtier, dans un onglet de ce nom : ce qu'on gère
+sans le piloter. Un bouton `action` peut porter `confirm` (question posée dans la carte avant
+l'envoi, pour ce qu'on ne défait pas). Un appareil retiré du boîtier se signale par le fait `gone` :
+sa carte disparaît.
+
 **Ordre des cartes.** Le portail classe les appareils d'un boîtier par rang (`rank` du fait
 appareil) ; ceux sans rang suivent, dans l'ordre où la famille déclare ses types (`kinds`), puis par
 nom. Une famille qui fournit `reorder(cible, rang)` rend ses cartes déplaçables : on les glisse par

@@ -22,7 +22,8 @@ export type ControlKind = (typeof CONTROL)[keyof typeof CONTROL];
 
 type ControlBase = { id: string; label: LocalizedText };
 export type ControlDecl =
-  | (ControlBase & { kind: typeof CONTROL.action; icon?: Icon })
+  // confirm : question posee avant d'envoyer (action qu'on ne defait pas, ex. supprimer)
+  | (ControlBase & { kind: typeof CONTROL.action; icon?: Icon; confirm?: LocalizedText })
   | (ControlBase & { kind: typeof CONTROL.toggle })
   | (ControlBase & { kind: typeof CONTROL.setpoint; min: number; max: number; step: number; unit: string })
   | (ControlBase & { kind: typeof CONTROL.position; settable: boolean })
@@ -40,14 +41,19 @@ export type DeviceSettingField = SettingField | DevicesField;
  *  (nombre, case, choix, texte) ou un choix d'appareils du boitier, que le portail dessine avec l'ecran
  *  de reglages partage et que la famille traduit pour le boitier (configure). Ex. les temps de course
  *  d'un volet, les membres d'une centrale. */
-export type KindDecl = { id: string; label: LocalizedText; icon: Icon; controls: readonly ControlDecl[]; settings?: readonly DeviceSettingField[] };
+export type KindDecl = { id: string; label: LocalizedText; icon: Icon; controls: readonly ControlDecl[]; settings?: readonly DeviceSettingField[];
+  /** Ou vivent ses cartes : sur l'accueil (par defaut), ou sur la page du boitier, dans un onglet nomme
+   *  `group` (ex. les telecommandes connues d'un boitier, qu'on gere sans les piloter). */
+  place?: KindPlace; group?: LocalizedText };
+export const KIND_PLACE = { home: "home", box: "box" } as const;
+export type KindPlace = (typeof KIND_PLACE)[keyof typeof KIND_PLACE];
 // natures permises : nombre, case, choix, texte (le coeur refuse le reste, device-families.ts)
 
 /** Ce que le coeur passe a read() : un message d'un boitier, sans `<racine>/<boitier>/`. */
 export type FamilyMessage = { box: string; path: string; payload: string; retained: boolean };
 
 /** Ce que read() rend : des FAITS, que le coeur verifie avant de les appliquer. */
-export const FACT = { presence: "presence", device: "device", state: "state", box: "box", event: "event" } as const;
+export const FACT = { presence: "presence", device: "device", state: "state", box: "box", event: "event", gone: "gone" } as const;
 export type FactKind = (typeof FACT)[keyof typeof FACT];
 export const EVENT_LEVEL = { info: "info", alert: "alert" } as const;
 export type EventLevel = (typeof EVENT_LEVEL)[keyof typeof EVENT_LEVEL];
@@ -70,7 +76,9 @@ export type Fact =
       // actions du boitier entier (boxControls) possibles maintenant, par identifiant ; un fait partiel
       // ne touche que celles qu'il nomme
       actions?: Readonly<Record<string, boolean>> }
-  | { fact: typeof FACT.event; level: EventLevel; code: string; text: LocalizedText; device?: string };
+  | { fact: typeof FACT.event; level: EventLevel; code: string; text: LocalizedText; device?: string }
+  // appareil retire du boitier (supprime, ignore) : sa carte disparait
+  | { fact: typeof FACT.gone; device: string };
 
 /** Sante d'un boitier, en lecture : ce qu'il publie de lui-meme (battement, etat systeme). Chaque champ
  *  est facultatif ; un fait n'en porte que ceux qu'il connait, les autres gardent leur valeur. */

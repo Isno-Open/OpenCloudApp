@@ -3,7 +3,8 @@
 // (device-families.ts). La famille d'un boitier est celle qu'il a declaree a l'enrolement (firmware).
 import { listDevices, countDevices, findDevice, getAccount } from '@opencloudapp/core/store.js';
 import { deviceOnline } from '@opencloudapp/core/mqtt.js';
-import { familyById, boxState, compareDevices } from '@opencloudapp/core/device-families.js';
+import { familyById, boxState, compareDevices, type DeviceState } from '@opencloudapp/core/device-families.js';
+import { KIND_PLACE } from '@opencloudapp/core/family-contract.js';
 import { isNewerVersion } from '@opencloudapp/core/version.js';
 import type { Appareil, Boitier, Account } from '#lib/types.ts';
 import { boot } from '#lib/server/boot.ts';
@@ -11,12 +12,18 @@ import { plugins } from '#lib/server/auth.ts';
 
 // online : ce que le boitier ANNONCE (fait de presence de sa famille), pas une deduction de ses
 // appareils, dont les etats restent retenus.
+/** Appareils pilotes depuis l'accueil (pas ceux que la famille range sur la page du boitier). */
+const countHome = (firmware: string, devices: ReadonlyMap<string, DeviceState> | undefined): number => {
+  const fam = familyById(firmware);
+  return [...(devices?.values() ?? [])].filter((d) => fam?.kinds.find((k) => k.id === d.kind)?.place !== KIND_PLACE.box).length;
+};
+
 const boitierOf = (d: { deviceId: string; name: string; firmware: string; lastSeenAt?: number | null }): Boitier => {
   const st = boxState(d.firmware, d.deviceId);
   return {
     id: d.deviceId, familyKnown: !!familyById(d.firmware), reorderable: !!familyById(d.firmware)?.reorder, name: d.name, firmware: st?.firmware ?? d.firmware,
     online: deviceOnline(d.firmware, d.deviceId), updateAvailable: !!st?.latest && !!st.firmware && isNewerVersion(st.latest, st.firmware),
-    count: st?.devices.size ?? 0, lastSeenAt: d.lastSeenAt ?? null,
+    count: countHome(d.firmware, st?.devices), lastSeenAt: d.lastSeenAt ?? null,
     ...(st ? {
       wifi: { ssid: st.network.ssid ?? null, ip: st.network.ip ?? null, rssiDbm: st.health.rssiDbm ?? null },
       broker: st.network.broker ?? null,

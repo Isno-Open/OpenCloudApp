@@ -30,6 +30,8 @@
 
   let showDetails = $state(false);
   let sending = $state<string | null>(null);
+  // action a confirmer (ex. supprimer) : la question s'affiche dans la carte, pas dans une boite du navigateur
+  let asking = $state<string | null>(null);
   async function send(control: string, value: ControlValue | null = null): Promise<void> {
     sending = control;
     await postJson('/api/cmd', { device_id: a.boitierId, slug: a.slug, control, value }, s.netErr, ignoreBody);
@@ -67,12 +69,22 @@
   {#if actions.length}
     <div class="dpad" data-device={a.boitierId} data-slug={a.slug}>
       {#each actions as c (c.id)}
-        <button type="button" class={{ sending: sending === c.id }} data-action={c.id} title={c.label[lang]} aria-label={c.label[lang]} disabled={!a.online} onclick={() => send(c.id)}>
+        <button type="button" class={{ sending: sending === c.id }} data-action={c.id} title={c.label[lang]} aria-label={c.label[lang]} disabled={!a.online}
+          onclick={() => { if (c.kind === CONTROL.action && c.confirm) asking = c.id; else void send(c.id); }}>
           {#if c.kind === CONTROL.action && c.icon}<IconMark icon={c.icon} label={c.label[lang]} />{:else}{c.label[lang]}{/if}
         </button>
       {/each}
     </div>
   {/if}
+  {#each actions as c (c.id)}
+    {#if asking === c.id && c.kind === CONTROL.action && c.confirm}
+      <div class="ask" data-ask={c.id}>
+        <p class="note">{c.confirm[lang]}</p>
+        <button type="button" class="btn danger sm" data-confirm={c.id} onclick={() => { asking = null; void send(c.id); }}>{c.label[lang]}</button>
+        <button type="button" class="btn ghost sm" onclick={() => { asking = null; }}>{s.cancel}</button>
+      </div>
+    {/if}
+  {/each}
   {#if position}
     <div class="slat" style={`--p:${pos ?? 0}${a.online ? '' : ';opacity:.5'}`} title={pos !== null ? `${pos} %` : undefined}></div>
     {#if position.kind === CONTROL.position && position.settable}
@@ -111,6 +123,8 @@
 </DeviceFrame>
 
 <style>
+  .ask { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .6rem; }
+  .ask .note { flex-basis: 100%; margin: 0; }
   .pos-range { width: 100%; accent-color: var(--accent); }
   .ctl-toggle, .ctl-setpoint { display: flex; gap: 0.5rem; align-items: center; }
   .ctl-setpoint input { width: 5rem; }
