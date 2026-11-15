@@ -15,7 +15,7 @@ export const CONTROL = {
   action: "action",       // bouton : Monter, Stop, Descendre ; Ouvrir, Fermer
   toggle: "toggle",       // marche/arret
   setpoint: "setpoint",   // consigne bornee (min, max, pas, unite)
-  position: "position",   // ouverture de 0 a 100 %, reglable ou non
+  position: "position",   // FERMETURE de 0 a 100 % (0 = ouvert, 100 = ferme, comme l'interface des boitiers), reglable ou non
   reading: "reading",     // releve affiche (nombre ou texte), seuils d'alerte eventuels
 } as const;
 export type ControlKind = (typeof CONTROL)[keyof typeof CONTROL];

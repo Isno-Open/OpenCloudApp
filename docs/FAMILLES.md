@@ -68,7 +68,7 @@ Chaque type d'appareil (`kinds`) décrit sa carte comme une liste de contrôles 
 | `action` | libellé, icône | Monter, Stop, Descendre ; Ouvrir, Fermer |
 | `toggle` | libellé | marche/arrêt d'un poêle |
 | `setpoint` | min, max, pas, unité | consigne de 15 à 25 °C par pas de 0,5 |
-| `position` | réglable ou non | ouverture d'un volet, de 0 à 100 % |
+| `position` | réglable ou non | fermeture d'un volet, de 0 % (ouvert) à 100 % (fermé), comme l'interface du boîtier |
 | `reading` | unité, seuils d'alerte | température des fumées ; pile d'une télécommande |
 
 Le jour où un boîtier a besoin d'un contrôle absent, on l'ajoute au vocabulaire, dans le cœur, pour
@@ -100,7 +100,7 @@ sa construction : une seule déclaration, celle du firmware.
 | Commande (sous `openprofalux/<boîtier>/`) | Dans le plugin |
 |---|---|
 | `cover/<slug>/set` : `OPEN`, `STOP`, `CLOSE` | contrôles `action` |
-| `cover/<slug>/set_position` : 0 à 100 | `position` réglable |
+| `cover/<slug>/set_position` : 0 à 100, % d'ouverture (Home Assistant) ; le plugin traduit depuis la fermeture | `position` réglable |
 | `update/install`, ou `ota/pull` avec l'adresse de l'image | mise à jour du firmware |
 | `listen/set` | interrupteur d'écoute (à décider) |
 
