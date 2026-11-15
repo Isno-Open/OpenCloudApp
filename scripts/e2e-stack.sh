@@ -225,6 +225,17 @@ chk "parc : boitiers du compte, depliables" "$(echo "$UP" | grep -c "data-boxes=
 chk "parc : activite du compte notee" "$(echo "$UP" | grep -o 'data-activity="operateur@exemple.fr">.\{0,300\}' | sed 's/<!--[^>]*-->//g' | grep 'actif ' | grep -vc 'jamais actif')" 1
 chk "parc : refuse sans session" "$(curl -s -o /dev/null -w '%{http_code}' "$B/utilisateurs")" 302
 
+echo "== fiche d'un compte pour l'operateur : detail des boitiers, minimisee, consultation journalisee"
+FICHE=$(curl -s -b "$J" "$B/utilisateurs/operateur%40exemple.fr")
+chk "fiche : le boitier du compte, en detail" "$(echo "$FICHE" | grep -c "data-user-box=\"$ID\"")" 1
+chk "fiche : ses appareils et sa sante" "$(echo "$FICHE" | grep -c '>-61 dBm<')" 1
+chk "fiche : pas de nom de reseau Wi-Fi (RGPD)" "$(echo "$FICHE" | grep -c 'Reseau essai')" 0
+chk "fiche : aucune commande ni sauvegarde" "$(echo "$FICHE" | grep -cE 'data-file=|data-ask=|data-action=')" 0
+chk "fiche : consultation journalisee" "$(docker logs isno-cloud-server 2>&1 | grep -c '\[operateur\] operateur@exemple.fr consulte la fiche du compte operateur@exemple.fr')" 1
+chk "fiche : lien depuis la liste" "$(curl -s -b "$J" "$B/utilisateurs" | grep -c 'href="/utilisateurs/operateur%40exemple.fr"')" 1
+chk "fiche : refusee sans session" "$(curl -s -o /dev/null -w '%{http_code}' "$B/utilisateurs/operateur%40exemple.fr")" 302
+chk "fiche : compte inconnu, retour a la liste" "$(curl -s -o /dev/null -w '%{redirect_url}' -b "$J" "$B/utilisateurs/inconnu%40exemple.fr" | grep -c '/utilisateurs$')" 1
+
 echo "== reconciliation : la config change de nom, le certificat suit"
 FP1=$(docker exec isno-cloud-server openssl x509 -in /broker-certs/server.crt -noout -fingerprint -sha256)
 docker exec isno-cloud-server sh -c "sed -i 's#mqtts://$LAN:18883#mqtts://localtest.me:18883#' /data/portal.config.json"

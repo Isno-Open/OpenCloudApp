@@ -7,7 +7,8 @@ import { familyById, boxState, compareDevices, type DeviceState } from '@openclo
 import { KIND_PLACE } from '@opencloudapp/core/family-contract.js';
 import { isNewerVersion } from '@opencloudapp/core/version.js';
 import type { Appareil, Boitier, Account } from '#lib/types.ts';
-import type { AdminBox } from '#lib/users-view.ts';
+import type { AdminBox, AdminBoxDetail } from '#lib/users-view.ts';
+import { CONTROL } from '@opencloudapp/core/family-contract.js';
 import { EVENT_LEVEL } from '@opencloudapp/core/family-contract.js';
 import { boot } from '#lib/server/boot.ts';
 import { plugins } from '#lib/server/auth.ts';
@@ -56,6 +57,31 @@ export async function adminBoxes(accountId: string): Promise<AdminBox[]> {
       alerts: (st?.events ?? []).filter((e) => e.level === EVENT_LEVEL.alert).slice(0, ADMIN_ALERTS).map((e) => ({ at: e.at, text: e.text })),
     };
   });
+}
+
+/** Fiches detaillees des boitiers d'un compte (page operateur d'un compte). */
+export async function adminBoxDetails(accountId: string): Promise<AdminBoxDetail[]> {
+  return Promise.all((await adminBoxes(accountId)).map(async (b): Promise<AdminBoxDetail> => {
+    const d = (await listDevices(accountId)).find((x) => x.deviceId === b.id)!;
+    const st = boxState(d.firmware, d.deviceId), fam = familyById(d.firmware);
+    // un appareil range sur la page du boitier (une telecommande) sans nom propre porte son numero de
+    // serie en guise de nom : on ne montre alors que son type (minimisation). Le nom d'un volet, lui,
+    // est celui que l'utilisateur a donne.
+    const appliances = st ? [...st.devices.entries()].sort(([, x], [, y]) => (fam ? compareDevices(fam, x, y) : x.name.localeCompare(y.name))).map(([id, a]) => {
+      const kind = fam?.kinds.find((k) => k.id === a.kind);
+      const pos = kind?.controls.find((c) => c.kind === CONTROL.position);
+      const v = pos ? a.values.get(pos.id) : undefined;
+      return {
+        name: kind?.place === KIND_PLACE.box && (a.name === id || a.name === id.replace(/_/g, ' ')) ? '' : a.name, kind: kind ? kind.label : null, position: typeof v === 'number' ? v : null,
+        settings: (kind?.settings ?? []).filter((f) => a.settings.has(f.key)).map((f) => {
+          const sv = a.settings.get(f.key);
+          return { label: f.label, value: Array.isArray(sv) ? String(sv.length) : String(sv) };
+        }),
+      };
+    }) : [];
+    return { ...b, previous: st?.previous ?? null, freeHeap: st?.health.freeHeap ?? null, localBroker: !!st?.network.broker,
+      appliances, events: (st?.events ?? []).map((e) => ({ at: e.at, alert: e.level === EVENT_LEVEL.alert, text: e.text })) };
+  }));
 }
 
 export async function getAccountInfo(accountId: string): Promise<Account> {

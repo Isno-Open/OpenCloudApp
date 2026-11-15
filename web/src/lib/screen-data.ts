@@ -18,4 +18,5 @@ export type PluginSettingsData = Of<typeof S.pluginSettingsScreen>;
 export type LinkData = Of<typeof S.linkScreen>;
 export type PasswordData = Of<typeof S.passwordScreen>;
 export type BoxData = Of<typeof S.boxScreen>;
+export type UserDetailData = Of<typeof S.userDetailScreen>;
 export type SetupData = Of<typeof S.setupScreen>;

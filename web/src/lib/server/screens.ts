@@ -4,7 +4,7 @@
 import { redirect, type Cookies } from '@sveltejs/kit';
 import { isConfigured, loadConfig, setupWindowRemaining, SETUP_WINDOW_S, DB_KIND } from '@opencloudapp/core/config.js';
 import { installedPlugins, BUILTIN_PLUGINS, enabledPlugins, pluginSettingsForm, accountSourceLabel, builtinInfo } from '@opencloudapp/core/plugins.js';
-import { listAccounts, countDevices, getDeviceAuthByUserCode } from '@opencloudapp/core/store.js';
+import { listAccounts, countDevices, getDeviceAuthByUserCode, getAccount } from '@opencloudapp/core/store.js';
 import { DEVICE_AUTH_STATE } from '@opencloudapp/core/types.js';
 import { normalizeUserCode, displayUserCode } from '@opencloudapp/core/device-code.js';
 import { localAccountsSettings, totpAllowed, totpRequiredFor } from '@opencloudapp/core/plugins/local-accounts-settings.js';
@@ -16,7 +16,7 @@ import { theme, activeTheme, BASE_THEME } from '@opencloudapp/core/themes.js';
 import type { Icon } from '@opencloudapp/core/plugin-contract.js';
 import { PLUGIN_CATEGORY } from '@opencloudapp/core/plugin-contract.js';
 import { syncExternalDirectory } from '@opencloudapp/core/plugins/external-auth.js';
-import { getAccountInfo, listBoitiers, listAppareils, getBoitier, adminBoxes } from '#lib/server/cloud-data.ts';
+import { getAccountInfo, listBoitiers, listAppareils, getBoitier, adminBoxes, adminBoxDetails } from '#lib/server/cloud-data.ts';
 import type { FleetSummary } from '#lib/users-view.ts';
 import { listCatalogPlugins } from '#lib/server/supervisor.ts';
 import { accountFromLink } from '#lib/server/password.ts';
@@ -112,6 +112,25 @@ export async function usersScreen(lang: Lang, request: Request) {
   rows.sort((x, y) => x.name.localeCompare(y.name, lang, { sensitivity: 'base' }));
   // messagerie configuree : le mot de passe devient facultatif (invitation)
   return { rows, summary, now, minPass: localAccountsSettings().passwordMinLength, canInvite: mailEnabled(), canCreate };
+}
+
+/** Fiche d'un compte pour l'operateur : le compte et le detail de ses boitiers, en lecture seule.
+ *  Chaque consultation est journalisee (qui, quel compte, quand) : trace d'un acces operateur aux
+ *  donnees d'un utilisateur (RGPD). */
+export async function userDetailScreen(lang: Lang, request: Request, id: string) {
+  const self = await requireAdmin(request);
+  if (!self) redirect(302, ROUTES.appareils[lang]);
+  const a = await getAccount(id);
+  if (!a) redirect(302, ROUTES.utilisateurs[lang]);
+  await plugins();
+  console.log(`[operateur] ${self} consulte la fiche du compte ${a.id} (${new Date().toISOString()})`);
+  const now = Date.now();
+  return {
+    account: { id: a.id, name: a.name ?? a.id, admin: a.admin, totpEnabled: !!a.totpEnabled, locked: !!a.lockedUntil && a.lockedUntil > now,
+      invited: !a.passHash && a.source === null, cap: a.deviceCap, source: a.source ? accountSourceLabel(a.source, lang) : null,
+      missing: a.missingSince !== null, createdAt: a.createdAt, lastActiveAt: a.lastActiveAt, isSelf: a.id === self },
+    boxes: await adminBoxDetails(a.id), now,
+  };
 }
 
 export async function settingsScreen(lang: Lang, request: Request) {

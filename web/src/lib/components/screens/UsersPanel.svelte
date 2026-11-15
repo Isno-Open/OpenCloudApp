@@ -8,7 +8,7 @@
   import ErrorText from '#lib/components/ui/ErrorText.svelte';
   import SubTabs from '#lib/components/ui/SubTabs.svelte';
   import { pageWithoutTab } from '#lib/components/ui/subtabs.ts';
-  import { t, type Lang } from '#lib/i18n.ts';
+  import { t, userHref, type Lang } from '#lib/i18n.ts';
   import { postJson, ignoreBody } from '#lib/api.ts';
   import type { UserRow, FleetSummary } from '#lib/users-view.ts';
   import KeyValue from '#lib/components/ui/KeyValue.svelte';
@@ -97,7 +97,7 @@
     <div class="ut-head"><span>{s.colLogin}</span><span>{s.colRole}</span><span>{s.colCap}</span><span>{s.colDevices}</span><span></span></div>
     {#each rows as a (a.id)}
       <div class="ut-row">
-        <span class="who"><b>{a.name}</b>{#if a.isSelf}<span class="youtag">{s.youTag}</span>{/if}<span class="mono">{a.id}</span>
+        <span class="who"><a href={userHref(a.id, lang)} data-user-link={a.id}><b>{a.name}</b></a>{#if a.isSelf}<span class="youtag">{s.youTag}</span>{/if}<span class="mono">{a.id}</span>
           <span class="seen" data-activity={a.id}>{#if a.createdAt !== null}{s.createdOn(day(a.createdAt))} · {/if}{a.lastActiveAt !== null ? s.activeAgo(ago(a.lastActiveAt)) : s.neverActive}</span></span>
         <span class="tags">
           <span class={['role', { op: a.admin }]}>{a.admin ? s.roleAdmin : s.roleUser}</span>

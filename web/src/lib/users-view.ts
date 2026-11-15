@@ -23,5 +23,15 @@ export type AdminBox = {
   alerts: readonly { at: number; text: { fr: string; en: string } }[];   // les plus recentes d'abord
 };
 
+/** Fiche d'un boitier pour l'operateur (page d'un compte) : le maximum UTILE au support, rien qui
+ *  permette d'agir chez l'utilisateur ni qui dise plus que necessaire (RGPD, minimisation) :
+ *  pas de sauvegarde ni de trames, pas de nom de reseau Wi-Fi (il porte souvent un nom de famille),
+ *  pas d'identifiant de telecommande, aucune commande. */
+export type AdminBoxDetail = AdminBox & {
+  previous: string | null; freeHeap: number | null; localBroker: boolean;
+  appliances: readonly { name: string; kind: { fr: string; en: string } | null; position: number | null; settings: readonly { label: { fr: string; en: string }; value: string }[] }[];
+  events: readonly { at: number; alert: boolean; text: { fr: string; en: string } }[];
+};
+
 /** Resume du parc, en tete de l'ecran. */
 export type FleetSummary = { accounts: number; boxes: number; online: number; cloudDisabled: number; updates: number; trial: number };

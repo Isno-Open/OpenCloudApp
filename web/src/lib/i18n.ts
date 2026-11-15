@@ -58,6 +58,9 @@ interface S {
   createdOn: (d: string) => string; activeAgo: (r: string) => string; neverActive: string; boxesToggle: (n: number) => string;
   boxPaired: (d: string) => string; boxSeen: (r: string) => string; boxDevices: (n: number) => string; boxFamilyMissing: string;
   boxMinHeap: (ko: number) => string; boxReset: string; boxAlerts: string; boxesReadonly: string;
+  backUsers: string; udAccount: string; udEmail: string; udSource: string; udRole: string; ud2fa: string; udLocked: string; udCreated: string; udActive: string;
+  udUnknown: string; udYes: string; udNo: string; udBoxes: string; udNoBox: string; udLatest: string; udPaired: string; udLastSeen: string;
+  udAppliances: string; udPosition: (p: number) => string; udEvents: string; udNoEvents: string; udPrivacy: string;
   roleAdmin: string; roleUser: string; youTag: string; removeUser: string; confirmRemoveUser: (id: string) => string;
   createUserError: string; removeUserError: string; makeAdmin: string; unmakeAdmin: string; roleError: string;
   // liaison d'un appareil (device grant) + onboarding utilisateur
@@ -140,6 +143,10 @@ export const STRINGS = {
     boxPaired: (d) => `appairé le ${d}`, boxSeen: (r) => `vu ${r}`, boxDevices: (n) => (n > 1 ? `${n} appareils` : `${n} appareil`), boxFamilyMissing: 'famille non installée',
     boxMinHeap: (ko) => `mémoire au plus bas ${ko} Ko`, boxReset: 'Dernier redémarrage', boxAlerts: 'Alertes récentes',
     boxesReadonly: 'Lecture seule : l’opérateur voit les boîtiers des comptes, il ne les commande pas.',
+    backUsers: 'Utilisateurs', udAccount: 'Compte', udEmail: 'E-mail', udSource: 'Origine', udRole: 'Rôle', ud2fa: 'Double authentification', udLocked: 'Bloqué', udCreated: 'Créé le', udActive: 'Dernière activité',
+    udUnknown: 'inconnu (avant le suivi)', udYes: 'oui', udNo: 'non', udBoxes: 'Boîtiers', udNoBox: 'Aucun boîtier appairé.', udLatest: 'Dernière version publiée', udPaired: 'Appairé le', udLastSeen: 'Dernière activité du boîtier',
+    udAppliances: 'Appareils du boîtier', udPosition: (p) => `fermé à ${p} %`, udEvents: 'Événements récents', udNoEvents: 'Aucun événement depuis le dernier démarrage du portail.',
+    udPrivacy: 'Fiche en lecture seule, pour le support. Volontairement absents : sauvegarde et trames des télécommandes, nom du réseau Wi-Fi, identifiants des télécommandes. Chaque consultation est inscrite au journal du portail.',
     roleAdmin: 'admin', roleUser: 'utilisateur', youTag: 'vous', removeUser: 'Supprimer',
     confirmRemoveUser: (id) => `Supprimer le compte « ${id} » et ses appareils ?`,
     createUserError: 'Création impossible (e-mail déjà utilisé ou champ invalide).', removeUserError: 'Suppression impossible.',
@@ -244,6 +251,10 @@ export const STRINGS = {
     boxPaired: (d) => `paired ${d}`, boxSeen: (r) => `seen ${r}`, boxDevices: (n) => (n > 1 ? `${n} devices` : `${n} device`), boxFamilyMissing: 'family not installed',
     boxMinHeap: (ko) => `lowest memory ${ko} KB`, boxReset: 'Last restart', boxAlerts: 'Recent alerts',
     boxesReadonly: 'Read only: the operator sees the accounts’ boxes, but does not control them.',
+    backUsers: 'Users', udAccount: 'Account', udEmail: 'E-mail', udSource: 'Origin', udRole: 'Role', ud2fa: 'Two-factor authentication', udLocked: 'Locked', udCreated: 'Created', udActive: 'Last activity',
+    udUnknown: 'unknown (before tracking)', udYes: 'yes', udNo: 'no', udBoxes: 'Boxes', udNoBox: 'No box paired.', udLatest: 'Latest published version', udPaired: 'Paired', udLastSeen: 'Box last activity',
+    udAppliances: 'Box devices', udPosition: (p) => `${p} % closed`, udEvents: 'Recent events', udNoEvents: 'No event since the portal last started.',
+    udPrivacy: 'Read-only record, for support. Deliberately left out: backup and remote frames, Wi-Fi network name, remote identifiers. Each view is written to the portal log.',
     colLogin: 'Account', colRole: 'Role', colCap: 'Limit', colDevices: 'Devices',
     roleAdmin: 'admin', roleUser: 'user', youTag: 'you', removeUser: 'Remove',
     confirmRemoveUser: (id) => `Delete account “${id}” and its devices?`,
@@ -324,6 +335,8 @@ export const ROUTES = {
 export const pluginHref = (id: string, lang: Lang): string => `${ROUTES.plugins[lang]}/${encodeURIComponent(id)}`;
 /** URL de configuration d'un appareil (le chemin reste /boitier pour l'historique des liens). */
 export const appareilHref = (id: string, lang: Lang): string => (lang === LANG.en ? `/en/box/${id}` : `/boitier/${id}`);
+/** Fiche d'un compte pour l'operateur (l'identifiant est un e-mail : encode). */
+export const userHref = (id: string, lang: Lang): string => `${ROUTES.utilisateurs[lang]}/${encodeURIComponent(id)}`;
 
 /** Item de navigation : des donnees simples (elles vont au navigateur). Actif sur son adresse exacte,
  *  ou sous `prefix` quand il couvre des sous-pages. */
