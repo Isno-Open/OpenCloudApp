@@ -7,6 +7,8 @@ import { familyById, boxState, compareDevices, type DeviceState } from '@openclo
 import { KIND_PLACE } from '@opencloudapp/core/family-contract.js';
 import { isNewerVersion } from '@opencloudapp/core/version.js';
 import type { Appareil, Boitier, Account } from '#lib/types.ts';
+import type { AdminBox } from '#lib/users-view.ts';
+import { EVENT_LEVEL } from '@opencloudapp/core/family-contract.js';
 import { boot } from '#lib/server/boot.ts';
 import { plugins } from '#lib/server/auth.ts';
 
@@ -36,6 +38,25 @@ const boitierOf = (d: { deviceId: string; name: string; firmware: string; lastSe
     } : {}),
   };
 };
+
+/** Alertes gardees par boitier dans la vue operateur. */
+const ADMIN_ALERTS = 3;
+/** Les boitiers d'un compte, vus par l'operateur (lecture seule). */
+export async function adminBoxes(accountId: string): Promise<AdminBox[]> {
+  return (await listDevices(accountId)).map((d): AdminBox => {
+    const st = boxState(d.firmware, d.deviceId), fam = familyById(d.firmware);
+    return {
+      id: d.deviceId, name: d.name, family: fam ? fam.label : null,
+      firmware: st?.firmware ?? d.firmware, latest: st?.latest ?? null,
+      updateAvailable: !!st?.latest && !!st.firmware && isNewerVersion(st.latest, st.firmware), trial: st?.trial === true,
+      online: deviceOnline(d.firmware, d.deviceId), cloudDisabled: st?.disabled === true,
+      lastSeenAt: d.lastSeenAt ?? null, pairedAt: d.pairedAt ?? null,
+      devices: st?.devices.size ?? 0, rssiDbm: st?.health.rssiDbm ?? null, minFreeHeap: st?.health.minFreeHeap ?? null,
+      uptimeS: st?.health.uptimeS ?? null, lastReset: st?.health.lastReset ?? null,
+      alerts: (st?.events ?? []).filter((e) => e.level === EVENT_LEVEL.alert).slice(0, ADMIN_ALERTS).map((e) => ({ at: e.at, text: e.text })),
+    };
+  });
+}
 
 export async function getAccountInfo(accountId: string): Promise<Account> {
   await boot();

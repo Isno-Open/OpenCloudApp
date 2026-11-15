@@ -16,7 +16,8 @@ import { theme, activeTheme, BASE_THEME } from '@opencloudapp/core/themes.js';
 import type { Icon } from '@opencloudapp/core/plugin-contract.js';
 import { PLUGIN_CATEGORY } from '@opencloudapp/core/plugin-contract.js';
 import { syncExternalDirectory } from '@opencloudapp/core/plugins/external-auth.js';
-import { getAccountInfo, listBoitiers, listAppareils, getBoitier } from '#lib/server/cloud-data.ts';
+import { getAccountInfo, listBoitiers, listAppareils, getBoitier, adminBoxes } from '#lib/server/cloud-data.ts';
+import type { FleetSummary } from '#lib/users-view.ts';
 import { listCatalogPlugins } from '#lib/server/supervisor.ts';
 import { accountFromLink } from '#lib/server/password.ts';
 import { boot } from '#lib/server/boot.ts';
@@ -88,6 +89,7 @@ export async function usersScreen(lang: Lang, request: Request) {
   const self = await requireAdmin(request);
   if (!self) redirect(302, ROUTES.appareils[lang]);
   const canCreate = await accountCreationEnabled();
+  await plugins();   // les familles de boitiers (etat et libelles des boitiers de chaque compte)
   await syncExternalDirectory();   // comptes du site externe crees d'avance (au plus une lecture par minute)
   const accounts = await listAccounts();
   const operators = accounts.filter((a) => a.admin).length;
@@ -98,11 +100,18 @@ export async function usersScreen(lang: Lang, request: Request) {
     cap: a.deviceCap, devices: await countDevices(a.id),
     isSelf: a.id === self, canChange: a.id !== self && !(a.admin && operators <= 1),
     source: a.source ? accountSourceLabel(a.source, lang) : null, missing: a.missingSince !== null,
+    createdAt: a.createdAt, lastActiveAt: a.lastActiveAt, boxes: await adminBoxes(a.id),
   })));
+  const boxes = rows.flatMap((r) => r.boxes);
+  const summary: FleetSummary = {
+    accounts: rows.length, boxes: boxes.length, online: boxes.filter((b) => b.online).length,
+    cloudDisabled: boxes.filter((b) => b.cloudDisabled).length, updates: boxes.filter((b) => b.updateAvailable).length,
+    trial: boxes.filter((b) => b.trial).length,
+  };
   // par ordre alphabetique du nom (l'e-mail a defaut), comme la liste des clients de la boutique
   rows.sort((x, y) => x.name.localeCompare(y.name, lang, { sensitivity: 'base' }));
   // messagerie configuree : le mot de passe devient facultatif (invitation)
-  return { rows, minPass: localAccountsSettings().passwordMinLength, canInvite: mailEnabled(), canCreate };
+  return { rows, summary, now, minPass: localAccountsSettings().passwordMinLength, canInvite: mailEnabled(), canCreate };
 }
 
 export async function settingsScreen(lang: Lang, request: Request) {

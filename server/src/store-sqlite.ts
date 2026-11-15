@@ -24,22 +24,23 @@ const accountCols = db.prepare("PRAGMA table_info(accounts)").all() as { name: s
 if (!accountCols.some((c) => c.name === "admin")) db.exec("ALTER TABLE accounts ADD COLUMN admin INTEGER NOT NULL DEFAULT 0");
 for (const [col, def] of [["name", "TEXT"], ["failed_count", "INTEGER NOT NULL DEFAULT 0"], ["locked_until", "INTEGER"],
   ["totp_secret", "TEXT"], ["totp_enabled", "INTEGER NOT NULL DEFAULT 0"], ["totp_last_step", "INTEGER"],
-  ["source", "TEXT"], ["missing_since", "INTEGER"]] as const)
+  ["source", "TEXT"], ["missing_since", "INTEGER"], ["created_at", "INTEGER"], ["last_active_at", "INTEGER"]] as const)
   if (!accountCols.some((c) => c.name === col)) db.exec(`ALTER TABLE accounts ADD COLUMN ${col} ${def}`);
 
 // Derniere activite d'un boitier (relais), ajoutee apres coup.
 const deviceCols = db.prepare("PRAGMA table_info(devices)").all() as { name: string }[];
 if (!deviceCols.some((c) => c.name === "last_seen_at")) db.exec("ALTER TABLE devices ADD COLUMN last_seen_at INTEGER");
-const DEVICE_COLS = "device_id AS deviceId, account_id AS accountId, name, firmware, last_seen_at AS lastSeenAt";
+if (!deviceCols.some((c) => c.name === "paired_at")) db.exec("ALTER TABLE devices ADD COLUMN paired_at INTEGER");
+const DEVICE_COLS = "device_id AS deviceId, account_id AS accountId, name, firmware, last_seen_at AS lastSeenAt, paired_at AS pairedAt";
 
 type AccountRow = { id: string; name: string | null; deviceCap: number; passHash: string | null; admin: number;
   failedCount: number; lockedUntil: number | null; totpSecret: string | null; totpEnabled: number; totpLastStep: number | null;
-  source: string | null; missingSince: number | null };
-const ACCOUNT_COLS = "id, name, device_cap AS deviceCap, pass_hash AS passHash, admin, failed_count AS failedCount, locked_until AS lockedUntil, totp_secret AS totpSecret, totp_enabled AS totpEnabled, totp_last_step AS totpLastStep, source, missing_since AS missingSince";
+  source: string | null; missingSince: number | null; createdAt: number | null; lastActiveAt: number | null };
+const ACCOUNT_COLS = "id, name, device_cap AS deviceCap, pass_hash AS passHash, admin, failed_count AS failedCount, locked_until AS lockedUntil, totp_secret AS totpSecret, totp_enabled AS totpEnabled, totp_last_step AS totpLastStep, source, missing_since AS missingSince, created_at AS createdAt, last_active_at AS lastActiveAt";
 const rowToAccount = (r: AccountRow | undefined): Account | null =>
   r ? { id: r.id, name: r.name, deviceCap: r.deviceCap, passHash: r.passHash, admin: !!r.admin,
         failedCount: r.failedCount ?? 0, lockedUntil: r.lockedUntil, totpSecret: r.totpSecret, totpEnabled: !!r.totpEnabled, totpLastStep: r.totpLastStep,
-        source: r.source ?? null, missingSince: r.missingSince ?? null } : null;
+        source: r.source ?? null, missingSince: r.missingSince ?? null, createdAt: r.createdAt ?? null, lastActiveAt: r.lastActiveAt ?? null } : null;
 
 export function init(): Promise<void> { return Promise.resolve(); }
 export function getAccount(id: string): Promise<Account | null> {
@@ -47,7 +48,7 @@ export function getAccount(id: string): Promise<Account | null> {
   return Promise.resolve(rowToAccount(r));
 }
 export function createAccount(id: string, name: string, passHash: string | null, cap: number, admin: boolean): Promise<void> {
-  db.prepare("INSERT INTO accounts (id, name, device_cap, pass_hash, admin) VALUES (?,?,?,?,?)").run(id, name, cap, passHash, admin ? 1 : 0);
+  db.prepare("INSERT INTO accounts (id, name, device_cap, pass_hash, admin, created_at) VALUES (?,?,?,?,?,?)").run(id, name, cap, passHash, admin ? 1 : 0, Date.now());
   return Promise.resolve();
 }
 /** Echec de connexion : incremente ; au seuil, bloque jusqu'a now + minutes. Rend la fin de blocage, ou null. */
@@ -100,7 +101,11 @@ export function findDevice(deviceId: string, accountId: string): Promise<Device 
   return Promise.resolve(r ?? null);
 }
 export function addDevice(d: Device): Promise<void> {
-  db.prepare("INSERT INTO devices (device_id, account_id, name, firmware) VALUES (?,?,?,?)").run(d.deviceId, d.accountId, d.name, d.firmware); return Promise.resolve();
+  db.prepare("INSERT INTO devices (device_id, account_id, name, firmware, paired_at) VALUES (?,?,?,?,?)").run(d.deviceId, d.accountId, d.name, d.firmware, Date.now()); return Promise.resolve();
+}
+/** Note la derniere activite d'un compte (l'appelant limite la frequence). */
+export function touchAccount(accountId: string, at: number): Promise<void> {
+  db.prepare("UPDATE accounts SET last_active_at = ? WHERE id = ?").run(at, accountId); return Promise.resolve();
 }
 /** Note la derniere activite d'un boitier (quel que soit son compte). */
 export function touchDevice(deviceId: string, at: number): Promise<void> {
@@ -111,7 +116,7 @@ export function touchDevice(deviceId: string, at: number): Promise<void> {
 export function claimDevice(deviceId: string, accountId: string, name: string, firmware: string): Promise<boolean> {
   const tx = db.transaction((): boolean => {
     const r = db.prepare("SELECT account_id AS accountId FROM devices WHERE device_id = ?").get(deviceId) as { accountId: string } | undefined;
-    if (!r) { db.prepare("INSERT INTO devices (device_id, account_id, name, firmware) VALUES (?,?,?,?)").run(deviceId, accountId, name, firmware); return true; }
+    if (!r) { db.prepare("INSERT INTO devices (device_id, account_id, name, firmware, paired_at) VALUES (?,?,?,?,?)").run(deviceId, accountId, name, firmware, Date.now()); return true; }
     if (r.accountId !== accountId) return false;
     db.prepare("UPDATE devices SET name = ?, firmware = ? WHERE device_id = ?").run(name, firmware, deviceId);
     return true;
@@ -137,7 +142,7 @@ export function takePairing(code: string): Promise<Pairing | null> {
   return Promise.resolve(tx(code));
 }
 export function ensureAccount(id: string, cap: number, name?: string, source?: string): Promise<void> {
-  db.prepare("INSERT OR IGNORE INTO accounts (id, device_cap, source) VALUES (?, ?, ?)").run(id, cap, source ?? null);
+  db.prepare("INSERT OR IGNORE INTO accounts (id, device_cap, source, created_at) VALUES (?, ?, ?, ?)").run(id, cap, source ?? null, Date.now());
   // compte cree par cette source avant que l'origine soit notee : sans origine ni mot de passe, il la prend
   if (source) db.prepare("UPDATE accounts SET source = ? WHERE id = ? AND source IS NULL AND pass_hash IS NULL").run(source, id);
   // nom connu (annuaire d'un site externe) : pose s'il manque, jamais par-dessus un nom choisi

@@ -2,16 +2,27 @@
 // (le local, et ceux d'un greffon s'il y en a un). Le cœur délègue au registre.
 import { resolveAccount, externalLoginUrl } from '@opencloudapp/core/auth-provider.js';
 import { loadPlugins, hasCapability, CAPABILITY, enabledPlugins } from '@opencloudapp/core/plugins.js';
-import { getAccount } from '@opencloudapp/core/store.js';
+import { getAccount, touchAccount } from '@opencloudapp/core/store.js';
 import { boot } from '#lib/server/boot.ts';
 
 /** Charge les greffons actifs (config, sinon « comptes locaux » par defaut) ; une seule fois. */
 export const plugins = (): Promise<void> => loadPlugins(enabledPlugins());
 
+/** Derniere activite d'un compte, pour l'operateur : au plus une ecriture par minute et par compte. */
+const ACTIVE_WRITE_MS = 60_000;
+const lastActiveWrite = new Map<string, number>();
+function noteActive(id: string, now: number): void {
+  if ((lastActiveWrite.get(id) ?? 0) + ACTIVE_WRITE_MS > now) return;
+  lastActiveWrite.set(id, now);
+  touchAccount(id, now).catch((e: unknown) => console.error('[auth] derniere activite :', e instanceof Error ? e.message : e));
+}
+
 export async function resolveAccountId(request: Request): Promise<string | null> {
   await boot();            // init du store (un provider de greffon peut provisionner un compte)
   await plugins();         // les greffons apportent les modes de connexion
-  return resolveAccount(request.headers.get('cookie') ?? undefined);
+  const id = await resolveAccount(request.headers.get('cookie') ?? undefined);
+  if (id) noteActive(id, Date.now());
+  return id;
 }
 
 /** Compte courant avec son role (id + admin), ou null. Sert au nav et aux ecrans operateur. */

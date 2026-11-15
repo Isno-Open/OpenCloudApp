@@ -218,6 +218,13 @@ docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/status" -m onl
 sleep 2
 chk "cloud reactive : de nouveau en ligne, mode cloud active" "$(curl -s -b "$J" "$B/boitier/$ID" | grep -c '>activé<')" 1
 
+echo "== parc vu par l'operateur : resume, activite des comptes, boitiers en lecture seule"
+UP=$(curl -s -b "$J" "$B/utilisateurs")
+chk "parc : resume, le boitier en ligne compte" "$(echo "$UP" | grep -o 'data-fleet-online="">[0-9]*<' | grep -o '[0-9]*')" 1
+chk "parc : boitiers du compte, depliables" "$(echo "$UP" | grep -c "data-boxes=\"operateur@exemple.fr\"")" 1
+chk "parc : activite du compte notee" "$(echo "$UP" | grep -o 'data-activity="operateur@exemple.fr">.\{0,300\}' | sed 's/<!--[^>]*-->//g' | grep 'actif ' | grep -vc 'jamais actif')" 1
+chk "parc : refuse sans session" "$(curl -s -o /dev/null -w '%{http_code}' "$B/utilisateurs")" 302
+
 echo "== reconciliation : la config change de nom, le certificat suit"
 FP1=$(docker exec isno-cloud-server openssl x509 -in /broker-certs/server.crt -noout -fingerprint -sha256)
 docker exec isno-cloud-server sh -c "sed -i 's#mqtts://$LAN:18883#mqtts://localtest.me:18883#' /data/portal.config.json"

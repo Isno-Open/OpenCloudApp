@@ -364,3 +364,10 @@ input[type="checkbox"]:disabled { opacity: .45; cursor: not-allowed; }
 :root[data-theme="light"] .brand-logo.on-dark { display: none; }
 :root[data-theme="light"] .brand-logo.on-light { display: block; }
 .grp-seen { font-size: .74rem; color: var(--text-faint); }
+/* Ecran operateur : resume du parc, activite des comptes, boitiers deplies (lecture seule) */
+.fleet { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; margin: 0 0 .8rem; font-size: .9rem; color: var(--text-muted); }
+.fleet strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.who .seen { display: block; font-size: .78rem; color: var(--text-faint); }
+.ut-boxes { grid-column: 1 / -1; display: grid; gap: .6rem; padding: .6rem 0 .9rem; border-bottom: 1px solid var(--border-soft); min-width: 0; }
+.admin-box { border: 1px solid var(--border); border-radius: 10px; padding: .6rem .8rem; background: var(--bg-elev); min-width: 0; }
+.ab-head { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; margin-bottom: .35rem; }

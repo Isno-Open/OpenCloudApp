@@ -12,9 +12,13 @@ export type Account = {
   // date ou la source ne l'a plus liste (le compte est MARQUE, jamais supprime : il peut avoir des
   // boitiers), null s'il y figure.
   source: string | null; missingSince: number | null;
+  // suivi pour l'operateur (ms) : creation du compte, derniere activite (au plus une ecriture par minute) ;
+  // null pour les comptes crees avant que le portail les note
+  createdAt: number | null; lastActiveAt: number | null;
 };
-/** lastSeenAt : derniere activite du boitier vue par le relais (ms), null si jamais vu. */
-export type Device = { deviceId: string; accountId: string; name: string; firmware: string; lastSeenAt?: number | null };
+/** lastSeenAt : derniere activite du boitier vue par le relais (ms), null si jamais vu. pairedAt : date
+ *  d'appairage au compte (ms), null pour un boitier appaire avant que le portail la note. */
+export type Device = { deviceId: string; accountId: string; name: string; firmware: string; lastSeenAt?: number | null; pairedAt?: number | null };
 export type Pairing = { code: string; accountId: string; deviceId: string; name: string };
 
 // État d'une demande d'autorisation d'appareil (RFC 8628). Énuméré : le code s'y réfère par son nom,

@@ -163,3 +163,21 @@ test("rapprochement : absent marque (date gardee), revenu demarque, autres sourc
   assert.equal((await s.getAccount("autre@ailleurs.fr"))?.missingSince, null, "autre source : intouchee");
   assert.ok(await s.getAccount("client@site.fr"), "jamais supprime");
 });
+
+test("suivi operateur : creation du compte, derniere activite, appairage garde au re-enrolement", async () => {
+  const avant = Date.now();
+  await s.createAccount("suivi@exemple.fr", "Suivi", null, 5, false);
+  const a = await s.getAccount("suivi@exemple.fr");
+  assert.ok(a!.createdAt !== null && a!.createdAt >= avant, "date de creation posee");
+  assert.equal(a!.lastActiveAt, null, "jamais actif");
+  await s.touchAccount("suivi@exemple.fr", 1234);
+  assert.equal((await s.getAccount("suivi@exemple.fr"))!.lastActiveAt, 1234);
+  await s.ensureAccount("externe@exemple.fr", 5, "Externe", "site");
+  assert.ok((await s.getAccount("externe@exemple.fr"))!.createdAt !== null, "compte d'un site externe : date posee aussi");
+  assert.equal(await s.claimDevice("dev-suivi", "suivi@exemple.fr", "B", "openprofalux"), true);
+  const p1 = (await s.findDevice("dev-suivi", "suivi@exemple.fr"))!.pairedAt;
+  assert.ok(p1 !== null && p1 !== undefined && p1 >= avant, "date d'appairage posee");
+  await new Promise((r) => setTimeout(r, 5));
+  await s.claimDevice("dev-suivi", "suivi@exemple.fr", "B2", "openprofalux");
+  assert.equal((await s.findDevice("dev-suivi", "suivi@exemple.fr"))!.pairedAt, p1, "re-enrolement : la date d'appairage ne bouge pas");
+});

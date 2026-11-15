@@ -22,10 +22,10 @@ export async function init(): Promise<void> {
 const withAdmin = (a: Account | null): Account | null => (a ? {
   ...a, admin: a.admin ?? false, name: a.name ?? null, failedCount: a.failedCount ?? 0, lockedUntil: a.lockedUntil ?? null,
   totpSecret: a.totpSecret ?? null, totpEnabled: a.totpEnabled ?? false, totpLastStep: a.totpLastStep ?? null,
-  source: a.source ?? null, missingSince: a.missingSince ?? null } : null);
+  source: a.source ?? null, missingSince: a.missingSince ?? null, createdAt: a.createdAt ?? null, lastActiveAt: a.lastActiveAt ?? null } : null);
 export const getAccount = (id: string): Promise<Account | null> => accounts().findOne({ id }, { projection: { _id: 0 } }).then(withAdmin);
 export async function createAccount(id: string, name: string, passHash: string | null, cap: number, admin: boolean): Promise<void> {
-  await accounts().insertOne({ id, name, deviceCap: cap, passHash, admin, failedCount: 0, lockedUntil: null, totpSecret: null, totpEnabled: false, totpLastStep: null, source: null, missingSince: null });
+  await accounts().insertOne({ id, name, deviceCap: cap, passHash, admin, failedCount: 0, lockedUntil: null, totpSecret: null, totpEnabled: false, totpLastStep: null, source: null, missingSince: null, createdAt: Date.now(), lastActiveAt: null });
 }
 export async function recordLoginFailure(id: string, maxFailures: number, minutes: number, now: number): Promise<number | null> {
   const a = await accounts().findOneAndUpdate({ id }, { $inc: { failedCount: 1 } }, { returnDocument: "after" });
@@ -53,9 +53,10 @@ export async function setAccountPass(id: string, passHash: string): Promise<void
 export const countDevices = (accountId: string): Promise<number> => devices().countDocuments({ accountId });
 export const listDevices = (accountId: string): Promise<Device[]> => devices().find({ accountId }, { projection: { _id: 0 } }).toArray();
 export const findDevice = (deviceId: string, accountId: string): Promise<Device | null> => devices().findOne({ deviceId, accountId }, { projection: { _id: 0 } });
-export async function addDevice(d: Device): Promise<void> { await devices().insertOne(d); }
+export async function addDevice(d: Device): Promise<void> { await devices().insertOne({ ...d, pairedAt: Date.now() }); }
 /** Note la derniere activite d'un boitier (quel que soit son compte). */
 export async function touchDevice(deviceId: string, at: number): Promise<void> { await devices().updateOne({ deviceId }, { $set: { lastSeenAt: at } }); }
+export async function touchAccount(id: string, at: number): Promise<void> { await accounts().updateOne({ id }, { $set: { lastActiveAt: at } }); }
 export async function renameDevice(deviceId: string, accountId: string, name: string): Promise<void> { await devices().updateOne({ deviceId, accountId }, { $set: { name } }); }
 export async function removeDevice(deviceId: string, accountId: string): Promise<void> { await devices().deleteOne({ deviceId, accountId }); }
 export async function addPairing(p: Pairing): Promise<void> { await pairings().insertOne({ ...p, used: false }); }
@@ -64,7 +65,7 @@ export async function takePairing(code: string): Promise<Pairing | null> {
   return r ? { code: r.code, accountId: r.accountId, deviceId: r.deviceId, name: r.name } : null;
 }
 export async function ensureAccount(id: string, cap: number, name?: string, source?: string): Promise<void> {
-  await accounts().updateOne({ id }, { $setOnInsert: { id, name: null, deviceCap: cap, passHash: null, admin: false, failedCount: 0, lockedUntil: null, totpSecret: null, totpEnabled: false, totpLastStep: null, source: source ?? null, missingSince: null } }, { upsert: true });
+  await accounts().updateOne({ id }, { $setOnInsert: { id, name: null, deviceCap: cap, passHash: null, admin: false, failedCount: 0, lockedUntil: null, totpSecret: null, totpEnabled: false, totpLastStep: null, source: source ?? null, missingSince: null, createdAt: Date.now(), lastActiveAt: null } }, { upsert: true });
   // compte cree par cette source avant que l'origine soit notee : sans origine ni mot de passe, il la prend
   if (source) await accounts().updateOne({ id, source: null, passHash: null }, { $set: { source } });
   // nom connu (annuaire d'un site externe) : pose s'il manque, jamais par-dessus un nom choisi
@@ -73,7 +74,7 @@ export async function ensureAccount(id: string, cap: number, name?: string, sour
 export async function claimDevice(deviceId: string, accountId: string, name: string, firmware: string): Promise<boolean> {
   const existing = await devices().findOne({ deviceId });
   if (existing && existing.accountId !== accountId) return false;
-  await devices().updateOne({ deviceId }, { $set: { deviceId, accountId, name, firmware } }, { upsert: true });
+  await devices().updateOne({ deviceId }, { $set: { deviceId, accountId, name, firmware }, $setOnInsert: { pairedAt: Date.now() } }, { upsert: true });
   return true;
 }
 

@@ -1,7 +1,8 @@
 <script lang="ts">
   // Ecran operateur : comptes locaux. Creer un utilisateur (invitation si la messagerie est en place),
   // changer son role, debloquer, reinitialiser sa double authentification, renvoyer l'invitation,
-  // supprimer (confirmation dans la page, au second clic).
+  // supprimer (confirmation dans la page, au second clic). Et le parc : resume en tete, boitiers de
+  // chaque compte en lecture seule (etat, version, sante, alertes), depliables.
   import ConfirmButton from '#lib/components/ui/ConfirmButton.svelte';
   import Field from '#lib/components/ui/Field.svelte';
   import ErrorText from '#lib/components/ui/ErrorText.svelte';
@@ -9,13 +10,21 @@
   import { pageWithoutTab } from '#lib/components/ui/subtabs.ts';
   import { t, type Lang } from '#lib/i18n.ts';
   import { postJson, ignoreBody } from '#lib/api.ts';
-  import type { UserRow } from '#lib/users-view.ts';
+  import type { UserRow, FleetSummary } from '#lib/users-view.ts';
+  import KeyValue from '#lib/components/ui/KeyValue.svelte';
+  import { relativeTime } from '#lib/time.ts';
 
   // canCreate : le mode de connexion cree ses comptes dans le portail (mot de passe) ; sinon ils
   // viennent d'une source (site externe) et l'onglet de creation n'existe pas
-  interface Props { lang: Lang; rows: UserRow[]; minPass: number; canInvite: boolean; canCreate: boolean; }
-  const { lang, rows, minPass, canInvite, canCreate }: Props = $props();
+  interface Props { lang: Lang; rows: UserRow[]; summary: FleetSummary; now: number; minPass: number; canInvite: boolean; canCreate: boolean; }
+  const { lang, rows, summary, now, minPass, canInvite, canCreate }: Props = $props();
   const s = $derived(t(lang));
+  const day = (ms: number): string => new Date(ms).toLocaleDateString(lang);
+  const ago = (ms: number): string => relativeTime(ms, now, lang);
+  const KIB = 1024;
+  // comptes dont les boitiers sont deplies
+  let open = $state<string[]>([]);
+  const toggle = (id: string): void => { open = open.includes(id) ? open.filter((x) => x !== id) : [...open, id]; };
 
   const DEFAULT_CAP = 5;
   const BAD_GATEWAY = 502;   // compte cree mais invitation non partie : on recharge pour le montrer
@@ -76,11 +85,20 @@
 <div class="tab-panel panel" hidden={tab !== TAB.list} data-panel={TAB.list}>
   {#if !canCreate}<p class="hint" style="margin:0 0 .6rem">{s.usersFromSource}</p>{/if}
   <ErrorText error={rowError} />
+  <div class="fleet" data-fleet>
+    <span><strong>{summary.accounts}</strong> {s.fleetAccounts}</span>
+    <span><strong>{summary.boxes}</strong> {s.fleetBoxes}</span>
+    <span><strong data-fleet-online>{summary.online}</strong> {s.fleetOnline}</span>
+    {#if summary.cloudDisabled}<span><strong>{summary.cloudDisabled}</strong> {s.fleetCloudOff}</span>{/if}
+    {#if summary.updates}<span><strong>{summary.updates}</strong> {s.fleetUpdates}</span>{/if}
+    {#if summary.trial}<span><strong>{summary.trial}</strong> {s.fleetTrial}</span>{/if}
+  </div>
   <div class="utable">
     <div class="ut-head"><span>{s.colLogin}</span><span>{s.colRole}</span><span>{s.colCap}</span><span>{s.colDevices}</span><span></span></div>
     {#each rows as a (a.id)}
       <div class="ut-row">
-        <span class="who"><b>{a.name}</b>{#if a.isSelf}<span class="youtag">{s.youTag}</span>{/if}<span class="mono">{a.id}</span></span>
+        <span class="who"><b>{a.name}</b>{#if a.isSelf}<span class="youtag">{s.youTag}</span>{/if}<span class="mono">{a.id}</span>
+          <span class="seen" data-activity={a.id}>{#if a.createdAt !== null}{s.createdOn(day(a.createdAt))} · {/if}{a.lastActiveAt !== null ? s.activeAgo(ago(a.lastActiveAt)) : s.neverActive}</span></span>
         <span class="tags">
           <span class={['role', { op: a.admin }]}>{a.admin ? s.roleAdmin : s.roleUser}</span>
           {#if a.totpEnabled}<span class="role">2FA</span>{/if}
@@ -90,7 +108,9 @@
           {#if a.missing}<span class="role locked" data-missing={a.id} title={s.missingHint}>{s.missingTag(a.source ?? '')}</span>{/if}
         </span>
         <span class="num" data-label={s.colCap}>{a.cap}</span>
-        <span class="num" data-label={s.colDevices}>{a.devices}</span>
+        <span class="num" data-label={s.colDevices}>
+          {#if a.boxes.length}<button type="button" class="btn ghost sm" data-boxes={a.id} aria-expanded={open.includes(a.id)} onclick={() => toggle(a.id)}>{s.boxesToggle(a.boxes.length)}</button>{:else}0{/if}
+        </span>
         <span class="ut-act">
           {#if a.invited && canInvite}<button class="btn ghost sm" type="button" data-invite={a.id} disabled={busyId === a.id} onclick={() => act('/api/user/invite-resend', { id: a.id }, a.id, s.roleError)}>{s.resendInviteBtn}</button>{/if}
           {#if a.locked}<button class="btn ghost sm" type="button" data-unlock={a.id} disabled={busyId === a.id} onclick={() => act('/api/user/unlock', { id: a.id }, a.id, s.roleError)}>{s.unlockBtn}</button>{/if}
@@ -101,6 +121,29 @@
           {/if}
         </span>
       </div>
+      {#if open.includes(a.id)}
+        <div class="ut-boxes" data-boxes-of={a.id}>
+          {#each a.boxes as b (b.id)}
+            <div class="admin-box" data-admin-box={b.id}>
+              <div class="ab-head">
+                <span class={['dot', { off: !b.online }]}></span><strong>{b.name}</strong><span class="mono">{b.id}</span>
+                <span class="role">{b.family ? b.family[lang] : s.boxFamilyMissing}</span>
+                <span class="role mono">{b.firmware}</span>
+                {#if b.updateAvailable}<span class="role pending">{s.updAvail}</span>{/if}
+                {#if b.trial}<span class="role pending">{s.fleetTrial}</span>{/if}
+              </div>
+              <KeyValue label={s.state} value={s.presence(b.online, b.cloudDisabled) + (!b.online && b.lastSeenAt !== null ? ` · ${s.boxSeen(ago(b.lastSeenAt))}` : '')} />
+              <KeyValue label={s.devicesWord} value={s.boxDevices(b.devices) + (b.pairedAt !== null ? ` · ${s.boxPaired(day(b.pairedAt))}` : '')} />
+              {#if b.rssiDbm !== null}<KeyValue label={s.wifiSignal} value={`${b.rssiDbm} dBm`} />{/if}
+              {#if b.minFreeHeap !== null}<KeyValue label={s.memory} value={s.boxMinHeap(Math.round(b.minFreeHeap / KIB))} />{/if}
+              {#if b.uptimeS !== null}<KeyValue label={s.since} value={s.uptimeValue(b.uptimeS)} />{/if}
+              {#if b.lastReset}<KeyValue label={s.boxReset} value={b.lastReset[lang]} />{/if}
+              {#if b.alerts.length}<KeyValue label={s.boxAlerts} value={b.alerts.map((x) => `${x.text[lang]} (${ago(x.at)})`).join(' · ')} />{/if}
+            </div>
+          {/each}
+          <p class="hint">{s.boxesReadonly}</p>
+        </div>
+      {/if}
     {/each}
   </div>
 </div>
