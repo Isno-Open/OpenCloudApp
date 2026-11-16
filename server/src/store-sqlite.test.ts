@@ -45,6 +45,13 @@ test("device : supprimer n'affecte que le device du bon compte", async () => {
   await s.removeDevice("dev-3", "admin");
   assert.equal(await s.findDevice("dev-3", "admin"), null);
 });
+test("device : un boitier oublie sur lui-meme quitte son compte, sans toucher les autres", async () => {
+  await s.addDevice({ deviceId: "dev-4", accountId: "admin", name: "Oublie", firmware: "openprofalux" });
+  await s.addDevice({ deviceId: "dev-5", accountId: "admin", name: "Reste", firmware: "openprofalux" });
+  await s.releaseDevice("dev-4");
+  assert.equal(await s.findDevice("dev-4", "admin"), null);
+  assert.ok(await s.findDevice("dev-5", "admin"));
+});
 test("ensureAccount : provisionne au plafond donné, idempotent", async () => {
   await s.ensureAccount("sso-user", 5);
   assert.equal((await s.getAccount("sso-user"))?.deviceCap, 5);

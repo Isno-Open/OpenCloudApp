@@ -212,8 +212,9 @@ export const clearDeviceFamilies = (): void => { families.clear(); boxes.clear()
  *  montre « inconnu », sans commandes : un firmware plus recent que son plugin, par exemple). */
 export type DeviceState = { kind: string; known: boolean; name: string; hidden: ReadonlySet<string>; values: Map<string, ControlValue>; settings: Map<string, SettingValue>; rank: number | null };
 export type BoxEvent = { at: number; level: EventLevel; code: string; text: LocalizedText; device?: string };
-/** disabled : hors ligne parce que le boitier a coupe le cloud lui-meme (fait presence) */
-export type BoxState = { online: boolean | null; disabled: boolean; firmware: string | null; board: string | null; latest: string | null; trial: boolean | null; previous: string | null;
+/** disabled : hors ligne parce que le boitier a coupe le cloud lui-meme (fait presence) ; forgotten :
+ *  il a ete oublie sur lui-meme, le relais le retire de son compte */
+export type BoxState = { online: boolean | null; disabled: boolean; forgotten: boolean; firmware: string | null; board: string | null; latest: string | null; trial: boolean | null; previous: string | null;
   actions: Map<string, boolean>; health: BoxHealth; network: BoxNetwork; devices: Map<string, DeviceState>; events: BoxEvent[] };
 const boxes = new Map<string, BoxState>();
 const key = (family: string, box: string): string => `${family}/${box}`;
@@ -292,14 +293,15 @@ export function applyFacts(f: FamilyDecl, box: string, facts: unknown, now: numb
   const refused: string[] = [];
   if (!Array.isArray(facts)) return ["read() n'a pas rendu une liste"];
   let s = boxes.get(key(f.id, box));
-  if (!s) { s = { online: null, disabled: false, firmware: null, board: null, latest: null, trial: null, previous: null, actions: new Map(), health: {}, network: {}, devices: new Map(), events: [] }; boxes.set(key(f.id, box), s); }
+  if (!s) { s = { online: null, disabled: false, forgotten: false, firmware: null, board: null, latest: null, trial: null, previous: null, actions: new Map(), health: {}, network: {}, devices: new Map(), events: [] }; boxes.set(key(f.id, box), s); }
   for (const x of facts) {
     if (!isObj(x)) { refused.push("fait : objet attendu"); continue; }
     switch (x.fact) {
       case FACT.presence:
-        if (typeof x.online !== "boolean" || (x.disabled !== undefined && typeof x.disabled !== "boolean")) { refused.push("presence : online (et disabled) booleens"); break; }
+        if (typeof x.online !== "boolean" || (x.disabled !== undefined && typeof x.disabled !== "boolean") || (x.forgotten !== undefined && typeof x.forgotten !== "boolean")) { refused.push("presence : online (et disabled, forgotten) booleens"); break; }
         s.online = x.online;
-        s.disabled = !x.online && x.disabled === true;   // en ligne : le cloud est forcement actif
+        s.disabled = !x.online && x.disabled === true;    // en ligne : le cloud est forcement actif
+        s.forgotten = !x.online && x.forgotten === true;  // de meme : en ligne, il n'est pas oublie
         break;
       case FACT.device: {
         // type vide : le boitier n'en declare aucun (appareil montre inconnu, et dit tel quel)

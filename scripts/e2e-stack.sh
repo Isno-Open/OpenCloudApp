@@ -218,6 +218,27 @@ docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/status" -m onl
 sleep 2
 chk "cloud reactive : de nouveau en ligne, mode cloud active" "$(curl -s -b "$J" "$B/boitier/$ID" | grep -c '>activé<')" 1
 
+echo "== boitier oublie sur lui-meme : il quitte le compte (pas un boitier grise)"
+# un second boitier, appaire pour l'occasion : le premier sert encore aux sections suivantes
+R=$(post /api/device/start '{"firmware":"famille-test"}'); DC2=$(echo "$R" | jget "['device_code']"); UC2=$(echo "$R" | jget "['user_code']")
+curl -s -o /dev/null -b "$J" -X POST -H 'content-type: application/json' -d "{\"code\":\"$UC2\"}" "$B/api/device/approve"
+mkdir -p "$WORK/b2"; post /api/device/poll "{\"device_code\":\"$DC2\"}" > "$WORK/b2/bundle.json"
+python3 - "$WORK/b2" <<'PY'
+import json,sys; d=sys.argv[1]; b=json.load(open(d+'/bundle.json'))
+for k in ('ca','cert','key'): open(f'{d}/{k}.pem','w').write(b[k])
+open(d+'/id','w').write(b['device_id'])
+PY
+ID2=$(cat "$WORK/b2/id"); chmod 644 "$WORK"/b2/*.pem
+PUB2=(eclipse-mosquitto:2.0.22 mosquitto_pub -h "$LAN" -p 18883 --cafile /d/ca.pem --cert /d/cert.pem --key /d/key.pem -r)
+docker run --rm -v "$WORK/b2:/d:ro" "${PUB2[@]}" -t "famille-test/$ID2/status" -m online
+sleep 2
+chk "oubli : le second boitier est au compte" "$(curl -s -b "$J" "$B/" | grep -o "$ID2" | head -1 | wc -l)" 1
+docker run --rm -v "$WORK/b2:/d:ro" "${PUB2[@]}" -t "famille-test/$ID2/status" -m forgotten
+sleep 2
+chk "oubli : le boitier a quitte le compte" "$(curl -s -b "$J" "$B/" | grep -o "$ID2" | head -1 | wc -l)" 0
+chk "oubli : l'autre boitier reste" "$(curl -s -b "$J" "$B/" | grep -o "$ID" | head -1 | wc -l)" 1
+docker run --rm -v "$WORK/b2:/d:ro" "${PUB2[@]}" -t "famille-test/$ID2/status" -n   # retenu efface
+
 echo "== parc vu par l'operateur : resume, activite des comptes, boitiers en lecture seule"
 UP=$(curl -s -b "$J" "$B/utilisateurs")
 chk "parc : resume, le boitier en ligne compte" "$(echo "$UP" | grep -o 'data-fleet-online="">[0-9]*<' | grep -o '[0-9]*')" 1

@@ -129,6 +129,10 @@ export function renameDevice(deviceId: string, accountId: string, name: string):
 export function removeDevice(deviceId: string, accountId: string): Promise<void> {
   db.prepare("DELETE FROM devices WHERE device_id = ? AND account_id = ?").run(deviceId, accountId); return Promise.resolve();
 }
+/** Retire un boitier QUEL QUE SOIT son compte : le boitier s'est oublie lui-meme (voir mqtt.ts). */
+export function releaseDevice(deviceId: string): Promise<void> {
+  db.prepare("DELETE FROM devices WHERE device_id = ?").run(deviceId); return Promise.resolve();
+}
 export function addPairing(p: Pairing): Promise<void> {
   db.prepare("INSERT INTO pairings (code, account_id, device_id, name, used) VALUES (?,?,?,?,0)").run(p.code, p.accountId, p.deviceId, p.name); return Promise.resolve();
 }

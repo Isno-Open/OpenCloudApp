@@ -368,6 +368,17 @@ test("presence : cloud coupe sur le boitier, dit tel quel ; repasse en ligne, l'
   assert.equal(boxState("famille-test", "b1")!.disabled, false, "simple panne : pas « desactive »");
 });
 
+test("presence : boitier oublie sur lui-meme, marque pour retrait ; en ligne, il ne l'est plus", () => {
+  registerDeviceFamily({ ...STORE, read: ({ path, payload }: FamilyMessage): Fact[] =>
+    path === "en_ligne" ? [{ fact: FACT.presence, online: payload === "1", ...(payload === "oublie" ? { forgotten: true } : {}) }] : [] });
+  applyMessage("test-famille/b2/en_ligne", "oublie", true, 1);
+  assert.deepEqual([boxState("famille-test", "b2")!.forgotten, boxState("famille-test", "b2")!.disabled], [true, false]);
+  applyMessage("test-famille/b2/en_ligne", "1", true, 2);
+  assert.equal(boxState("famille-test", "b2")!.forgotten, false, "reappaire et reconnecte : plus oublie");
+  applyMessage("test-famille/b2/en_ligne", "0", true, 3);
+  assert.equal(boxState("famille-test", "b2")!.forgotten, false, "simple panne : pas « oublie »");
+});
+
 // Famille qui rend sa sauvegarde a la demande : `sauvegarde/demande` -> `sauvegarde/contenu`.
 const AVEC_FICHIER: FamilyDecl = {
   ...STORE,

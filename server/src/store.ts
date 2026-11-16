@@ -30,6 +30,7 @@ export const touchDevice = (d: string, at: number): Promise<void> => m().touchDe
 export const touchAccount = (a: string, at: number): Promise<void> => m().touchAccount(a, at);
 export const renameDevice = (d: string, a: string, name: string): Promise<void> => m().renameDevice(d, a, name);
 export const removeDevice = (d: string, a: string): Promise<void> => m().removeDevice(d, a);
+export const releaseDevice = (d: string): Promise<void> => m().releaseDevice(d);
 export const addPairing = (p: Pairing): Promise<void> => m().addPairing(p);
 export const takePairing = (c: string): Promise<Pairing | null> => m().takePairing(c);
 export const ensureAccount = (id: string, cap: number, name?: string, source?: string): Promise<void> => m().ensureAccount(id, cap, name, source);

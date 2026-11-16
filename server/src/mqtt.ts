@@ -4,7 +4,7 @@
 // Le relais ne connait AUCUNE famille de boitiers : il s'abonne a la racine de chacune
 // (`<racine>/+/#`), passe chaque message a la famille (device-families.ts), et publie les commandes
 // qu'elle traduit, toujours sous `<racine>/<boitier>/`.
-import { touchDevice } from "./store.js";
+import { touchDevice, releaseDevice } from "./store.js";
 import { applyMessage, onFamilyRegistered, boxState } from "./device-families.js";
 import mqtt, { type MqttClient } from "mqtt";
 import { readFileSync } from "node:fs";
@@ -26,6 +26,7 @@ export const isLiveActivity = (retained: boolean, onlineNow: boolean | null): bo
 /** Le boitier est-il connecte ? Faute d'annonce (jamais vu), non. */
 export const deviceOnline = (family: string, box: string): boolean => boxState(family, box)?.online === true;
 
+const released = new Set<string>();   // boitiers oublies deja retires
 let client: MqttClient | null = null;
 function get(brokerUrl: string): MqttClient {
   if (client) return client;
@@ -41,7 +42,17 @@ function get(brokerUrl: string): MqttClient {
     const r = applyMessage(t, p.toString("utf8"), packet.retain, now);
     if (!r) return;
     for (const why of r.refused) console.error(`[mqtt relay] ${r.family.id}/${r.box} : ${why}`);
-    const online = boxState(r.family.id, r.box)?.online ?? null;
+    const st = boxState(r.family.id, r.box);
+    // oublie sur le boitier lui-meme : il quitte le compte (retenu compris : le portail etait peut-etre
+    // arrete au moment de l'annonce). Seul le boitier peut publier sous son identite (ACL du broker).
+    if (!st?.forgotten) released.delete(r.box);
+    else if (!released.has(r.box)) {
+      released.add(r.box);   // une fois par oubli : les autres retenus du boitier repassent aussi
+      releaseDevice(r.box)
+        .then(() => console.log(`[mqtt relay] ${r.family.id}/${r.box} : oublie sur le boitier, retire de son compte`))
+        .catch((e: unknown) => console.error("[mqtt relay] retrait du boitier oublie :", e instanceof Error ? e.message : e));
+    }
+    const online = st?.online ?? null;
     // une disparition annoncee (testament) n'efface pas la trace : la date reste celle du depart
     if (isLiveActivity(packet.retain, online) && online !== false) noteActivity(r.box, now);
     if (online === false) lastWrite.delete(r.box);

@@ -59,6 +59,8 @@ export async function touchDevice(deviceId: string, at: number): Promise<void> {
 export async function touchAccount(id: string, at: number): Promise<void> { await accounts().updateOne({ id }, { $set: { lastActiveAt: at } }); }
 export async function renameDevice(deviceId: string, accountId: string, name: string): Promise<void> { await devices().updateOne({ deviceId, accountId }, { $set: { name } }); }
 export async function removeDevice(deviceId: string, accountId: string): Promise<void> { await devices().deleteOne({ deviceId, accountId }); }
+/** Retire un boitier QUEL QUE SOIT son compte : le boitier s'est oublie lui-meme (voir mqtt.ts). */
+export async function releaseDevice(deviceId: string): Promise<void> { await devices().deleteOne({ deviceId }); }
 export async function addPairing(p: Pairing): Promise<void> { await pairings().insertOne({ ...p, used: false }); }
 export async function takePairing(code: string): Promise<Pairing | null> {
   const r = await pairings().findOneAndUpdate({ code, used: false }, { $set: { used: true } }, { projection: { _id: 0, used: 0 } });
