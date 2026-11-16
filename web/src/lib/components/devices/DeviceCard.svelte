@@ -86,11 +86,14 @@
     {/if}
   {/each}
   {#if position}
-    <div class="slat" style={`--p:${pos ?? 0}${a.online ? '' : ';opacity:.5'}`} title={pos !== null ? `${pos} %` : undefined}></div>
-    {#if position.kind === CONTROL.position && position.settable}
-      <input class="pos-range" type="range" min="0" max="100" step="1" value={pos ?? 0} aria-label={position.label[lang]} data-control={position.id}
-        disabled={!a.online} onchange={(e) => send(position.id, Number(e.currentTarget.value))} />
-    {/if}
+    <!-- UNE barre, comme sur OpenProfalux : la barre rayee montre la position ; si elle se regle, un
+         curseur invisible la recouvre (clic, glisser, clavier), sans seconde barre a l'ecran. -->
+    <div class="slat" style={`--p:${pos ?? 0}${a.online ? '' : ';opacity:.5'}`} title={pos !== null ? `${pos} %` : undefined}>
+      {#if position.kind === CONTROL.position && position.settable}
+        <input class="pos-range" type="range" min="0" max="100" step="1" value={pos ?? 0} aria-label={position.label[lang]} data-control={position.id}
+          disabled={!a.online} onchange={(e) => send(position.id, Number(e.currentTarget.value))} />
+      {/if}
+    </div>
   {/if}
   {#each others as c (c.id)}
     {#if c.kind === CONTROL.toggle}
@@ -125,7 +128,9 @@
 <style>
   .ask { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .6rem; }
   .ask .note { flex-basis: 100%; margin: 0; }
-  .pos-range { width: 100%; accent-color: var(--accent); }
+  .pos-range { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+  .pos-range:disabled { cursor: not-allowed; }
+  .slat:has(.pos-range:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
   .ctl-toggle, .ctl-setpoint { display: flex; gap: 0.5rem; align-items: center; }
   .ctl-setpoint input { width: 5rem; }
   .ctl-reading.alert { color: var(--danger); }

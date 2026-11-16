@@ -102,15 +102,19 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.015em; margin: 0; }
 
 /* ===== grille des volets (visuel firmware) ===== */
 .hw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(14.5rem, 1fr)); gap: .8rem; }
-.volet { min-width: 0; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); padding: 15px; box-shadow: var(--shadow); }
+/* Toutes les cartes d'une rangee ont la meme hauteur, quel que soit leur contenu (un volet sans
+ * position n'a pas de curseur) : la carte remplit sa case, et le pied (roue dentee) est pousse en bas. */
+.volet { display: flex; flex-direction: column; min-width: 0; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); padding: 15px; box-shadow: var(--shadow); }
 .volet[hidden] { display: none; }
 .volet.offline { opacity: .6; }
-.volet .top { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+/* hauteur fixe : le badge (position) ne decale pas le titre d'une carte a l'autre */
+.volet .top { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; height: 1.6rem; }
 .volet .ico { font-size: 1.15rem; line-height: 1; display: inline-flex; color: var(--text-soft); flex: none; }
 /* poignee pour reorganiser les cartes d'un boitier (glisser) : seule elle capte le doigt, la carte defile */
 .volet .grip { appearance: none; border: 0; background: transparent; color: var(--text-faint); font-size: 1.15rem; line-height: 1; padding: 4px 2px; margin: -4px 0; cursor: grab; touch-action: none; flex: none; }
 .volet .grip:hover { color: var(--accent); }
-.drag-item { min-width: 0; }
+.drag-item { min-width: 0; display: flex; flex-direction: column; }
+.drag-item > .volet { flex: 1; }
 .drag-item.dragging .volet { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-line), var(--shadow); opacity: .92; }
 .drag-item.dragging .grip { cursor: grabbing; color: var(--accent); }
 .volet .vname { font-weight: 650; font-size: 1rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -123,7 +127,7 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.015em; margin: 0; }
 .dpad button.sending { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
 .slat { position: relative; height: 12px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); overflow: hidden; cursor: pointer; }
 .slat::before { content: ""; position: absolute; inset: 0; width: calc(var(--p, 50) * 1%); background: repeating-linear-gradient(90deg, var(--accent), var(--accent) 4px, color-mix(in srgb, var(--accent) 78%, #000) 4px, color-mix(in srgb, var(--accent) 78%, #000) 6px); opacity: .85; }
-.volet .foot { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-top: 11px; }
+.volet .foot { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-top: auto; padding-top: 11px; }
 .box-tag { font-family: var(--font-mono); font-size: .68rem; color: var(--text-faint); display: inline-flex; align-items: center; gap: .35rem; }
 .box-tag .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
 .box-tag .dot.off { background: var(--text-faint); }
