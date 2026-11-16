@@ -138,7 +138,12 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.015em; margin: 0; }
 .hw-det[hidden] { display: none; }
 .kv { display: flex; justify-content: space-between; gap: .75rem; font-size: .82rem; }
 .kv .k { color: var(--text-muted); flex: none; }
-.kv .v { min-width: 0; color: var(--text); font-family: var(--font-mono); font-size: .76rem; text-align: right; overflow-wrap: anywhere; }
+/* valeur : texte courant ; la chasse fixe seulement pour les valeurs techniques (KeyValue mono) */
+.kv .v { min-width: 0; color: var(--text); text-align: right; overflow-wrap: anywhere; text-wrap: balance; }
+.kv .v.mono { font-family: var(--font-mono); font-size: .76rem; }
+/* dans un panneau : une ligne fine entre deux lignes, pour suivre libelle et valeur de l'oeil */
+.panel .kv { padding: .38rem 0; align-items: baseline; }
+.panel .kv + .kv { border-top: 1px solid var(--border); }
 .empty { color: var(--text-muted); font-size: .9rem; padding: 2rem 0; text-align: center; }
 
 /* ===== accueil : appareils groupes ===== */
@@ -186,6 +191,10 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.015em; margin: 0; }
 .cfg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
 @media (max-width: 640px) { .cfg-grid { grid-template-columns: 1fr; } }
 .panel { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elev); padding: .85rem .9rem; }
+/* panneaux cote a cote (configuration du boitier) : meme hauteur, les boutons en pied, alignes */
+.cfg-grid > .panel { display: flex; flex-direction: column; }
+.panel-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: auto; padding-top: .8rem; border-top: 1px solid var(--border); }
+.panel-actions .box-action { display: contents; }
 .panel h3 { margin: 0 0 .6rem; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: .45rem; }
 .ro { font-size: .62rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-faint); border: 1px solid var(--border); border-radius: 999px; padding: 1px 6px; }
 .ro.edit { color: var(--accent); border-color: var(--accent-line); background: var(--accent-weak); }

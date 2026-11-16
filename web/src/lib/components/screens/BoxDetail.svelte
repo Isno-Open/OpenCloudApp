@@ -108,15 +108,16 @@
       {#if !b.online && b.lastSeenAt !== null}<KeyValue label={s.lastSeenLabel} value={relativeTime(b.lastSeenAt, now, lang)} />{/if}
       {#if b.uptimeS != null}<KeyValue label={s.since} value={s.uptimeValue(b.uptimeS)} />{:else if b.uptime}<KeyValue label={s.since} value={b.uptime} />{/if}
       {#if b.lastReset}<KeyValue label={s.lastReset} value={b.lastReset[lang]} />{/if}
-      {#if b.wifi?.rssiDbm != null}<KeyValue label={s.wifiSignal} value={`${b.wifi.rssiDbm} dBm`} />{/if}
+      {#if b.wifi?.rssiDbm != null}<KeyValue label={s.wifiSignal} value={`${b.wifi.rssiDbm} dBm`} mono />{/if}
       {#if b.wifi?.ssid}<KeyValue label={s.wifiNetwork} value={b.wifi.ssid} />{/if}
-      {#if b.wifi?.ip}<KeyValue label={s.ipAddress} value={b.wifi.ip} />{/if}
-      {#if b.broker}<KeyValue label={s.localBroker} value={b.broker} />{/if}
+      {#if b.wifi?.ip}<KeyValue label={s.ipAddress} value={b.wifi.ip} mono />{/if}
+      {#if b.broker}<KeyValue label={s.localBroker} value={b.broker} mono />{/if}
       {#if b.memory}<KeyValue label={s.memory} value={s.memoryValue(b.memory.free, b.memory.min)} />{/if}
       {#if b.radios}<KeyValue label={s.radios} value={b.radios} />{/if}
       <KeyValue label={s.firmware}><span style={b.updateAvailable ? 'color:var(--warn)' : undefined}>{b.updateAvailable ? s.updateAvailable : s.upToDate}</span></KeyValue>
       {#if b.trial}<KeyValue label={s.state} value={s.onTrial} />{/if}
-      {#if b.previous}<KeyValue label={s.previousVersion} value={b.previous} />{/if}
+      {#if b.previous}<KeyValue label={s.previousVersion} value={b.previous} mono />{/if}
+      {#if b.actions?.length}<div class="panel-actions">
       {#each b.actions ?? [] as act (act.id)}
         <div class="box-action" data-box-action={act.id}>
           {#if asking === act.id}
@@ -128,15 +129,18 @@
           {/if}
         </div>
       {/each}
+      </div>{/if}
       {#if actionMsg}<p class="note" role="status">{actionMsg}</p>{/if}
     </div>
     {#if b.files?.length}
       <div class="panel" data-box-files>
         <h3>{s.boxFiles}</h3>
         <p class="note">{s.boxFilesNote}</p>
+        <div class="panel-actions">
         {#each b.files as f (f.id)}
           <button type="button" class="btn" data-file={f.id} disabled={!b.online || fileBusy !== null} onclick={() => download(f.id)}>{f.label[lang]}</button>
         {/each}
+        </div>
         {#if fileMsg}<p class="note" role="status" data-file-msg>{fileMsg}</p>{/if}
       </div>
     {/if}
