@@ -1,5 +1,5 @@
 // Erreurs de l'approbation d'un appareil (rendues par /api/device/approve, traduites par l'IHM).
-export const LINK_ERROR = { auth: 'auth', invalid: 'invalid', cap: 'cap' } as const;
+export const LINK_ERROR = { auth: 'auth', invalid: 'invalid', cap: 'cap', nameTaken: 'name_taken' } as const;
 export type LinkError = (typeof LINK_ERROR)[keyof typeof LINK_ERROR];
 // Cookie qui garde le code scanne pendant un detour par la connexion (10 min).
 export const LINK_COOKIE = 'link_code';

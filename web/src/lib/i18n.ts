@@ -40,7 +40,7 @@ interface S {
   wifiSignal: string; wifiNetwork: string; ipAddress: string; localBroker: string; memory: string; memoryValue: (free: number, min: number) => string; lastReset: string; uptimeValue: (s: number) => string; radios: string; firmware: string; upToDate: string; updateAvailable: string;
   boxFiles: string; boxFilesNote: string; fileWaiting: string; fileDone: string; fileError: string;
   boxName: string; boxNameHint: string; deleteTitle: string; deleteNote: string; deleteBtn: string;
-  confirmDelete: (name: string) => string; yesDelete: string; cancel: string; renameError: string; deleteError: string;
+  confirmDelete: (name: string) => string; yesDelete: string; cancel: string; renameError: string; deleteError: string; nameTaken: (name: string) => string;
   // vue ajouter
   addTitle: string; addLead: string; getCodeTitle: string; getCodeNote: string; getCodeBtn: string;
   pairCode: (code: string) => string; errPrefix: (e: string) => string; netErr: string; howTitle: string; howText: string;
@@ -127,6 +127,7 @@ export const STRINGS = {
     deleteNote: "Retire l'appareil et ses volets de ce compte. Le matériel local et Home Assistant ne sont pas touchés. L'appairage cloud devra être refait.",
     deleteBtn: 'Supprimer de mon compte', confirmDelete: (n) => `Confirmer la suppression de « ${n} » ?`, yesDelete: 'Oui, supprimer', cancel: 'Annuler',
     renameError: 'Le renommage a échoué.', deleteError: 'La suppression a échoué.',
+    nameTaken: (name: string) => `Vous avez déjà un boîtier nommé « ${name} ». Choisissez un autre nom pour les distinguer.`,
     addTitle: 'Ajouter un appareil', addLead: 'Associez un appareil OpenProfalux à votre compte.',
     getCodeTitle: 'Votre boîtier vous demande un code ?', getCodeNote: "Firmware antérieur : obtenez un code ici, puis saisissez-le dans l'onglet « Cloud » de l'interface du boîtier.",
     getCodeBtn: 'Obtenir un code', pairCode: (c) => `Code d’appairage : ${c}`, errPrefix: (e) => `Erreur : ${e}`, netErr: 'Erreur réseau, réessayez.',
@@ -240,6 +241,7 @@ export const STRINGS = {
     deleteNote: 'Removes the device and its shutters from this account. Local hardware and Home Assistant are untouched. Cloud pairing will need to be redone.',
     deleteBtn: 'Remove from my account', confirmDelete: (n) => `Confirm deletion of “${n}”?`, yesDelete: 'Yes, delete', cancel: 'Cancel',
     renameError: 'Rename failed.', deleteError: 'Delete failed.',
+    nameTaken: (name: string) => `You already have a box named “${name}”. Pick another name to tell them apart.`,
     addTitle: 'Add a device', addLead: 'Link an OpenProfalux device to your account.',
     getCodeTitle: 'Your device asks you for a code?', getCodeNote: 'Older firmware: get a code here, then enter it in the “Cloud” tab of the device interface.',
     getCodeBtn: 'Get a code', pairCode: (c) => `Pairing code: ${c}`, errPrefix: (e) => `Error: ${e}`, netErr: 'Network error, try again.',

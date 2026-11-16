@@ -8,6 +8,7 @@ import { POLL_STATUS, DEVICE_AUTH_INTERVAL_S } from '@opencloudapp/core/device-c
 import { loadConfig } from '@opencloudapp/core/config.js';
 import { boot } from '#lib/server/boot.ts';
 import { readBody, json } from '#lib/server/http.ts';
+import { sendBoxName } from '#lib/server/box-name.ts';
 
 export const POST: RequestHandler = async ({ request }) => {
   await boot();
@@ -22,6 +23,8 @@ export const POST: RequestHandler = async ({ request }) => {
   if (!taken?.accountId) return json(410, { status: POLL_STATUS.expired });
   if (!(await claimDevice(taken.deviceId, taken.accountId, taken.name ?? taken.deviceId, taken.firmware)))
     return json(409, { status: POLL_STATUS.denied });
+  // le nom choisi a la confirmation part au boitier (retenu : il l'aura a sa premiere connexion)
+  if (taken.name) await sendBoxName(taken.firmware, taken.deviceId, taken.name);
   const bundle = issueDeviceCert(taken.deviceId);
   return json(200, { status: POLL_STATUS.ready, device_id: taken.deviceId, broker_url: cfg.brokerPublicUrl, ...bundle });
 };

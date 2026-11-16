@@ -6,7 +6,8 @@
   import ErrorText from '#lib/components/ui/ErrorText.svelte';
   import SubTabs from '#lib/components/ui/SubTabs.svelte';
   import { t, ROUTES, type Lang } from '#lib/i18n.ts';
-  import { postJson, ignoreBody } from '#lib/api.ts';
+  import { postJson, ignoreBody, field } from '#lib/api.ts';
+  import { BOX_NAME_ERROR } from '#lib/box-name.ts';
   import type { Appareil, Boitier } from '#lib/types.ts';
   import { isKnownAppareil } from '#lib/types.ts';
   import { KIND_PLACE } from '@opencloudapp/core/family-contract.js';
@@ -77,7 +78,7 @@
     if (!n) return;
     error = null;
     const r = await postJson('/api/boitier/rename', { device_id: b.id, name: n }, s.renameError, ignoreBody);
-    if (r.ok) location.reload(); else error = r.error;
+    if (r.ok) location.reload(); else error = field(r.body, 'error') === BOX_NAME_ERROR.taken ? s.nameTaken(n) : r.error;
   }
   async function remove(): Promise<void> {
     error = null;

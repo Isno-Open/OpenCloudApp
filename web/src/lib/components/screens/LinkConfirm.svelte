@@ -48,7 +48,8 @@
     busy = false;
     if (r.status === null) { error = s.netErr; return; }
     const cap = field(r.body, 'cap');
-    error = field(r.body, 'error') === LINK_ERROR.cap && typeof cap === 'number' ? s.linkCapError(cap) : s.linkInvalid;
+    const err = field(r.body, 'error');
+    error = err === LINK_ERROR.cap && typeof cap === 'number' ? s.linkCapError(cap) : err === LINK_ERROR.nameTaken ? s.nameTaken(name.trim()) : s.linkInvalid;
   }
 </script>
 

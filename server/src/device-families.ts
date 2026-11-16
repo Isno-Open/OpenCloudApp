@@ -18,6 +18,8 @@ export const NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 const PATH_RE = /^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+){0,7}$/;
 const PATH_MAX = 128;
 const PAYLOAD_MAX = 512;
+/** Nom d'un boitier (portail, /lier et renommage : 60 caracteres). */
+export const BOX_NAME_MAX = 60;
 const TEXT_MAX = 200;
 const EVENTS_MAX = 50;
 /** Explication d'un onglet (hint) : quelques phrases, plus qu'un libelle. */
@@ -168,8 +170,9 @@ export function asFamily(v: unknown): FamilyDecl {
   const requestFile = v.requestFile;
   if (requestFile !== undefined && typeof requestFile !== "function") throw new Error(`famille ${id} : requestFile() doit etre une fonction`);
   if (boxFiles.length && typeof requestFile !== "function") throw new Error(`famille ${id} : des fichiers du boitier sans requestFile()`);
-  const unpair = v.unpair;
+  const unpair = v.unpair, boxName = v.boxName;
   if (unpair !== undefined && typeof unpair !== "function") throw new Error(`famille ${id} : unpair() doit etre une fonction`);
+  if (boxName !== undefined && typeof boxName !== "function") throw new Error(`famille ${id} : boxName() doit etre une fonction`);
   const read = v.read, command = v.command, configure = v.configure, reorder = v.reorder;
   if (reorder !== undefined && typeof reorder !== "function") throw new Error(`famille ${id} : reorder() doit etre une fonction`);
   if (typeof read !== "function" || typeof command !== "function") throw new Error(`famille ${id} : read() et command() requis`);
@@ -186,6 +189,7 @@ export function asFamily(v: unknown): FamilyDecl {
     ...(typeof reorder === "function" ? { reorder: (target: Required<CommandTarget>, rank: number) => reorder.call(v, target, rank) as ReturnType<NonNullable<FamilyDecl["reorder"]>> } : {}),
     ...(typeof requestFile === "function" ? { requestFile: (target: { box: string }, file: string) => requestFile.call(v, target, file) as ReturnType<NonNullable<FamilyDecl["requestFile"]>> } : {}),
     ...(typeof unpair === "function" ? { unpair: (target: { box: string }) => unpair.call(v, target) as ReturnType<NonNullable<FamilyDecl["unpair"]>> } : {}),
+    ...(typeof boxName === "function" ? { boxName: (target: { box: string }, name: string) => boxName.call(v, target, name) as ReturnType<NonNullable<FamilyDecl["boxName"]>> } : {}),
   };
 }
 
@@ -455,6 +459,20 @@ export function buildUnpair(f: FamilyDecl, box: string): { topic: string; payloa
   if ("error" in r) return r;
   // retenu vide = effacement du retenu sur le broker : ce ne serait pas un ordre
   return r.payload.length ? { ...r, retain: true } : { error: "ordre d'oubli vide : refuse" };
+}
+
+/** Nom du boitier, a lui transmettre : traduit par la famille, borne au boitier, TOUJOURS retenu (il le
+ *  recoit a sa connexion). null : la famille ne sait pas le dire. Nom vide ou trop long : refuse. */
+export function buildBoxName(f: FamilyDecl, box: string, name: string): { topic: string; payload: string; retain: boolean } | { error: string } | null {
+  if (!f.boxName) return null;
+  if (!NAME_RE.test(box)) return { error: "boitier invalide" };
+  if (!name.trim() || name.length > BOX_NAME_MAX) return { error: "nom du boitier refuse" };
+  let cmd: unknown;
+  try { cmd = f.boxName({ box }, name); }
+  catch (e) { return { error: `la famille a refuse : ${e instanceof Error ? e.message : String(e)}` }; }
+  if (cmd === null) return null;
+  const r = checkCommand(f, box, cmd);
+  return "error" in r ? r : { ...r, retain: true };
 }
 
 /** Deplacer un appareil (glisser sa carte) : appareil de CE boitier, rang entier de 1 au nombre de ses

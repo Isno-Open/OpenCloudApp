@@ -25,6 +25,7 @@ const family: FamilyDecl = {
   boxFiles: [{ id: "backup", label: { fr: "Télécharger la sauvegarde", en: "Download the backup" }, type: BOX_FILE_TYPE.json }],
   requestFile: (_target, file) => (file === "backup" ? { path: "backup/get", payload: "GET" } : null),
   unpair: () => ({ path: "cloud/forget", payload: "FORGET" }),
+  boxName: (_target, name) => ({ path: "cloud/name", payload: name }),
   kinds: [{
     id: "volet", label: { fr: "Volet", en: "Shutter" }, icon: { glyph: "V" },
     controls: [

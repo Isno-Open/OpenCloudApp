@@ -141,4 +141,7 @@ export type FamilyDecl = {
    *  couper le cloud). RETENU : un boitier hors ligne au moment du retrait le recoit a sa reconnexion, et
    *  l'efface en l'executant. Absent = le boitier n'est pas prevenu (il reste connecte, sans compte). */
   unpair?(target: { box: string }): FamilyCommand | null;
+  /** Nom donne au boitier sur le portail (a l'appairage, a chaque renommage) -> message, RETENU : le
+   *  boitier l'affiche pour qu'on reconnaisse lequel c'est. Absent = le boitier ne connait que son id. */
+  boxName?(target: { box: string }, name: string): FamilyCommand | null;
 };

@@ -2,6 +2,9 @@ import type { RequestHandler } from './$types';
 import { findDevice, renameDevice } from '@opencloudapp/core/store.js';
 import { resolveAccountId } from '#lib/server/auth.ts';
 import { readBody, json } from '#lib/server/http.ts';
+import { BOX_NAME_MAX } from '@opencloudapp/core/device-families.js';
+import { BOX_NAME_ERROR } from '#lib/box-name.ts';
+import { boxNameTaken, sendBoxName } from '#lib/server/box-name.ts';
 
 export const POST: RequestHandler = async ({ request }) => {
   const acc = await resolveAccountId(request);
@@ -9,8 +12,11 @@ export const POST: RequestHandler = async ({ request }) => {
   const b = await readBody(request);
   const deviceId = String(b.device_id ?? ''), name = String(b.name ?? '').trim();
   if (!name) return json(400, { error: 'nom vide' });
+  if (name.length > BOX_NAME_MAX) return json(400, { error: 'nom trop long' });
   const dev = await findDevice(deviceId, acc);
   if (!dev) return json(403, { error: 'device non possédé' });
+  if (await boxNameTaken(acc, name, deviceId)) return json(409, { error: BOX_NAME_ERROR.taken });
   await renameDevice(deviceId, acc, name);
+  await sendBoxName(dev.firmware, deviceId, name);
   return json(200, { ok: true });
 };
