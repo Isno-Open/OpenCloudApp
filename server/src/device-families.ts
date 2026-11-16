@@ -168,6 +168,8 @@ export function asFamily(v: unknown): FamilyDecl {
   const requestFile = v.requestFile;
   if (requestFile !== undefined && typeof requestFile !== "function") throw new Error(`famille ${id} : requestFile() doit etre une fonction`);
   if (boxFiles.length && typeof requestFile !== "function") throw new Error(`famille ${id} : des fichiers du boitier sans requestFile()`);
+  const unpair = v.unpair;
+  if (unpair !== undefined && typeof unpair !== "function") throw new Error(`famille ${id} : unpair() doit etre une fonction`);
   const read = v.read, command = v.command, configure = v.configure, reorder = v.reorder;
   if (reorder !== undefined && typeof reorder !== "function") throw new Error(`famille ${id} : reorder() doit etre une fonction`);
   if (typeof read !== "function" || typeof command !== "function") throw new Error(`famille ${id} : read() et command() requis`);
@@ -183,6 +185,7 @@ export function asFamily(v: unknown): FamilyDecl {
     ...(typeof configure === "function" ? { configure: (target: Required<CommandTarget>, values: Readonly<Record<string, SettingValue>>) => configure.call(v, target, values) as ReturnType<NonNullable<FamilyDecl["configure"]>> } : {}),
     ...(typeof reorder === "function" ? { reorder: (target: Required<CommandTarget>, rank: number) => reorder.call(v, target, rank) as ReturnType<NonNullable<FamilyDecl["reorder"]>> } : {}),
     ...(typeof requestFile === "function" ? { requestFile: (target: { box: string }, file: string) => requestFile.call(v, target, file) as ReturnType<NonNullable<FamilyDecl["requestFile"]>> } : {}),
+    ...(typeof unpair === "function" ? { unpair: (target: { box: string }) => unpair.call(v, target) as ReturnType<NonNullable<FamilyDecl["unpair"]>> } : {}),
   };
 }
 
@@ -436,6 +439,22 @@ export function buildFileRequest(f: FamilyDecl, box: string, file: string): { to
   const r = checkCommand(f, box, cmd);
   if ("error" in r) return r;
   return r.retain ? { error: "demande de fichier retenue : refusee" } : r;
+}
+
+/** Ordre de s'oublier, pour un boitier retire de son compte : traduit par la famille, borne au boitier
+ *  comme une commande, et TOUJOURS retenu (un boitier hors ligne le recoit a sa reconnexion). null : la
+ *  famille ne sait pas le dire (rien a publier). */
+export function buildUnpair(f: FamilyDecl, box: string): { topic: string; payload: string; retain: boolean } | { error: string } | null {
+  if (!f.unpair) return null;
+  if (!NAME_RE.test(box)) return { error: "boitier invalide" };
+  let cmd: unknown;
+  try { cmd = f.unpair({ box }); }
+  catch (e) { return { error: `la famille a refuse : ${e instanceof Error ? e.message : String(e)}` }; }
+  if (cmd === null) return null;
+  const r = checkCommand(f, box, cmd);
+  if ("error" in r) return r;
+  // retenu vide = effacement du retenu sur le broker : ce ne serait pas un ordre
+  return r.payload.length ? { ...r, retain: true } : { error: "ordre d'oubli vide : refuse" };
 }
 
 /** Deplacer un appareil (glisser sa carte) : appareil de CE boitier, rang entier de 1 au nombre de ses

@@ -137,4 +137,8 @@ export type FamilyDecl = {
   configure?(target: Required<CommandTarget>, values: Readonly<Record<string, SettingValue>>): FamilyCommand | null;
   /** Demande d'un fichier (un `boxFiles`) au boitier -> message ; sa reponse revient par read(), fait `file`. */
   requestFile?(target: { box: string }, file: string): FamilyCommand | null;
+  /** Le boitier a ete retire de son compte sur le portail -> ordre de s'oublier (effacer son certificat,
+   *  couper le cloud). RETENU : un boitier hors ligne au moment du retrait le recoit a sa reconnexion, et
+   *  l'efface en l'executant. Absent = le boitier n'est pas prevenu (il reste connecte, sans compte). */
+  unpair?(target: { box: string }): FamilyCommand | null;
 };

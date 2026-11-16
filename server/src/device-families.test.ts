@@ -1,7 +1,7 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { CONTROL, FACT, EVENT_LEVEL, FAMILY_CONTRACT, BOX_FILE_TYPE, type FamilyDecl, type FamilyMessage, type Fact } from "./family-contract.js";
-import { asFamily, registerDeviceFamily, clearDeviceFamilies, applyMessage, buildCommand, boxState, familyById, onFamilyRegistered, buildFileRequest, awaitBoxFile, BOX_FILE_MAX } from "./device-families.js";
+import { asFamily, registerDeviceFamily, clearDeviceFamilies, applyMessage, buildCommand, boxState, familyById, onFamilyRegistered, buildFileRequest, awaitBoxFile, BOX_FILE_MAX, buildUnpair } from "./device-families.js";
 import { isLiveActivity } from "./mqtt.js";
 
 // Petite famille de test : « store » publie `<boitier>/en_ligne` et `<boitier>/store/<id>/{type,pos,etat}` ;
@@ -377,6 +377,15 @@ test("presence : boitier oublie sur lui-meme, marque pour retrait ; en ligne, il
   assert.equal(boxState("famille-test", "b2")!.forgotten, false, "reappaire et reconnecte : plus oublie");
   applyMessage("test-famille/b2/en_ligne", "0", true, 3);
   assert.equal(boxState("famille-test", "b2")!.forgotten, false, "simple panne : pas « oublie »");
+});
+
+test("ordre d'oubli : traduit, borne au boitier, toujours retenu ; vide refuse ; absent, rien", () => {
+  const avec: FamilyDecl = { ...STORE, unpair: () => ({ path: "cloud/forget", payload: "FORGET" }) };
+  assert.deepEqual(buildUnpair(avec, "b1"), { topic: "test-famille/b1/cloud/forget", payload: "FORGET", retain: true });
+  assert.equal(buildUnpair(STORE, "b1"), null, "famille qui ne sait pas le dire : rien a publier");
+  assert.ok("error" in (buildUnpair({ ...STORE, unpair: () => ({ path: "cloud/forget", payload: "" }) }, "b1") ?? {}), "retenu vide = effacement, pas un ordre");
+  assert.ok("error" in (buildUnpair({ ...STORE, unpair: () => ({ path: "../b2/cloud/forget", payload: "X" }) }, "b1") ?? {}), "jamais hors du boitier");
+  assert.ok("error" in (buildUnpair(avec, "b/1") ?? {}), "boitier invalide");
 });
 
 // Famille qui rend sa sauvegarde a la demande : `sauvegarde/demande` -> `sauvegarde/contenu`.

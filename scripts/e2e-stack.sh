@@ -244,6 +244,22 @@ chk "oubli : le boitier a quitte le compte" "$(curl -s -b "$J" "$B/" | grep -o "
 chk "oubli : l'autre boitier reste" "$(curl -s -b "$J" "$B/" | grep -o "$ID" | head -1 | wc -l)" 1
 docker run --rm -v "$WORK/b2:/d:ro" "${PUB2[@]}" -t "famille-test/$ID2/status" -n   # retenu efface
 
+echo "== boitier retire depuis le portail : il est prevenu (ordre d'oubli retenu)"
+R=$(post /api/device/start '{"firmware":"famille-test"}'); DC3=$(echo "$R" | jget "['device_code']"); UC3=$(echo "$R" | jget "['user_code']")
+curl -s -o /dev/null -b "$J" -X POST -H 'content-type: application/json' -d "{\"code\":\"$UC3\"}" "$B/api/device/approve"
+mkdir -p "$WORK/b3"; post /api/device/poll "{\"device_code\":\"$DC3\"}" > "$WORK/b3/bundle.json"
+python3 - "$WORK/b3" <<'PY'
+import json,sys; d=sys.argv[1]; b=json.load(open(d+'/bundle.json'))
+for k in ('ca','cert','key'): open(f'{d}/{k}.pem','w').write(b[k])
+open(d+'/id','w').write(b['device_id'])
+PY
+ID3=$(cat "$WORK/b3/id"); chmod 644 "$WORK"/b3/*.pem
+# le boitier lit sous SA propre racine (ACL du broker) : c'est lui qui doit recevoir l'ordre
+chk "retrait : le boitier est au compte" "$(curl -s -b "$J" "$B/" | grep -o "$ID3" | head -1 | wc -l)" 1
+chk "retrait : accepte" "$(curl -s -b "$J" -X POST -H 'content-type: application/json' -d "{\"device_id\":\"$ID3\"}" "$B/api/boitier/delete")" '{"ok":true}'
+chk "retrait : le boitier a quitte le compte" "$(curl -s -b "$J" "$B/" | grep -o "$ID3" | head -1 | wc -l)" 0
+chk "retrait : ordre d'oubli retenu pour le boitier" "$(docker run --rm -v "$WORK/b3:/d:ro" "${SUB[@]}" -t "famille-test/$ID3/cloud/forget" -C 1 -W 5 2>/dev/null)" FORGET
+
 echo "== parc vu par l'operateur : resume, activite des comptes, boitiers en lecture seule"
 UP=$(curl -s -b "$J" "$B/utilisateurs")
 chk "parc : resume, le boitier en ligne compte" "$(echo "$UP" | grep -o 'data-fleet-online="">[0-9]*<' | grep -o '[0-9]*')" 1

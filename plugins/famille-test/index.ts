@@ -24,6 +24,7 @@ const family: FamilyDecl = {
   boxControls: [{ id: "maj", label: { fr: "Installer la mise à jour", en: "Install the update" }, confirm: { fr: "Le boîtier va redémarrer.", en: "The box will restart." } }],
   boxFiles: [{ id: "backup", label: { fr: "Télécharger la sauvegarde", en: "Download the backup" }, type: BOX_FILE_TYPE.json }],
   requestFile: (_target, file) => (file === "backup" ? { path: "backup/get", payload: "GET" } : null),
+  unpair: () => ({ path: "cloud/forget", payload: "FORGET" }),
   kinds: [{
     id: "volet", label: { fr: "Volet", en: "Shutter" }, icon: { glyph: "V" },
     controls: [
