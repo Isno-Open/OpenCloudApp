@@ -69,7 +69,7 @@ interface S {
   // liaison d'un appareil (device grant) + onboarding utilisateur
   linkTitle: string; linkLead: string; linkCodeLabel: string; linkCodePh: string; linkContinue: string;
   linkConfirmTitle: string; linkIdWord: string; linkNameLabel: string; linkNamePh: string; linkConfirmBtn: string;
-  linkDoneTitle: string; linkDoneNote: string; linkGoDevices: string; linkInvalid: string; linkCapError: (cap: number) => string;
+  linkDoneTitle: string; linkDoneNote: string; linkLateNote: string; linkGoDevices: string; linkInvalid: string; linkCapError: (cap: number) => string;
   welcomeTitle: string; welcomeLead: string; welcomeStep1: string; welcomeStep2: string; welcomeStep3: string;
   legacyHint: string; legacyLink: string;
   // vue parametres (admin)
@@ -161,7 +161,8 @@ export const STRINGS = {
     linkCodeLabel: 'Code affiché par le boîtier', linkCodePh: 'XXXX-XXXX', linkContinue: 'Continuer',
     linkConfirmTitle: 'Ajouter cet appareil à votre compte ?', linkIdWord: 'Identifiant',
     linkNameLabel: 'Nom (facultatif)', linkNamePh: 'Maison, Résidence…', linkConfirmBtn: 'Confirmer',
-    linkDoneTitle: 'Appareil lié', linkDoneNote: 'Votre boîtier récupère son certificat et se connecte dans quelques secondes.',
+    linkDoneTitle: 'Appareil lié', linkDoneNote: 'Votre boîtier se connecte… vous arrivez sur vos appareils dès qu\'il est là.',
+    linkLateNote: 'Le boîtier n\'est pas encore connecté. Vérifiez qu\'il est allumé et sur votre Wi-Fi : il apparaîtra dans vos appareils dès qu\'il se connecte.',
     linkGoDevices: 'Voir mes appareils',
     linkInvalid: "Code inconnu ou expiré. Relancez l'appairage sur le boîtier pour obtenir un nouveau code.",
     linkCapError: (cap) => `Plafond atteint (${cap} appareils). Supprimez un appareil pour en ajouter un autre.`,
@@ -273,7 +274,8 @@ export const STRINGS = {
     linkCodeLabel: 'Code shown by the device', linkCodePh: 'XXXX-XXXX', linkContinue: 'Continue',
     linkConfirmTitle: 'Add this device to your account?', linkIdWord: 'ID',
     linkNameLabel: 'Name (optional)', linkNamePh: 'Home, Seaside…', linkConfirmBtn: 'Confirm',
-    linkDoneTitle: 'Device linked', linkDoneNote: 'Your device is fetching its certificate and will connect in a few seconds.',
+    linkDoneTitle: 'Device linked', linkDoneNote: 'Your device is connecting… you will land on your devices as soon as it is there.',
+    linkLateNote: 'The device is not connected yet. Check that it is powered and on your Wi-Fi: it will show up in your devices as soon as it connects.',
     linkGoDevices: 'See my devices',
     linkInvalid: 'Unknown or expired code. Restart pairing on the device to get a new code.',
     linkCapError: (cap) => `Limit reached (${cap} devices). Remove a device to add another one.`,

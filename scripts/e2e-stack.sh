@@ -218,6 +218,11 @@ docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/status" -m onl
 sleep 2
 chk "cloud reactive : de nouveau en ligne, mode cloud active" "$(curl -s -b "$J" "$B/boitier/$ID" | grep -c '>activé<')" 1
 
+echo "== apres /lier : l'ecran attend le boitier (au compte, connecte, appareils annonces)"
+chk "lie : boitier au compte, connecte, avec ses appareils" "$(curl -s -b "$J" "$B/api/device/linked?device_id=$ID" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d["paired"], d["online"], d["devices"] > 0)')" "True True True"
+chk "lie : pas encore arrive (inconnu du compte)" "$(curl -s -b "$J" "$B/api/device/linked?device_id=opf-inconnu")" '{"paired":false,"online":false,"devices":0}'
+chk "lie : sans session, refuse" "$(curl -s -o /dev/null -w '%{http_code}' "$B/api/device/linked?device_id=$ID")" 401
+
 echo "== boitier oublie sur lui-meme : il quitte le compte (pas un boitier grise)"
 # un second boitier, appaire pour l'occasion : le premier sert encore aux sections suivantes
 R=$(post /api/device/start '{"firmware":"famille-test"}'); DC2=$(echo "$R" | jget "['device_code']"); UC2=$(echo "$R" | jget "['user_code']")
