@@ -10,6 +10,7 @@ export const CAPABILITY = {
   // lui-meme (liste, role, plafond, suppression) est au coeur, toujours la
   accountCreation: "accountCreation",
   installableApp: "installableApp",   // portail installable comme une application (manifeste, service worker)
+  googleHome: "googleHome",   // integration Google Home (cloud-to-cloud) : OAuth + fulfillment, routes au coeur
 } as const;
 export type Capability = (typeof CAPABILITY)[keyof typeof CAPABILITY];
 

@@ -13,6 +13,7 @@ import { externalAuthPlugin } from "./plugins/external-auth.js";
 import { registerDeviceFamily } from "./device-families.js";
 import { registerTheme, BASE_THEME, asTheme } from "./themes.js";
 import { installableAppPlugin } from "./plugins/installable-app.js";
+import { googleHomePlugin } from "./plugins/google-home.js";
 import { customThemePlugin } from "./plugins/theme-custom.js";
 import type { PortalConfig } from "./config.js";
 import { registerAuthProvider, localProvider } from "./auth-provider.js";
@@ -27,7 +28,8 @@ export { CAPABILITY, type Capability, type Plugin, type PluginApi, type PluginIn
 /** Greffons livres avec le portail. */
 export const BUILTIN_PLUGINS: Record<string, Plugin> = {
   [localAccountsPlugin.id]: localAccountsPlugin, [externalAuthPlugin.id]: externalAuthPlugin,
-  [installableAppPlugin.id]: installableAppPlugin, [customThemePlugin.id]: customThemePlugin,
+  [installableAppPlugin.id]: installableAppPlugin, [googleHomePlugin.id]: googleHomePlugin,
+  [customThemePlugin.id]: customThemePlugin,
 };
 /** Actives quand la config n'en dit rien. */
 export const DEFAULT_PLUGINS: readonly string[] = [localAccountsPlugin.id];
