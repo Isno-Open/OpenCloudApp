@@ -35,14 +35,16 @@
       <p class="ask">{tt.ask(data.account)}</p>
       <p class="note">{tt.note}</p>
       <div class="row">
-        <form method="POST" action="?/deny">
+        <form method="POST" action="/google/authorize/decide">
           <input type="hidden" name="redirect_uri" value={data.redirectUri} />
           <input type="hidden" name="state" value={data.state} />
+          <input type="hidden" name="decision" value="deny" />
           <button type="submit" class="ghost">{tt.deny}</button>
         </form>
-        <form method="POST" action="?/allow">
+        <form method="POST" action="/google/authorize/decide">
           <input type="hidden" name="redirect_uri" value={data.redirectUri} />
           <input type="hidden" name="state" value={data.state} />
+          <input type="hidden" name="decision" value="allow" />
           <button type="submit" class="primary">{tt.allow}</button>
         </form>
       </div>
