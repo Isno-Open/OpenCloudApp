@@ -19,6 +19,5 @@ export const load: PageServerLoad = async ({ request, url }) => {
   if (clientId !== configuredClientId() || url.searchParams.get('response_type') !== RESPONSE_TYPE || !validRedirect(redirectUri)) {
     throw error(400, 'Requête de liaison Google invalide.');
   }
-  console.error(`[gh/authorize] in state=${JSON.stringify(state)} redirect=${redirectUri} scope=${url.searchParams.get('scope') ?? ''}`);
   return { account: await resolveAccountId(request), redirectUri, state };
 };

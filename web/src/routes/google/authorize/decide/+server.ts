@@ -24,7 +24,6 @@ export const POST: RequestHandler = async ({ request }) => {
   if (!validRedirect(redirectUri)) throw error(400, 'Redirection invalide.');
   if (decision === DECISION.deny) return toGoogle(redirectUri, { error: 'access_denied', state });
   const account = await resolveAccountId(request);   // cookie de session (first-party)
-  console.error(`[gh/decide] account=${account ?? 'NONE'} out state=${JSON.stringify(state)} redirect=${redirectUri}`);
   if (!account) throw error(401, 'Non connecté.');
   const code = makeAuthCode(account);
   if (!code) throw error(500, 'Signature indisponible.');

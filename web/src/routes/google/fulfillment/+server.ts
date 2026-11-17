@@ -11,11 +11,7 @@ export const POST: RequestHandler = async ({ request }) => {
   const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
   const account = readAccessToken(token);
   // 401 : Google rafraichit alors le jeton (echange refresh_token) et rejoue la requete.
-  if (!account) { console.error(`[gh/fulfillment] 401 token invalide (len=${token.length})`); return new Response(JSON.stringify({ error: 'invalid_token' }), { status: 401, headers: { 'content-type': 'application/json' } }); }
+  if (!account) return new Response(JSON.stringify({ error: 'invalid_token' }), { status: 401, headers: { 'content-type': 'application/json' } });
   const body: unknown = await request.json().catch(() => ({}));
-  const res = await fulfill(account, body);
-  const payload = 'payload' in res ? res.payload : null;
-  const devices = payload !== null && typeof payload === 'object' && 'devices' in payload && Array.isArray(payload.devices) ? payload.devices.length : 'n/a';
-  console.error(`[gh/fulfillment] account=${account} devices=${devices}`);
-  return json(200, res);
+  return json(200, await fulfill(account, body));
 };
