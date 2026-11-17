@@ -29,6 +29,11 @@ async function defaultMode(): Promise<ThemeMode> {
 
 export const handle: Handle = async ({ event, resolve }) => {
   const p = event.url.pathname;
+  // TRACE temporaire : toute requete POST ou /google (pour voir EXACTEMENT ce que Google appelle,
+  // meme un chemin faux qui finirait en 404). A retirer apres le diagnostic de la liaison Google Home.
+  if (event.request.method === 'POST' || p.includes('google') || p.includes('token') || p.includes('fulfill')) {
+    console.error(`[gh/req] ${event.request.method} ${p} ua=${(event.request.headers.get('user-agent') ?? '').slice(0, 30)}`);
+  }
   event.locals.lang = langOfPath(p);
   const bypass = p === SETUP_PATH || p.startsWith('/api/setup') || p.startsWith('/_app') || p.includes('.');
   if (!isConfigured()) {
