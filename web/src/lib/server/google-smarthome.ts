@@ -11,7 +11,7 @@ import { findDevice } from '@opencloudapp/core/store.js';
 import { familyById, buildCommand } from '@opencloudapp/core/device-families.js';
 import { publishCommand } from '@opencloudapp/core/mqtt.js';
 import { CONTROL, KIND_PLACE } from '@opencloudapp/core/family-contract.js';
-import { homeGraphReady } from '#lib/server/google-homegraph.ts';
+import { homeGraphReady, reportState } from '#lib/server/google-homegraph.ts';
 import type { Appareil } from '#lib/types.ts';
 
 /** Vocabulaire du protocole Smart Home de Google (chaines fixees par Google : declarees une fois ici). */
@@ -48,10 +48,21 @@ function openPercentOf(a: Appareil): number | null {
   return typeof v === 'number' ? clamp(100 - v, 0, 100) : null;
 }
 
-/** Etat d'un appareil au format Google (en ligne + position si positionnel). */
+// Etat OPTIMISTE : juste apres une commande (fenetre courte), on renvoie le % COMMANDE plutot que la
+// position firmware. Deux raisons : un portail sans retour n'a pas de position a lire ; et un volet a
+// course chronometree rapporte a ~1 % pres (Google teste au % exact). Passee la fenetre, on rend la
+// vraie position si l'appareil la remonte.
+const OPTIMISTIC_MS = 90_000;
+const lastCommanded = new Map<string, { pct: number; at: number }>();
+
+/** Etat d'un appareil au format Google. `openPercent` TOUJOURS present (le trait OpenClose l'exige). */
 function applianceState(a: Appareil): Record<string, unknown> {
-  const op = openPercentOf(a);
-  return { online: a.online, ...(op !== null ? { openPercent: op } : {}) };
+  const real = openPercentOf(a);
+  const c = lastCommanded.get(a.id);
+  let op = real;
+  if (c && Date.now() - c.at < OPTIMISTIC_MS) op = c.pct;   // juste apres une commande : valeur commandee
+  else if (op === null) op = c?.pct ?? 0;                   // pas de position reelle : derniere commandee, sinon ferme
+  return { online: a.online, openPercent: op };
 }
 
 /** SYNC : la liste des appareils du compte, en appareils Google. */
@@ -64,7 +75,7 @@ export async function onSync(accountId: string): Promise<{ agentUserId: string; 
       traits: [GOOGLE.trait.openClose],
       name: { name: a.name },
       willReportState: homeGraphReady(),   // true : on pousse l'etat (Report State) ; sinon Google interroge (QUERY)
-      attributes: positional ? { discreteOnlyOpenClose: false } : { discreteOnlyOpenClose: true, commandOnlyOpenClose: true },
+      attributes: positional ? { discreteOnlyOpenClose: false } : { discreteOnlyOpenClose: true },
       deviceInfo: { manufacturer: 'ISNO', model: a.kind ? a.kind.id : a.declaredType },
     };
   });
@@ -133,14 +144,19 @@ export async function onExecute(accountId: string, commands: readonly unknown[])
         if (!dev || !fam || !cmd) { failed.push(id); continue; }
         const r = buildCommand(fam, { box: a.boitierId, device: a.slug }, cmd.control, cmd.value);
         if ('error' in r) { failed.push(id); continue; }
-        try { publishCommand(r.topic, r.payload, r.retain); ok.push({ id, openPercent }); }
+        try { publishCommand(r.topic, r.payload, r.retain); lastCommanded.set(id, { pct: openPercent, at: Date.now() }); ok.push({ id, openPercent }); }
         catch { offline.push(id); }
       }
     }
   }
 
   const groups: object[] = [];
-  if (ok.length) groups.push({ ids: ok.map((x) => x.id), status: GOOGLE.status.success, states: { online: true } });
+  // Succes groupes par openPercent : la reponse EXECUTE porte le nouvel etat (commande), que le QUERY
+  // suivant retrouvera (etat optimiste). On pousse aussi un Report State pour tenir Google a jour.
+  const byPct = new Map<number, string[]>();
+  for (const x of ok) { const l = byPct.get(x.openPercent) ?? []; l.push(x.id); byPct.set(x.openPercent, l); }
+  for (const [pct, pids] of byPct) groups.push({ ids: pids, status: GOOGLE.status.success, states: { online: true, openPercent: pct } });
+  if (ok.length) void reportState(accountId, Object.fromEntries(ok.map((x) => [x.id, { online: true, openPercent: x.openPercent }])));
   if (offline.length) groups.push({ ids: offline, status: GOOGLE.status.offline, errorCode: GOOGLE.error.offline });
   if (notFound.length) groups.push({ ids: notFound, status: GOOGLE.status.error, errorCode: GOOGLE.error.notFound });
   if (failed.length) groups.push({ ids: failed, status: GOOGLE.status.error, errorCode: GOOGLE.error.notSupported });
