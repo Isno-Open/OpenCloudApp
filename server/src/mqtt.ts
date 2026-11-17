@@ -26,6 +26,12 @@ export const isLiveActivity = (retained: boolean, onlineNow: boolean | null): bo
 /** Le boitier est-il connecte ? Faute d'annonce (jamais vu), non. */
 export const deviceOnline = (family: string, box: string): boolean => boxState(family, box)?.online === true;
 
+// Ecouteurs « boitier mis a jour » : appeles apres chaque message applique (meme modele que
+// onFamilyRegistered). Le portail s'en sert pour pousser l'etat a Google (Report State) ; le coeur
+// ne connait ni Google ni les comptes, il signale seulement qu'un boitier a bouge.
+const boxUpdateListeners: ((family: string, box: string) => void)[] = [];
+export function onBoxUpdated(l: (family: string, box: string) => void): void { boxUpdateListeners.push(l); }
+
 const released = new Set<string>();   // boitiers oublies deja retires
 let client: MqttClient | null = null;
 function get(brokerUrl: string): MqttClient {
@@ -41,6 +47,7 @@ function get(brokerUrl: string): MqttClient {
     const now = Date.now();
     const r = applyMessage(t, p.toString("utf8"), packet.retain, now);
     if (!r) return;
+    for (const l of boxUpdateListeners) { try { l(r.family.id, r.box); } catch (e) { console.error("[mqtt relay] hook boitier:", e instanceof Error ? e.message : e); } }
     for (const why of r.refused) console.error(`[mqtt relay] ${r.family.id}/${r.box} : ${why}`);
     const st = boxState(r.family.id, r.box);
     // oublie sur le boitier lui-meme : il quitte le compte (retenu compris : le portail etait peut-etre

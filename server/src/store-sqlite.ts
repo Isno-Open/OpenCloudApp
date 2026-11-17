@@ -100,6 +100,11 @@ export function findDevice(deviceId: string, accountId: string): Promise<Device 
   const r = db.prepare(`SELECT ${DEVICE_COLS} FROM devices WHERE device_id = ? AND account_id = ?`).get(deviceId, accountId) as Device | undefined;
   return Promise.resolve(r ?? null);
 }
+export function deviceAccount(deviceId: string): Promise<string | null> {
+  const r = db.prepare("SELECT account_id AS accountId FROM devices WHERE device_id = ?").get(deviceId);
+  const a = r !== null && typeof r === "object" ? Object.getOwnPropertyDescriptor(r, "accountId")?.value : undefined;
+  return Promise.resolve(typeof a === "string" ? a : null);
+}
 export function addDevice(d: Device): Promise<void> {
   db.prepare("INSERT INTO devices (device_id, account_id, name, firmware, paired_at) VALUES (?,?,?,?,?)").run(d.deviceId, d.accountId, d.name, d.firmware, Date.now()); return Promise.resolve();
 }

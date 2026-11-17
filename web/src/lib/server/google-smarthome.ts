@@ -11,6 +11,7 @@ import { findDevice } from '@opencloudapp/core/store.js';
 import { familyById, buildCommand } from '@opencloudapp/core/device-families.js';
 import { publishCommand } from '@opencloudapp/core/mqtt.js';
 import { CONTROL, KIND_PLACE } from '@opencloudapp/core/family-contract.js';
+import { homeGraphReady } from '#lib/server/google-homegraph.ts';
 import type { Appareil } from '#lib/types.ts';
 
 /** Vocabulaire du protocole Smart Home de Google (chaines fixees par Google : declarees une fois ici). */
@@ -47,6 +48,12 @@ function openPercentOf(a: Appareil): number | null {
   return typeof v === 'number' ? clamp(100 - v, 0, 100) : null;
 }
 
+/** Etat d'un appareil au format Google (en ligne + position si positionnel). */
+function applianceState(a: Appareil): Record<string, unknown> {
+  const op = openPercentOf(a);
+  return { online: a.online, ...(op !== null ? { openPercent: op } : {}) };
+}
+
 /** SYNC : la liste des appareils du compte, en appareils Google. */
 export async function onSync(accountId: string): Promise<{ agentUserId: string; devices: object[] }> {
   const devices = (await listAppareils(accountId)).filter(exposable).map((a) => {
@@ -56,7 +63,7 @@ export async function onSync(accountId: string): Promise<{ agentUserId: string; 
       type: positional ? GOOGLE.type.blinds : GOOGLE.type.gate,
       traits: [GOOGLE.trait.openClose],
       name: { name: a.name },
-      willReportState: false,   // phase 1 : Google interroge l'etat (QUERY), pas de Report State
+      willReportState: homeGraphReady(),   // true : on pousse l'etat (Report State) ; sinon Google interroge (QUERY)
       attributes: positional ? { discreteOnlyOpenClose: false } : { discreteOnlyOpenClose: true, commandOnlyOpenClose: true },
       deviceInfo: { manufacturer: 'ISNO', model: a.kind ? a.kind.id : a.declaredType },
     };
@@ -71,8 +78,17 @@ export async function onQuery(accountId: string, ids: readonly string[]): Promis
   for (const id of ids) {
     const a = byId.get(id);
     if (!a) { out[id] = { status: GOOGLE.status.error, errorCode: GOOGLE.error.notFound }; continue; }
-    const op = openPercentOf(a);
-    out[id] = { status: GOOGLE.status.success, online: a.online, ...(op !== null ? { openPercent: op } : {}) };
+    out[id] = { status: GOOGLE.status.success, ...applianceState(a) };
+  }
+  return out;
+}
+
+/** Etats a pousser a Google (Report State), par id d'appareil ; optionnellement pour un seul boitier. */
+export async function reportableStates(accountId: string, boxId?: string): Promise<Record<string, object>> {
+  const out: Record<string, object> = {};
+  for (const a of (await listAppareils(accountId)).filter(exposable)) {
+    if (boxId !== undefined && a.boitierId !== boxId) continue;
+    out[a.id] = applianceState(a);
   }
   return out;
 }

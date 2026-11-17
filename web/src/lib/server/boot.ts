@@ -10,6 +10,7 @@ import { loadConfig, applyStoreEnv } from '@opencloudapp/core/config.js';
 import { ensureCA, ensureRelayCert } from '@opencloudapp/core/pki.js';
 import { prepareBroker, brokerInternal } from '#lib/server/broker.ts';
 import { loadPlugins, enabledPlugins } from '@opencloudapp/core/plugins.js';
+import { startGoogleReporting } from '#lib/server/google-report.ts';
 
 const log = (what: string, e: unknown) => console.error(`[boot] ${what} :`, e instanceof Error ? e.message : e);
 
@@ -32,6 +33,7 @@ export function boot(): Promise<void> {
       const internal = await brokerInternal();
       if ('error' in internal) log('relais', internal.error); else startRelay(internal.url);
     } catch (e) { log('broker/relais', e); }
+    startGoogleReporting();   // Report State vers Google sur mise a jour d'un boitier (inactif sans cle HomeGraph)
   })();
   return started;
 }

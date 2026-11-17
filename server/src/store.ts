@@ -25,6 +25,8 @@ export const removeAccount = (id: string): Promise<void> => m().removeAccount(id
 export const countDevices = (a: string): Promise<number> => m().countDevices(a);
 export const listDevices = (a: string): Promise<Device[]> => m().listDevices(a);
 export const findDevice = (d: string, a: string): Promise<Device | null> => m().findDevice(d, a);
+/** Compte proprietaire d'un boitier, par son seul identifiant (le message MQTT ne porte pas le compte). */
+export const deviceAccount = (d: string): Promise<string | null> => m().deviceAccount(d);
 export const addDevice = (d: Device): Promise<void> => m().addDevice(d);
 export const touchDevice = (d: string, at: number): Promise<void> => m().touchDevice(d, at);
 export const touchAccount = (a: string, at: number): Promise<void> => m().touchAccount(a, at);

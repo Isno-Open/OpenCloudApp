@@ -53,6 +53,7 @@ export async function setAccountPass(id: string, passHash: string): Promise<void
 export const countDevices = (accountId: string): Promise<number> => devices().countDocuments({ accountId });
 export const listDevices = (accountId: string): Promise<Device[]> => devices().find({ accountId }, { projection: { _id: 0 } }).toArray();
 export const findDevice = (deviceId: string, accountId: string): Promise<Device | null> => devices().findOne({ deviceId, accountId }, { projection: { _id: 0 } });
+export const deviceAccount = async (deviceId: string): Promise<string | null> => (await devices().findOne({ deviceId }, { projection: { accountId: 1, _id: 0 } }))?.accountId ?? null;
 export async function addDevice(d: Device): Promise<void> { await devices().insertOne({ ...d, pairedAt: Date.now() }); }
 /** Note la derniere activite d'un boitier (quel que soit son compte). */
 export async function touchDevice(deviceId: string, at: number): Promise<void> { await devices().updateOne({ deviceId }, { $set: { lastSeenAt: at } }); }
