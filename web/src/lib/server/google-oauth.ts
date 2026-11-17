@@ -9,8 +9,9 @@ import { storedPluginSecret } from '@opencloudapp/core/plugin-secrets.js';
 import { googleHomeSettings, GOOGLE_HOME_ID } from '@opencloudapp/core/plugins/google-home.js';
 import { plugins } from '#lib/server/auth.ts';
 
-/** Hote de redirection OAuth de Google (account linking) : seule destination acceptee pour un code. */
-export const GOOGLE_REDIRECT_HOST = 'oauth-redirect.googleusercontent.com';
+/** Hotes de redirection OAuth de Google (account linking) : seules destinations acceptees pour un code.
+ *  Production ET bac a sable (mode test / [test] dans l'app Google Home), les deux listes par la doc. */
+export const GOOGLE_REDIRECT_HOSTS = ['oauth-redirect.googleusercontent.com', 'oauth-redirect-sandbox.googleusercontent.com'] as const;
 
 const AUTH_CODE_TTL_MS = 10 * 60_000;
 const ACCESS_TTL_MS = 60 * 60_000;
@@ -92,9 +93,9 @@ export function clientOk(request: Request, body: Record<string, unknown>): boole
   return safeEq(id, clientId) && safeEq(secret, clientSecret);
 }
 
-/** L'adresse de redirection est-elle bien celle de Google ? */
+/** L'adresse de redirection est-elle bien celle de Google (production ou bac a sable) ? */
 export function validRedirect(uri: string): boolean {
-  try { const u = new URL(uri); return u.protocol === 'https:' && u.host === GOOGLE_REDIRECT_HOST; }
+  try { const u = new URL(uri); return u.protocol === 'https:' && GOOGLE_REDIRECT_HOSTS.some((h) => h === u.host); }
   catch { return false; }
 }
 
