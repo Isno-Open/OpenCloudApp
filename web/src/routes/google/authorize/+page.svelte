@@ -2,10 +2,13 @@
   // Ecran de consentement : « Autoriser Google Home a piloter vos volets/portails ? ». Textes bilingues
   // en local (page isolee, atteinte depuis l'app Google Home), gabarit sans barre comme la connexion.
   import BareLayout from '#lib/components/layout/BareLayout.svelte';
+  import { onMount } from 'svelte';
   import { ROUTES, LANG, type Lang } from '#lib/i18n.ts';
   import type { PageProps } from './$types';
   const { data }: PageProps = $props();
   const lang = $derived<Lang>(data.lang === LANG.en ? LANG.en : LANG.fr);
+  // Pas de session dans la fenetre de Google : on passe par l'auth normale (SSO), qui revient ici.
+  onMount(() => { if (!data.account && data.ssoUrl) location.replace(data.ssoUrl); });
 
   const T = {
     fr: {
@@ -13,6 +16,7 @@
       ask: (acc: string) => `Autoriser Google Home à voir et piloter les volets et portails du compte ${acc} ?`,
       note: 'Vous pourrez retirer cet accès à tout moment depuis l’app Google Home.',
       allow: 'Autoriser', deny: 'Refuser',
+      redirecting: 'Redirection vers la connexion ISNO…',
       needLogin: 'Connectez-vous à votre compte ISNO dans ce navigateur, puis relancez la liaison depuis l’app Google Home.',
       login: 'Se connecter',
     },
@@ -21,6 +25,7 @@
       ask: (acc: string) => `Allow Google Home to see and control the shutters and gates of account ${acc}?`,
       note: 'You can remove this access at any time from the Google Home app.',
       allow: 'Allow', deny: 'Deny',
+      redirecting: 'Redirecting to ISNO sign-in…',
       needLogin: 'Sign in to your ISNO account in this browser, then start the linking again from the Google Home app.',
       login: 'Sign in',
     },
@@ -48,6 +53,9 @@
           <button type="submit" class="primary">{tt.allow}</button>
         </form>
       </div>
+    {:else if data.ssoUrl}
+      <p class="ask">{tt.redirecting}</p>
+      <a class="primary" href={data.ssoUrl}>{tt.login}</a>
     {:else}
       <p class="ask">{tt.needLogin}</p>
       <a class="primary" href={ROUTES.connexion[lang]}>{tt.login}</a>
