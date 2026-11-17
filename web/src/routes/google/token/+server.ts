@@ -11,13 +11,16 @@ const reply = (status: number, body: object): Response =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
 
 export const POST: RequestHandler = async ({ request }) => {
-  if (!(await googleHomeReady())) return reply(404, { error: 'invalid_client' });
+  if (!(await googleHomeReady())) { console.error('[gh/token] 404 not ready'); return reply(404, { error: 'invalid_client' }); }
   const b = await readBody(request);
-  if (!clientOk(request, b)) return reply(401, { error: 'invalid_client' });
+  const ok = clientOk(request, b);
+  console.error(`[gh/token] grant=${String(b.grant_type ?? '')} clientOk=${ok} auth=${(request.headers.get('authorization') ?? 'none').slice(0, 6)} bodyKeys=${Object.keys(b).join(',')}`);
+  if (!ok) return reply(401, { error: 'invalid_client' });
 
   const grant = String(b.grant_type ?? '');
   if (grant === GRANT.code) {
     const acc = readAuthCode(String(b.code ?? ''));
+    console.error(`[gh/token] code grant -> account=${acc ?? 'INVALID'}`);
     if (!acc) return reply(400, { error: 'invalid_grant' });
     const access = makeAccessToken(acc), refresh = makeRefreshToken(acc);
     if (!access || !refresh) return reply(500, { error: 'server_error' });
