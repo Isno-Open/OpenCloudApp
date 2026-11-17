@@ -247,7 +247,7 @@
       <section class="step" data-step="2" hidden={stepN !== 2}>
         <h3>Socle</h3>
         <div class="field"><label for="appHost">Nom d'hôte du portail</label><input id="appHost" name="appHost" type="text" placeholder="cloud.exemple.fr" spellcheck="false" autocapitalize="none" required bind:value={f.appHost} /><span class="hint">L'adresse où vous êtes en ce moment.</span></div>
-        <div class="field"><label for="brokerHost">Nom d'hôte du broker MQTT</label><input id="brokerHost" name="brokerHost" type="text" placeholder="mqtt.exemple.fr" spellcheck="false" autocapitalize="none" required bind:value={f.brokerHost} /><span class="hint">Le nom sous lequel les boîtiers joindront le broker : public (Internet) ou réseau local. Son certificat sera créé avec ce nom.</span></div>
+        <div class="field"><label for="brokerHost">Nom d'hôte du broker MQTT</label><input id="brokerHost" name="brokerHost" type="text" placeholder="mqtt.exemple.fr" spellcheck="false" autocapitalize="none" required bind:value={f.brokerHost} /><span class="hint">Le nom sous lequel les cartes joindront le broker : public (Internet) ou réseau local. Son certificat sera créé avec ce nom.</span></div>
         <div class="bar" id="brokerBarWrap" hidden={brokerProgress === null}><span id="brokerBar" style={`width:${brokerProgress ?? 0}%`}></span></div>
         <h3 class="sub-h">Admin du portail</h3>
         <div class="field"><label for="adminEmail">E-mail</label><input id="adminEmail" name="adminEmail" type="email" autocomplete="email" required bind:value={f.adminEmail} /><span class="hint">Votre identifiant de connexion. Vous aurez accès à Paramètres et Plugins.</span></div>

@@ -17,7 +17,7 @@ export const POST: RequestHandler = async ({ request }) => {
   if (!dev) return json(403, { error: 'device non possédé' });
   await plugins();
   const fam = familyById(dev.firmware);
-  if (!fam) return json(409, { error: 'famille de boîtiers non installée' });
+  if (!fam) return json(409, { error: 'famille de cartes non installée' });
   const r = buildCommand(fam, slug ? { box: deviceId, device: slug } : { box: deviceId }, control, b.value ?? null);
   if ('error' in r) return json(400, { error: r.error });
   try { publishCommand(r.topic, r.payload, r.retain); } catch { return json(503, { error: 'relais indisponible' }); }

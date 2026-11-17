@@ -140,7 +140,7 @@ chk "type gere : libelles declares par sa famille" "$(echo "$PAGE" | grep -c 'ar
 chk "position reglable : un curseur par volet positionnel (volet et salon)" "$(echo "$PAGE" | grep -o 'data-control="position"' | wc -l)" 2
 chk "type non gere : pas de commandes" "$(echo "$PAGE" | grep -c 'data-slug="pergola"')" 0
 chk "type non gere : nomme dans la carte inconnue" "$(echo "$PAGE" | grep -c 'Type « pergola » non géré par ce portail.')" 1
-chk "aucun type declare : dit tel quel" "$(echo "$PAGE" | grep -c 'Le boîtier ne déclare aucun type pour cet appareil.')" 1
+chk "aucun type declare : dit tel quel" "$(echo "$PAGE" | grep -c 'La carte ne déclare aucun type pour cet appareil.')" 1
 # le boitier disparait : son testament (offline, retenu) est publie par le broker a sa place
 docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/status" -m 'offline'
 sleep 3
@@ -211,8 +211,8 @@ echo "== cloud coupe sur le boitier : annonce, dit tel quel (pas une panne)"
 docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/status" -m disabled
 sleep 2
 BOX=$(curl -s -b "$J" "$B/boitier/$ID")
-chk "cloud coupe : etat du boitier" "$(echo "$BOX" | grep -c '>cloud désactivé sur le boîtier<')" 1
-chk "cloud coupe : mode cloud en lecture" "$(echo "$BOX" | grep -c '>désactivé sur le boîtier<')" 1
+chk "cloud coupe : etat du boitier" "$(echo "$BOX" | grep -c '>cloud désactivé sur la carte<')" 1
+chk "cloud coupe : mode cloud en lecture" "$(echo "$BOX" | grep -c '>désactivé sur la carte<')" 1
 chk "cloud coupe : signale sur l'accueil" "$(curl -s -b "$J" "$B/" | grep -c 'data-cloud-off')" 1
 docker run --rm -v "$WORK:/d:ro" "${PUB[@]}" -t "famille-test/$ID/status" -m online
 sleep 2

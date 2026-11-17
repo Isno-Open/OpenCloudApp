@@ -17,7 +17,7 @@ const MEDIA: Readonly<Record<BoxFileType, { ext: string; mime: string }>> = {
 };
 /** Nom du fichier telecharge : nom du boitier rendu sur, le fichier, la date du jour. */
 const fileName = (box: string, file: string, ext: string): string =>
-  `${box.normalize('NFD').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'boitier'}-${file}-${new Date().toISOString().slice(0, 10)}.${ext}`;
+  `${box.normalize('NFD').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'carte'}-${file}-${new Date().toISOString().slice(0, 10)}.${ext}`;
 
 export const GET: RequestHandler = async ({ request, url }) => {
   const acc = await resolveAccountId(request);
@@ -27,17 +27,17 @@ export const GET: RequestHandler = async ({ request, url }) => {
   if (!dev) return json(403, { error: 'device non possédé' });
   await plugins();
   const fam = familyById(dev.firmware);
-  if (!fam) return json(409, { error: 'famille de boîtiers non installée' });
+  if (!fam) return json(409, { error: 'famille de cartes non installée' });
   const decl = (fam.boxFiles ?? []).find((d) => d.id === file);
-  if (!decl) return json(404, { error: 'fichier du boîtier inconnu' });
-  if (!deviceOnline(dev.firmware, deviceId)) return json(409, { error: 'boîtier hors ligne' });
+  if (!decl) return json(404, { error: 'fichier de la carte inconnu' });
+  if (!deviceOnline(dev.firmware, deviceId)) return json(409, { error: 'carte hors ligne' });
   const r = buildFileRequest(fam, deviceId, file);
   if ('error' in r) return json(400, { error: r.error });
   // s'inscrire AVANT de publier : la reponse peut arriver aussitot
   const answer = awaitBoxFile(fam.id, deviceId, file, FILE_WAIT_MS);
   try { publishCommand(r.topic, r.payload, r.retain); } catch { return json(503, { error: 'relais indisponible' }); }
   const content = await answer;
-  if (content === null) return json(504, { error: 'le boîtier n’a pas répondu' });
+  if (content === null) return json(504, { error: 'la carte n’a pas répondu' });
   const m = MEDIA[decl.type];
   return new Response(content, { status: 200, headers: {
     'content-type': `${m.mime}; charset=utf-8`,
