@@ -4,16 +4,26 @@
 import { onBoxUpdated } from '@opencloudapp/core/mqtt.js';
 import { deviceAccount } from '@opencloudapp/core/store.js';
 import { reportableStates } from '#lib/server/google-smarthome.ts';
-import { reportState, homeGraphReady } from '#lib/server/google-homegraph.ts';
+import { reportState, requestSync, homeGraphReady } from '#lib/server/google-homegraph.ts';
 
 const DEBOUNCE_MS = 1500;
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
+// Derniere liste d'appareils connue par boitier : si elle change (ajout/retrait d'un volet), on demande
+// a Google de resynchroniser, sinon le nouvel appareil ne lui apparaitrait jamais (Report State ne fait
+// que mettre a jour l'etat d'appareils deja connus).
+const lastIds = new Map<string, string>();
 
 async function push(box: string): Promise<void> {
   try {
     const account = await deviceAccount(box);   // le message MQTT ne porte pas le compte
     if (!account) return;
-    await reportState(account, await reportableStates(account, box));
+    const states = await reportableStates(account, box);
+    const ids = Object.keys(states).sort().join(',');
+    if (lastIds.get(box) !== ids) {
+      lastIds.set(box, ids);
+      await requestSync(account);   // la liste a change : Google re-synchronise (le nouveau volet apparait)
+    }
+    await reportState(account, states);
   } catch (e) { console.error('[google-report]', e instanceof Error ? e.message : e); }
 }
 
