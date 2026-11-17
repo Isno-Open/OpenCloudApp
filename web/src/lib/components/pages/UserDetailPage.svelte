@@ -99,8 +99,10 @@
 </CloudLayout>
 
 <style>
+  /* Les .panel n'ont pas de marge propre (ailleurs ils vivent dans une grille a gap) ; ici ils sont
+     empiles en freres, donc on leur donne l'espacement, sinon les cartes se touchent (« collees »). */
+  .panel { margin-bottom: .9rem; }
   .ud-h { margin: 1.2rem 0 .6rem; font-size: 1.05rem; }
-  .ud-box { margin-bottom: .9rem; }
   .ud-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 0 1.4rem; }
   .ud-box h4 { margin: .9rem 0 .4rem; font-size: .85rem; color: var(--text-muted); }
   .ud-apps { display: grid; gap: .3rem; }
