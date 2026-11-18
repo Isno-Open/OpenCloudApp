@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
+    "build": "node ../scripts/check-charte.mjs && vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings && tsc -p src/service-worker/tsconfig.json --noEmit",
     "types": "svelte-kit sync && node node_modules/@typescript/native/bin/tsc --noEmit"

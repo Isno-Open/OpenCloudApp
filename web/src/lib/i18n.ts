@@ -26,7 +26,7 @@ interface S {
   details: string; dragHandle: string; reorderError: string; rename: string; typeWord: string; positional: string; impulsional: string;
   unknownDevice: string; unknownDeclared: (type: string) => string; unknownNoType: string;
   lastSeen: (when: string) => string; lastSeenLabel: string;
-  posWord: string; unknownValue: string; on: string; off: string; radioState: (dbm: number) => string; offline: string; offlineSuffix: string; nameLabel: string;
+  posWord: string; posState: (open: number) => string; posUnknown: string; unknownValue: string; on: string; off: string; radioState: (dbm: number) => string; offline: string; offlineSuffix: string; nameLabel: string;
   // etat appareil
   online: string; offlineShort: string;
   /** etat d'une carte en un mot : en ligne, cloud coupe sur la carte, ou hors ligne (panne) */
@@ -98,6 +98,9 @@ interface S {
   generalTitle: string; appNameLabel: string; appNameHint: string; themeLabel: string; themeHint: string; saveBtn: string; savedMsg: string; saveError: string;
 }
 
+/** Bornes ou une position (en % d'ouverture) se lit « ouvert » ou « fermé », comme sur le boitier. */
+export const POS_EDGE = { open: 99, closed: 1 } as const;
+
 export const STRINGS = {
   [LANG.fr]: {
     brandAria: 'ISNO Cloud, accueil', themeToggle: 'Basculer le thème clair / sombre', menu: 'Menu', navMore: 'Plus', navMain: 'Navigation principale',
@@ -109,7 +112,7 @@ export const STRINGS = {
     details: 'Détails', dragHandle: 'Glisser pour déplacer', reorderError: 'Déplacement refusé.', rename: 'Renommer', typeWord: 'Type', positional: 'positionnel', impulsional: 'impulsionnel',
     lastSeen: (when: string) => `vu ${when}`, lastSeenLabel: 'Dernière activité',
     unknownDevice: 'Appareil inconnu', unknownDeclared: (type: string) => `Type « ${type} » non géré par ce portail.`, unknownNoType: 'La carte ne déclare aucun type pour cet appareil.',
-    posWord: 'Position', unknownValue: 'inconnu', on: 'marche', off: 'arrêt', radioState: (d) => `reçu ${d} dBm`, offline: 'hors ligne', offlineSuffix: ' · hors ligne', nameLabel: 'Nom',
+    posWord: 'Position', posState: (o) => (o >= POS_EDGE.open ? 'Ouvert' : o <= POS_EDGE.closed ? 'Fermé' : `Fermé à ${100 - o} %`), posUnknown: 'Position inconnue', unknownValue: 'inconnu', on: 'marche', off: 'arrêt', radioState: (d) => `reçu ${d} dBm`, offline: 'hors ligne', offlineSuffix: ' · hors ligne', nameLabel: 'Nom',
     online: 'en ligne', offlineShort: 'hors ligne',
     presence: (on, dis) => (on ? 'en ligne' : dis ? 'cloud désactivé sur la carte' : 'hors ligne'),
     cloudMode: 'Mode cloud', cloudModeValue: (on, dis) => (on ? 'activé' : dis ? 'désactivé sur la carte' : 'inconnu (carte injoignable)'), updAvail: 'maj dispo', configure: 'Configurer', devicesWord: 'volets',
@@ -223,7 +226,7 @@ export const STRINGS = {
     details: 'Details', dragHandle: 'Drag to move', reorderError: 'Move refused.', rename: 'Rename', typeWord: 'Type', positional: 'positional', impulsional: 'pulsed',
     lastSeen: (when: string) => `seen ${when}`, lastSeenLabel: 'Last activity',
     unknownDevice: 'Unknown device', unknownDeclared: (type: string) => `Type "${type}" is not supported by this portal.`, unknownNoType: 'The box declares no type for this device.',
-    posWord: 'Position', unknownValue: 'unknown', on: 'on', off: 'off', radioState: (d) => `received ${d} dBm`, offline: 'offline', offlineSuffix: ' · offline', nameLabel: 'Name',
+    posWord: 'Position', posState: (o) => (o >= POS_EDGE.open ? 'Open' : o <= POS_EDGE.closed ? 'Closed' : `Closed ${100 - o} %`), posUnknown: 'Unknown position', unknownValue: 'unknown', on: 'on', off: 'off', radioState: (d) => `received ${d} dBm`, offline: 'offline', offlineSuffix: ' · offline', nameLabel: 'Name',
     online: 'online', offlineShort: 'offline',
     presence: (on, dis) => (on ? 'online' : dis ? 'cloud turned off on the box' : 'offline'),
     cloudMode: 'Cloud mode', cloudModeValue: (on, dis) => (on ? 'on' : dis ? 'turned off on the box' : 'unknown (box unreachable)'), updAvail: 'update', configure: 'Configure', devicesWord: 'shutters',

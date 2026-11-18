@@ -65,13 +65,13 @@
   {#snippet icon()}
     <IconMark icon={a.kind.icon} label={a.kind.label[lang]} />
   {/snippet}
-  {#snippet badge()}{#if pos !== null}<span class="pct">{pos} %</span>{/if}{/snippet}
   {#if actions.length}
     <div class="dpad" data-device={a.boitierId} data-slug={a.slug}>
       {#each actions as c (c.id)}
         <button type="button" class={{ sending: sending === c.id }} data-action={c.id} title={c.label[lang]} aria-label={c.label[lang]} disabled={!a.online}
           onclick={() => { if (c.kind === CONTROL.action && c.confirm) asking = c.id; else void send(c.id); }}>
-          {#if c.kind === CONTROL.action && c.icon}<IconMark icon={c.icon} label={c.label[lang]} />{:else}{c.label[lang]}{/if}
+          <!-- comme sur le boitier : le symbole, et le libelle dessous -->
+          {#if c.kind === CONTROL.action && c.icon}<span class="sym"><IconMark icon={c.icon} label={c.label[lang]} /></span>{/if}<span class="lbl">{c.label[lang]}</span>
         </button>
       {/each}
     </div>
@@ -86,13 +86,17 @@
     {/if}
   {/each}
   {#if position}
-    <!-- UNE barre, comme sur OpenProfalux : la barre rayee montre la position ; si elle se regle, un
-         curseur invisible la recouvre (clic, glisser, clavier), sans seconde barre a l'ecran. -->
-    <div class="slat" style={`--p:${pos ?? 0}${a.online ? '' : ';opacity:.5'}`} title={pos !== null ? `${pos} %` : undefined}>
-      {#if position.kind === CONTROL.position && position.settable}
-        <input class="pos-range" type="range" min="0" max="100" step="1" value={pos ?? 0} aria-label={position.label[lang]} data-control={position.id}
-          disabled={!a.online} onchange={(e) => send(position.id, Number(e.currentTarget.value))} />
-      {/if}
+    <!-- UNE barre, comme sur le boitier : elle montre la FERMETURE (pleine = ferme) et sa poignee ; si la
+         position se regle, un curseur invisible la recouvre (clic, glisser, clavier), sans seconde barre. -->
+    <div class="position">
+      <div class={['gauge', { disabled: !a.online }]} style={`--p:${pos === null ? 50 : 100 - pos}`} title={pos !== null ? s.posState(pos) : undefined}>
+        <span class="fill"></span><span class="handle"></span>
+        {#if position.kind === CONTROL.position && position.settable}
+          <input class="pos-range" type="range" min="0" max="100" step="1" value={pos === null ? 50 : 100 - pos} aria-label={position.label[lang]} data-control={position.id}
+            disabled={!a.online} onchange={(e) => send(position.id, 100 - Number(e.currentTarget.value))} />
+        {/if}
+      </div>
+      <span class="pos-label">{pos === null ? s.posUnknown : s.posState(pos)}</span>
     </div>
   {/if}
   {#each others as c (c.id)}
@@ -130,7 +134,7 @@
   .ask .note { flex-basis: 100%; margin: 0; }
   .pos-range { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
   .pos-range:disabled { cursor: not-allowed; }
-  .slat:has(.pos-range:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .gauge:has(.pos-range:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
   .ctl-toggle, .ctl-setpoint { display: flex; gap: 0.5rem; align-items: center; }
   .ctl-setpoint input { width: 5rem; }
   .ctl-reading.alert { color: var(--danger); }

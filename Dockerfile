@@ -17,6 +17,8 @@ RUN cd server && npm run build
 COPY web/package.json ./web/
 RUN cd web && npm install --no-audit --no-fund
 COPY web/ ./web/
+# controle de la charte (copie de celle du boitier) : appele par le build du web
+COPY scripts/check-charte.mjs ./scripts/
 RUN cd web && npm run build
 
 # Modeles de configuration du broker (un seul exemplaire, config/ du depot), copies a l'installation.
