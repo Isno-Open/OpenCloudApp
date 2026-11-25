@@ -3,7 +3,9 @@
 //   /setup, ses API et les fichiers). Lecture de config seule : aucune base requise.
 // - Double authentification EXIGEE (politique du plugin) mais pas encore activee : renvoi vers Compte.
 import { redirect } from '@sveltejs/kit';
-import type { Handle } from '@sveltejs/kit/hooks';
+import type { Handle, ServerInit } from '@sveltejs/kit/hooks';
+import { building } from '$app/env';
+import { boot } from '#lib/server/boot.ts';
 import { isConfigured, setupWindowRemaining, SETUP_WINDOW_S } from '@opencloudapp/core/config.js';
 import { getAccount } from '@opencloudapp/core/store.js';
 import { localAccountsSettings, totpRequiredFor } from '@opencloudapp/core/plugins/local-accounts-settings.js';
@@ -16,6 +18,16 @@ import { ROUTES, langOfPath } from '#lib/i18n.ts';
 // Pages toujours accessibles a un compte qui doit encore activer sa double authentification.
 const TOTP_FREE = new Set<string>([...Object.values(ROUTES.compte), ...Object.values(ROUTES.connexion)]);
 const SETUP_PATH = '/setup';
+
+// Demarrage du coeur AU LANCEMENT du serveur, pas a la premiere page demandee : le relais doit ecouter le
+// broker meme si personne n'ouvre le portail (boitier qui tombe, etat a pousser a un tiers, « vu il y a »).
+// Sans cela, un portail redemarre restait sourd jusqu'a la premiere requete. Non attendu : un broker
+// lent ou absent ne doit pas retarder l'ouverture du port ; boot() journalise ses propres erreurs, et
+// chaque page l'attend de toute facon. Pas pendant la construction (aucune base, aucun broker).
+export const init: ServerInit = () => {
+  if (building) return;
+  void boot().catch((e: unknown) => console.error('[boot] demarrage :', e instanceof Error ? e.message : e));
+};
 
 let announced = false;
 
