@@ -10,11 +10,10 @@ const known = new Map<string, { account: string; memory: GooglePushMemory }>();
  *  ne sait rien de lui sous ce compte-la. */
 export function pushMemory(box: string, account: string): GooglePushMemory {
   const k = known.get(box);
-  if (k && k.account === account) return k.memory;
-  const memory: GooglePushMemory = {};
-  known.set(box, { account, memory });
-  return memory;
+  return k && k.account === account ? k.memory : {};
 }
+/** Retient la memoire d'un boitier pour ce compte (apres une tentative, voir settleGooglePush). */
+export function rememberPush(box: string, account: string, memory: GooglePushMemory): void { known.set(box, { account, memory }); }
 /** Le boitier n'appartient plus a personne : on oublie ce qui a ete dit a son ancien compte. */
 export function forgetBox(box: string): void { known.delete(box); }
 /** Un etat est parti chez Google par un autre chemin (apres une commande) : le dernier etat retenu ne

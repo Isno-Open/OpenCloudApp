@@ -2,8 +2,8 @@
 // l'etat de ses appareils a Google. Debounce par boitier : une rafale de messages ne declenche qu'un
 // envoi, apres un court silence. Inactif tant que la cle HomeGraph n'est pas configuree.
 import { onBoxUpdated, relaySettled } from '@opencloudapp/core/mqtt.js';
-import { planGooglePush } from '@opencloudapp/core/plugins/google-home.js';
-import { pushMemory, forgetBox } from '#lib/server/google-push-memory.ts';
+import { planGooglePush, settleGooglePush } from '@opencloudapp/core/plugins/google-home.js';
+import { pushMemory, rememberPush, forgetBox } from '#lib/server/google-push-memory.ts';
 import { deviceAccount } from '@opencloudapp/core/store.js';
 import { reportableStates } from '#lib/server/google-smarthome.ts';
 import { reportState, requestSync, homeGraphReady } from '#lib/server/google-homegraph.ts';
@@ -25,9 +25,11 @@ async function push(family: string, box: string): Promise<void> {
     const states = await reportableStates(account, box);
     const memory = pushMemory(box, account);
     const plan = planGooglePush(memory, states);
-    // la liste a change : Google re-synchronise (le nouveau volet apparait). Retenu seulement si parti.
-    if (plan.sync && await requestSync(account)) memory.ids = plan.ids;
-    if (plan.report && await reportState(account, states)) memory.states = plan.states;
+    // la liste a change : Google re-synchronise (le nouveau volet apparait). On ne retient que ce qui
+    // est reellement parti : un echec se rejoue au message suivant.
+    const sync = plan.sync && await requestSync(account);
+    const report = plan.report && await reportState(account, states);
+    rememberPush(box, account, settleGooglePush(memory, plan, { sync, report }));
   } catch (e) { console.error('[google-report]', e instanceof Error ? e.message : e); }
 }
 

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { planGooglePush } from "./google-home.js";
+import { planGooglePush, settleGooglePush, type GooglePushMemory } from "./google-home.js";
 
 const A = { online: true, openPercent: 100 }, B = { online: true, openPercent: 0 };
 
@@ -51,4 +51,28 @@ test("Google Home : un appareil retire puis remis dans le meme etat repart avec 
   const back = planGooglePush(known, { "box:a": A });
   assert.equal(back.sync, true);
   assert.equal(back.report, true, "l'appareil recree chez Google n'a pas d'etat tant qu'on ne le pousse pas");
+});
+
+test("Google Home : apres une resynchronisation reussie, un Report State rate reste a rejouer", () => {
+  let known: GooglePushMemory = {};
+  const first = planGooglePush(known, { "box:a": A });
+  known = settleGooglePush(known, first, { sync: true, report: true });
+  const removed = planGooglePush(known, {});
+  known = settleGooglePush(known, removed, { sync: true, report: false });
+  const back = planGooglePush(known, { "box:a": A });
+  known = settleGooglePush(known, back, { sync: true, report: false });   // liste partie, etat refuse
+  const retry = planGooglePush(known, { "box:a": A });
+  assert.equal(retry.sync, false, "la liste est a jour chez Google");
+  assert.equal(retry.report, true, "l'etat n'est jamais arrive : il repart");
+  known = settleGooglePush(known, retry, { sync: false, report: true });
+  assert.equal(planGooglePush(known, { "box:a": A }).report, false, "une fois parti, plus rien a dire");
+});
+
+test("Google Home : une resynchronisation ratee se rejoue, et l'etat avec", () => {
+  let known: GooglePushMemory = {};
+  const first = planGooglePush(known, { "box:a": A });
+  known = settleGooglePush(known, first, { sync: false, report: false });
+  const retry = planGooglePush(known, { "box:a": A });
+  assert.equal(retry.sync, true);
+  assert.equal(retry.report, true);
 });

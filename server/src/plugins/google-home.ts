@@ -58,6 +58,16 @@ export function planGooglePush(known: GooglePushMemory, states: Readonly<Record<
   return { ids, states: key, sync, report: sorted.length > 0 && (sync || known.states !== key) };
 }
 
+/** Fonction pure (testable) : la memoire apres une tentative. `sent` dit ce qui est reellement parti.
+ *  Une liste qui a change annule l'etat retenu, que le Request Sync soit parti ou non : tant que le
+ *  Report State qui l'accompagne n'a pas reussi, il doit etre rejoue, meme si l'etat n'a pas bouge. */
+export function settleGooglePush(known: GooglePushMemory, plan: GooglePushPlan, sent: { sync: boolean; report: boolean }): GooglePushMemory {
+  const next: GooglePushMemory = { ...known };
+  if (plan.sync) { delete next.states; if (sent.sync) next.ids = plan.ids; }
+  if (plan.report && sent.report) next.states = plan.states;
+  return next;
+}
+
 const settings: PluginSettings = {
   fields: [
     { key: "clientId", kind: SETTING_KIND.text, format: TEXT_FORMAT.plain, maxLength: CLIENT_ID_MAX,
