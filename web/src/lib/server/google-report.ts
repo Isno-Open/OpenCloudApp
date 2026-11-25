@@ -15,10 +15,19 @@ const timers = new Map<string, ReturnType<typeof setTimeout>>();
 // jour l'etat d'appareils deja connus). Si l'etat n'a pas change, on n'envoie rien : un boitier publie sa
 // sante chaque minute (memoire dans google-push-memory.ts).
 
+// Un seul envoi a la fois par boitier. Un appel a Google peut durer plus que le delai de regroupement :
+// un second passage, lance pendant le premier, comparerait le nouvel etat a une memoire pas encore mise
+// a jour, le jugerait inchange, puis le premier retiendrait son etat perime (un boitier tombe resterait
+// « en ligne » chez Google). Le passage qui arrive pendant un envoi est note, et rejoue a la fin.
+const inFlight = new Set<string>();
+const dirty = new Set<string>();
+
 async function push(family: string, box: string): Promise<void> {
   // Etat pas encore peuple (redemarrage : les messages retenus arrivent) : la liste lue maintenant serait
   // incomplete, et un Request Sync ferait retirer a Google les appareils qui manquent. On repasse plus tard.
   if (!relaySettled()) { schedule(family, box); return; }
+  if (inFlight.has(box)) { dirty.add(box); return; }
+  inFlight.add(box);
   try {
     const account = await deviceAccount(box);   // le message MQTT ne porte pas le compte
     if (!account) { forgetBox(box); return; }
@@ -31,6 +40,10 @@ async function push(family: string, box: string): Promise<void> {
     const report = plan.report && await reportState(account, states);
     rememberPush(box, account, settleGooglePush(memory, plan, { sync, report }));
   } catch (e) { console.error('[google-report]', e instanceof Error ? e.message : e); }
+  finally {
+    inFlight.delete(box);
+    if (dirty.delete(box)) schedule(family, box);   // le boitier a bouge pendant l'envoi : on relit son etat
+  }
 }
 
 function schedule(family: string, box: string): void {
