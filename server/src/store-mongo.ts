@@ -1,6 +1,6 @@
 // Implémentation MongoDB (instance ISNO / à l'échelle). Activée quand MONGO_URL est défini.
 import { MongoClient, type Collection } from "mongodb";
-import { DEVICE_AUTH_STATE, type Account, type Device, type Pairing, type DeviceAuth } from "./types.js";
+import { DEVICE_AUTH_STATE, type Account, type Device, type Pairing, type DeviceAuth, type GoogleDevicePin } from "./types.js";
 
 const URL = process.env.MONGO_URL ?? "mongodb://mongo:27017";
 const DBNAME = process.env.MONGO_DB ?? "isno_cloud";
@@ -9,6 +9,7 @@ type PairingRow = Pairing & { used: boolean };
 const accounts = (): Collection<Account> => client.db(DBNAME).collection<Account>("accounts");
 const devices = (): Collection<Device> => client.db(DBNAME).collection<Device>("devices");
 const pairings = (): Collection<PairingRow> => client.db(DBNAME).collection<PairingRow>("pairings");
+const googleDevicePins = (): Collection<GoogleDevicePin> => client.db(DBNAME).collection<GoogleDevicePin>("google_device_pins");
 const deviceAuth = (): Collection<DeviceAuth> => client.db(DBNAME).collection<DeviceAuth>("device_auth");
 
 export async function init(): Promise<void> {
@@ -16,6 +17,7 @@ export async function init(): Promise<void> {
   await accounts().createIndex({ id: 1 }, { unique: true });
   await devices().createIndex({ deviceId: 1 }, { unique: true });
   await pairings().createIndex({ code: 1 }, { unique: true });
+  await googleDevicePins().createIndex({ accountId: 1, applianceId: 1 }, { unique: true });
   await deviceAuth().createIndex({ deviceCode: 1 }, { unique: true });
   await deviceAuth().createIndex({ userCode: 1 }, { unique: true });
 }
@@ -40,6 +42,14 @@ export async function setTotp(id: string, secret: string | null, enabled: boolea
   await accounts().updateOne({ id }, { $set: { totpSecret: secret, totpEnabled: enabled, totpLastStep: null } });
 }
 export async function setGooglePinHash(id: string, hash: string | null): Promise<void> { await accounts().updateOne({ id }, { $set: { googlePinHash: hash } }); }
+export async function setGoogleDevicePin(accountId: string, applianceId: string, hash: string | null): Promise<void> {
+  if (hash === null) await googleDevicePins().deleteOne({ accountId, applianceId });
+  else await googleDevicePins().updateOne({ accountId, applianceId }, { $set: { pinHash: hash } }, { upsert: true });
+}
+export async function listGoogleDevicePins(accountId: string): Promise<Record<string, string>> {
+  const rows = await googleDevicePins().find({ accountId }, { projection: { _id: 0 } }).toArray();
+  return Object.fromEntries(rows.map((r) => [r.applianceId, r.pinHash]));
+}
 export async function setTotpLastStep(id: string, step: number): Promise<void> { await accounts().updateOne({ id }, { $set: { totpLastStep: step } }); }
 export async function setAccountAdmin(id: string, admin: boolean): Promise<void> { await accounts().updateOne({ id }, { $set: { admin } }); }
 export async function listAccounts(): Promise<Account[]> {
@@ -48,6 +58,7 @@ export async function listAccounts(): Promise<Account[]> {
 }
 export async function removeAccount(id: string): Promise<void> {
   await devices().deleteMany({ accountId: id });
+  await googleDevicePins().deleteMany({ accountId: id });
   await accounts().deleteOne({ id });
 }
 export async function setAccountPass(id: string, passHash: string): Promise<void> { await accounts().updateOne({ id }, { $set: { passHash } }); }

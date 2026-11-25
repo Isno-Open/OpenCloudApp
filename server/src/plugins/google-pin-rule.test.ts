@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeGooglePin, judgeGooglePin, GOOGLE_PIN, PIN_VERDICT, type PinAttempts } from "./google-pin-rule.js";
+import { normalizeGooglePin, judgeGooglePin, judgeGooglePins, GOOGLE_PIN, PIN_VERDICT, type PinAttempts } from "./google-pin-rule.js";
 import { hashPass, verifyPass } from "../auth.js";
 
 test("code PIN Google : forme acceptee (chiffres seuls, longueur bornee)", () => {
@@ -45,4 +45,29 @@ test("code PIN Google : le bon code efface les essais faux d'avant", () => {
   const hash = hashPass("4821");
   const one = judgeGooglePin(hash, "0000", undefined, 0, verifyPass).attempts;
   assert.equal(judgeGooglePin(hash, "4821", one, 0, verifyPass).attempts, undefined);
+});
+
+test("code PIN Google par appareil : chaque appareil s'ouvre avec SON code, les autres restent fermes", () => {
+  const account = hashPass("4821"), gate = hashPass("7733");
+  // portail avec code propre, garage sur le code du compte
+  const withAccount = judgeGooglePins([gate, account], "4821", undefined, 0, verifyPass);
+  assert.deepEqual(withAccount.verdicts, [PIN_VERDICT.failed, PIN_VERDICT.granted], "le code du compte n'ouvre pas un portail qui a le sien");
+  assert.deepEqual(withAccount.attempts, { failed: 1, lockedUntil: 0 }, "un refus dans l'ordre compte pour un essai");
+  const withOwn = judgeGooglePins([gate, account], "7733", undefined, 0, verifyPass);
+  assert.deepEqual(withOwn.verdicts, [PIN_VERDICT.granted, PIN_VERDICT.failed]);
+});
+
+test("code PIN Google par appareil : un code faux sur dix portails compte pour UN essai", () => {
+  const account = hashPass("4821");
+  const r = judgeGooglePins(Array.from({ length: 10 }, () => account), "0000", undefined, 0, verifyPass);
+  assert.deepEqual(r.attempts, { failed: 1, lockedUntil: 0 });
+  assert.equal(r.verdicts.every((v) => v === PIN_VERDICT.failed), true);
+});
+
+test("code PIN Google par appareil : sans code presente tous le demandent, bloque tous sont bloques", () => {
+  const account = hashPass("4821");
+  assert.deepEqual(judgeGooglePins([account, null], undefined, undefined, 0, verifyPass).verdicts, [PIN_VERDICT.needed, PIN_VERDICT.needed]);
+  const locked = { failed: 0, lockedUntil: 500 };
+  assert.deepEqual(judgeGooglePins([account, account], "4821", locked, 100, verifyPass).verdicts, [PIN_VERDICT.locked, PIN_VERDICT.locked]);
+  assert.deepEqual(judgeGooglePins([], "4821", undefined, 0, verifyPass), { verdicts: [], attempts: undefined });
 });

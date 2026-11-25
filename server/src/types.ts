@@ -21,6 +21,9 @@ export type Account = {
 /** lastSeenAt : derniere activite du boitier vue par le relais (ms), null si jamais vu. pairedAt : date
  *  d'appairage au compte (ms), null pour un boitier appaire avant que le portail la note. */
 export type Device = { deviceId: string; accountId: string; name: string; firmware: string; lastSeenAt?: number | null; pairedAt?: number | null };
+/** Code PIN Google Home PROPRE a un appareil (identifiant `boitier:appareil`), garde hache. Il remplace
+ *  pour cet appareil le code du compte (Account.googlePinHash), qui reste le defaut des autres. */
+export type GoogleDevicePin = { accountId: string; applianceId: string; pinHash: string };
 export type Pairing = { code: string; accountId: string; deviceId: string; name: string };
 
 // État d'une demande d'autorisation d'appareil (RFC 8628). Énuméré : le code s'y réfère par son nom,

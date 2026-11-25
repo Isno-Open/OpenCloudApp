@@ -12,6 +12,7 @@ db.pragma("journal_mode = WAL");
 db.exec(`
   CREATE TABLE IF NOT EXISTS accounts (id TEXT PRIMARY KEY, device_cap INTEGER NOT NULL DEFAULT 5, pass_hash TEXT, admin INTEGER NOT NULL DEFAULT 0, name TEXT);
   CREATE TABLE IF NOT EXISTS devices (device_id TEXT PRIMARY KEY, account_id TEXT NOT NULL, name TEXT NOT NULL, firmware TEXT NOT NULL);
+  CREATE TABLE IF NOT EXISTS google_device_pins (account_id TEXT NOT NULL, appliance_id TEXT NOT NULL, pin_hash TEXT NOT NULL, PRIMARY KEY (account_id, appliance_id));
   CREATE TABLE IF NOT EXISTS pairings (code TEXT PRIMARY KEY, account_id TEXT NOT NULL, device_id TEXT NOT NULL, name TEXT NOT NULL, used INTEGER NOT NULL DEFAULT 0);
   CREATE TABLE IF NOT EXISTS device_auth (
     device_code TEXT PRIMARY KEY, user_code TEXT UNIQUE NOT NULL, device_id TEXT NOT NULL, firmware TEXT NOT NULL,
@@ -72,6 +73,15 @@ export function setTotp(id: string, secret: string | null, enabled: boolean): Pr
 export function setGooglePinHash(id: string, hash: string | null): Promise<void> {
   db.prepare("UPDATE accounts SET google_pin_hash = ? WHERE id = ?").run(hash, id); return Promise.resolve();
 }
+export function setGoogleDevicePin(accountId: string, applianceId: string, hash: string | null): Promise<void> {
+  if (hash === null) db.prepare("DELETE FROM google_device_pins WHERE account_id = ? AND appliance_id = ?").run(accountId, applianceId);
+  else db.prepare("INSERT INTO google_device_pins (account_id, appliance_id, pin_hash) VALUES (?,?,?) ON CONFLICT(account_id, appliance_id) DO UPDATE SET pin_hash = excluded.pin_hash").run(accountId, applianceId, hash);
+  return Promise.resolve();
+}
+export function listGoogleDevicePins(accountId: string): Promise<Record<string, string>> {
+  const rows = db.prepare("SELECT appliance_id AS applianceId, pin_hash AS pinHash FROM google_device_pins WHERE account_id = ?").all(accountId) as { applianceId: string; pinHash: string }[];
+  return Promise.resolve(Object.fromEntries(rows.map((r) => [r.applianceId, r.pinHash])));
+}
 export function setTotpLastStep(id: string, step: number): Promise<void> {
   db.prepare("UPDATE accounts SET totp_last_step = ? WHERE id = ?").run(step, id); return Promise.resolve();
 }
@@ -85,6 +95,7 @@ export function listAccounts(): Promise<Account[]> {
 export function removeAccount(id: string): Promise<void> {
   const tx = db.transaction((a: string) => {
     db.prepare("DELETE FROM devices WHERE account_id = ?").run(a);
+    db.prepare("DELETE FROM google_device_pins WHERE account_id = ?").run(a);
     db.prepare("DELETE FROM accounts WHERE id = ?").run(a);
   });
   tx(id);

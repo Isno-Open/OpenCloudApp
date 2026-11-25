@@ -4,7 +4,7 @@
 import { redirect, type Cookies } from '@sveltejs/kit';
 import { isConfigured, loadConfig, setupWindowRemaining, SETUP_WINDOW_S, DB_KIND } from '@opencloudapp/core/config.js';
 import { installedPlugins, BUILTIN_PLUGINS, enabledPlugins, pluginSettingsForm, accountSourceLabel, builtinInfo } from '@opencloudapp/core/plugins.js';
-import { listAccounts, countDevices, getDeviceAuthByUserCode, getAccount } from '@opencloudapp/core/store.js';
+import { listAccounts, countDevices, getDeviceAuthByUserCode, getAccount, listGoogleDevicePins } from '@opencloudapp/core/store.js';
 import { DEVICE_AUTH_STATE } from '@opencloudapp/core/types.js';
 import { normalizeUserCode, displayUserCode } from '@opencloudapp/core/device-code.js';
 import { localAccountsSettings, totpAllowed, totpRequiredFor } from '@opencloudapp/core/plugins/local-accounts-settings.js';
@@ -23,6 +23,7 @@ import { listCatalogPlugins } from '#lib/server/supervisor.ts';
 import { accountFromLink } from '#lib/server/password.ts';
 import { boot } from '#lib/server/boot.ts';
 import { googleHomeReady } from '#lib/server/google-oauth.ts';
+import { securedAppliances } from '#lib/server/google-smarthome.ts';
 import { HOST_CHECK, requestScheme, type HostCheck } from '#lib/server/hosts.ts';
 import { LANG, ROUTES, t, type Lang } from '#lib/i18n.ts';
 import { LINK_VIEW, LINK_COOKIE, type LinkView } from '#lib/link.ts';
@@ -66,7 +67,11 @@ export async function accountScreen(lang: Lang, request: Request) {
   const acc = await requireAccount(request, lang);
   const account = await getAccountInfo(acc);
   const sec = localAccountsSettings();
-  return { account, totpOn: totpAllowed(sec), totpRequired: totpRequiredFor(sec, account.admin), googleHome: await googleHomeReady() };
+  // Google Home actif : les portails du compte, et lesquels ont un code propre (jamais le code lui-meme)
+  const googleHome = await googleHomeReady();
+  const own = googleHome ? await listGoogleDevicePins(acc) : {};
+  const googleGates = googleHome ? (await securedAppliances(acc)).map((g) => ({ ...g, pinSet: own[g.id] !== undefined })) : [];
+  return { account, totpOn: totpAllowed(sec), totpRequired: totpRequiredFor(sec, account.admin), googleHome, googleGates };
 }
 
 /** Connexion : renvoi vers le site externe s'il y en a un (sauf ?local=1, l'entree de l'operateur). */

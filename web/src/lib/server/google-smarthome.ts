@@ -16,7 +16,7 @@ import { publishCommand } from '@opencloudapp/core/mqtt.js';
 import { CONTROL, KIND_PLACE } from '@opencloudapp/core/family-contract.js';
 import { homeGraphReady, reportState } from '#lib/server/google-homegraph.ts';
 import { forgetReportedStates } from '#lib/server/google-push-memory.ts';
-import { judgeOpenPin } from '#lib/server/google-pin.ts';
+import { judgeOpenPins } from '#lib/server/google-pin.ts';
 import { PIN_VERDICT, type PinVerdict } from '@opencloudapp/core/plugins/google-pin-rule.js';
 import type { Appareil } from '#lib/types.ts';
 
@@ -71,6 +71,12 @@ function applianceState(a: Appareil): Record<string, unknown> {
   if (c && Date.now() - c.at < OPTIMISTIC_MS) op = c.pct;   // juste apres une commande : valeur commandee
   else if (op === null) op = c?.pct ?? 0;                   // pas de position reelle : derniere commandee, sinon ferme
   return { online: a.online, openPercent: op };
+}
+
+/** Les appareils du compte dont l'OUVERTURE par Google demande un code : ceux declares GATE. La meme
+ *  regle que SYNC (type) et EXECUTE (commandFor), pour que la page Compte liste exactement ceux-la. */
+export async function securedAppliances(accountId: string): Promise<{ id: string; name: string }[]> {
+  return (await listAppareils(accountId)).filter((a) => exposable(a) && !withPosition(a)).map((a) => ({ id: a.id, name: a.name }));
 }
 
 /** SYNC : la liste des appareils du compte, en appareils Google. */
@@ -149,8 +155,10 @@ export async function onExecute(accountId: string, commands: readonly unknown[])
       const raw = field(field(exec, 'params'), 'openPercent');
       const openPercent = typeof raw === 'number' ? clamp(raw, 0, 100) : 100;   // « ouvre » sans valeur = 100
       const pin = field(field(exec, 'challenge'), 'pin');
-      // Un seul jugement par ordre : un code faux compte pour UN essai, quel que soit le nombre de portails.
-      let verdict: PinVerdict | undefined;
+      // D'abord ce que chaque appareil doit recevoir, puis UN jugement du code pour toutes les ouvertures
+      // a proteger de l'ordre (un code faux compte pour un essai, quel que soit le nombre de portails),
+      // enfin l'envoi de ce qui est permis.
+      const ready: { id: string; topic: string; payload: string; retain: boolean; secured: boolean }[] = [];
       for (const id of ids) {
         const a = byId.get(id);
         if (!a) { notFound.push(id); continue; }
@@ -158,12 +166,18 @@ export async function onExecute(accountId: string, commands: readonly unknown[])
         const fam = dev ? familyById(dev.firmware) : null;
         const cmd = fam ? commandFor(a, openPercent) : null;
         if (!dev || !fam || !cmd) { failed.push(id); continue; }
-        if (cmd.secured) {
-          verdict ??= await judgeOpenPin(accountId, pin);
-          if (verdict !== PIN_VERDICT.granted) { held[verdict].push(id); continue; }
-        }
         const r = buildCommand(fam, { box: a.boitierId, device: a.slug }, cmd.control, cmd.value);
         if ('error' in r) { failed.push(id); continue; }
+        ready.push({ id, topic: r.topic, payload: r.payload, retain: r.retain, secured: cmd.secured });
+      }
+      const secured = ready.filter((x) => x.secured).map((x) => x.id);
+      const verdicts = secured.length ? await judgeOpenPins(accountId, secured, pin) : new Map<string, PinVerdict>();
+      for (const { id, secured: needsPin, ...r } of ready) {
+        if (needsPin) {
+          // sans issue connue (ne devrait pas arriver), l'ouverture reste refusee
+          const verdict = verdicts.get(id) ?? PIN_VERDICT.failed;
+          if (verdict !== PIN_VERDICT.granted) { held[verdict].push(id); continue; }
+        }
         try { publishCommand(r.topic, r.payload, r.retain); lastCommanded.set(id, { pct: openPercent, at: Date.now() }); ok.push({ id, openPercent }); }
         catch { offline.push(id); }
       }
