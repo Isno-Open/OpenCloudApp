@@ -12,6 +12,7 @@ import { familyById, buildCommand } from '@opencloudapp/core/device-families.js'
 import { publishCommand } from '@opencloudapp/core/mqtt.js';
 import { CONTROL, KIND_PLACE } from '@opencloudapp/core/family-contract.js';
 import { homeGraphReady, reportState } from '#lib/server/google-homegraph.ts';
+import { forgetReportedStates } from '#lib/server/google-push-memory.ts';
 import type { Appareil } from '#lib/types.ts';
 
 /** Vocabulaire du protocole Smart Home de Google (chaines fixees par Google : declarees une fois ici). */
@@ -156,7 +157,13 @@ export async function onExecute(accountId: string, commands: readonly unknown[])
   const byPct = new Map<number, string[]>();
   for (const x of ok) { const l = byPct.get(x.openPercent) ?? []; l.push(x.id); byPct.set(x.openPercent, l); }
   for (const [pct, pids] of byPct) groups.push({ ids: pids, status: GOOGLE.status.success, states: { online: true, openPercent: pct } });
-  if (ok.length) void reportState(accountId, Object.fromEntries(ok.map((x) => [x.id, { online: true, openPercent: x.openPercent }])));
+  if (ok.length) {
+    // Google recoit ici un etat que le Report State sur message MQTT n'a pas envoye : sa memoire ne vaut
+    // plus pour ces boitiers. Sans cela, un volet revenu a sa position d'avant serait juge « inchange »
+    // et Google garderait la valeur commandee.
+    for (const b of new Set(ok.map((x) => byId.get(x.id)?.boitierId).filter((b): b is string => b !== undefined))) forgetReportedStates(b);
+    void reportState(accountId, Object.fromEntries(ok.map((x) => [x.id, { online: true, openPercent: x.openPercent }])));
+  }
   if (offline.length) groups.push({ ids: offline, status: GOOGLE.status.offline, errorCode: GOOGLE.error.offline });
   if (notFound.length) groups.push({ ids: notFound, status: GOOGLE.status.error, errorCode: GOOGLE.error.notFound });
   if (failed.length) groups.push({ ids: failed, status: GOOGLE.status.error, errorCode: GOOGLE.error.notSupported });
