@@ -6,6 +6,9 @@
 // (BLINDS, trait OpenClose avec openPercent) ; sans position, c'est un ouvrant tout-ou-rien (GATE,
 // OpenClose en commande seule). La position du portail est un % de FERMETURE (0 = ouvert, 100 = ferme),
 // l'inverse du openPercent de Google (% d'OUVERTURE), d'ou la conversion 100 - p.
+//
+// Ouvrir un GATE demande un code PIN (verification secondaire exigee par Google) : voir commandFor et
+// google-pin.ts. Rien a declarer dans SYNC, c'est la reponse EXECUTE qui reclame le code.
 import { listAppareils } from '#lib/server/cloud-data.ts';
 import { findDevice } from '@opencloudapp/core/store.js';
 import { familyById, buildCommand } from '@opencloudapp/core/device-families.js';
@@ -13,6 +16,8 @@ import { publishCommand } from '@opencloudapp/core/mqtt.js';
 import { CONTROL, KIND_PLACE } from '@opencloudapp/core/family-contract.js';
 import { homeGraphReady, reportState } from '#lib/server/google-homegraph.ts';
 import { forgetReportedStates } from '#lib/server/google-push-memory.ts';
+import { judgeOpenPin } from '#lib/server/google-pin.ts';
+import { PIN_VERDICT, type PinVerdict } from '@opencloudapp/core/plugins/google-pin-rule.js';
 import type { Appareil } from '#lib/types.ts';
 
 /** Vocabulaire du protocole Smart Home de Google (chaines fixees par Google : declarees une fois ici). */
@@ -22,7 +27,9 @@ export const GOOGLE = {
   trait: { openClose: 'action.devices.traits.OpenClose' },
   command: { openClose: 'action.devices.commands.OpenClose' },
   status: { success: 'SUCCESS', error: 'ERROR', pending: 'PENDING', offline: 'OFFLINE' },
-  error: { notFound: 'deviceNotFound', offline: 'deviceOffline', notSupported: 'functionNotSupported', relayDown: 'transientError' },
+  error: { notFound: 'deviceNotFound', offline: 'deviceOffline', notSupported: 'functionNotSupported', relayDown: 'transientError', challengeNeeded: 'challengeNeeded', tooManyAttempts: 'tooManyFailedAttempts' },
+  // verification secondaire : le code est demande (pinNeeded), ou redemande apres un code faux
+  challenge: { pinNeeded: 'pinNeeded', pinFailed: 'challengeFailedPinNeeded' },
 } as const;
 
 const field = (o: unknown, k: string): unknown => (o !== null && typeof o === 'object' ? Object.getOwnPropertyDescriptor(o, k)?.value : undefined);
@@ -108,18 +115,21 @@ export async function reportableStates(accountId: string, boxId?: string): Promi
 /** La commande famille (controle + valeur) qui realise un openPercent Google pour cet appareil.
  *  Positionnel : on ecrit la position (% de fermeture). Sinon : l'action extreme (ouverture si >= 50 %,
  *  fermeture sinon). L'ordre des actions suit la declaration de la famille (ouverture d'abord, fermeture
- *  en dernier : up, stop, down). */
-function commandFor(a: Appareil, openPercent: number): { control: string; value: number | null } | null {
+ *  en dernier : up, stop, down).
+ *  `secured` : la commande OUVRE un appareil declare GATE a Google. Google exige alors un code PIN
+ *  (verification secondaire) ; la fermeture et les volets n'en demandent pas. */
+function commandFor(a: Appareil, openPercent: number): { control: string; value: number | null; secured: boolean } | null {
   if (!a.kind) return null;
   if (withPosition(a)) {
     const p = posControl(a.kind);
-    return p ? { control: p.id, value: clamp(100 - openPercent, 0, 100) } : null;
+    return p ? { control: p.id, value: clamp(100 - openPercent, 0, 100), secured: false } : null;
   }
   const acts = actionControls(a.kind);
   if (acts.length === 0) return null;
   const open = acts[0], close = acts[acts.length - 1];
-  const ctl = openPercent >= 50 ? open : close;
-  return ctl ? { control: ctl.id, value: null } : null;
+  const opening = openPercent >= 50;
+  const ctl = opening ? open : close;
+  return ctl ? { control: ctl.id, value: null, secured: opening } : null;
 }
 
 /** EXECUTE : applique les commandes OpenClose. Rend les groupes de resultats attendus par Google. */
@@ -129,6 +139,8 @@ export async function onExecute(accountId: string, commands: readonly unknown[])
   const offline: string[] = [];
   const notFound: string[] = [];
   const failed: string[] = [];
+  // ouvertures retenues par la verification secondaire, par issue
+  const held: Record<Exclude<PinVerdict, typeof PIN_VERDICT.granted>, string[]> = { [PIN_VERDICT.needed]: [], [PIN_VERDICT.failed]: [], [PIN_VERDICT.locked]: [] };
 
   for (const group of commands) {
     const ids = arr(field(group, 'devices')).map((d) => String(field(d, 'id') ?? '')).filter(Boolean);
@@ -136,6 +148,9 @@ export async function onExecute(accountId: string, commands: readonly unknown[])
       if (field(exec, 'command') !== GOOGLE.command.openClose) { for (const id of ids) failed.push(id); continue; }
       const raw = field(field(exec, 'params'), 'openPercent');
       const openPercent = typeof raw === 'number' ? clamp(raw, 0, 100) : 100;   // « ouvre » sans valeur = 100
+      const pin = field(field(exec, 'challenge'), 'pin');
+      // Un seul jugement par ordre : un code faux compte pour UN essai, quel que soit le nombre de portails.
+      let verdict: PinVerdict | undefined;
       for (const id of ids) {
         const a = byId.get(id);
         if (!a) { notFound.push(id); continue; }
@@ -143,6 +158,10 @@ export async function onExecute(accountId: string, commands: readonly unknown[])
         const fam = dev ? familyById(dev.firmware) : null;
         const cmd = fam ? commandFor(a, openPercent) : null;
         if (!dev || !fam || !cmd) { failed.push(id); continue; }
+        if (cmd.secured) {
+          verdict ??= await judgeOpenPin(accountId, pin);
+          if (verdict !== PIN_VERDICT.granted) { held[verdict].push(id); continue; }
+        }
         const r = buildCommand(fam, { box: a.boitierId, device: a.slug }, cmd.control, cmd.value);
         if ('error' in r) { failed.push(id); continue; }
         try { publishCommand(r.topic, r.payload, r.retain); lastCommanded.set(id, { pct: openPercent, at: Date.now() }); ok.push({ id, openPercent }); }
@@ -164,6 +183,9 @@ export async function onExecute(accountId: string, commands: readonly unknown[])
     for (const b of new Set(ok.map((x) => byId.get(x.id)?.boitierId).filter((b): b is string => b !== undefined))) forgetReportedStates(b);
     void reportState(accountId, Object.fromEntries(ok.map((x) => [x.id, { online: true, openPercent: x.openPercent }])));
   }
+  if (held[PIN_VERDICT.needed].length) groups.push({ ids: held[PIN_VERDICT.needed], status: GOOGLE.status.error, errorCode: GOOGLE.error.challengeNeeded, challengeNeeded: { type: GOOGLE.challenge.pinNeeded } });
+  if (held[PIN_VERDICT.failed].length) groups.push({ ids: held[PIN_VERDICT.failed], status: GOOGLE.status.error, errorCode: GOOGLE.error.challengeNeeded, challengeNeeded: { type: GOOGLE.challenge.pinFailed } });
+  if (held[PIN_VERDICT.locked].length) groups.push({ ids: held[PIN_VERDICT.locked], status: GOOGLE.status.error, errorCode: GOOGLE.error.tooManyAttempts });
   if (offline.length) groups.push({ ids: offline, status: GOOGLE.status.offline, errorCode: GOOGLE.error.offline });
   if (notFound.length) groups.push({ ids: notFound, status: GOOGLE.status.error, errorCode: GOOGLE.error.notFound });
   if (failed.length) groups.push({ ids: failed, status: GOOGLE.status.error, errorCode: GOOGLE.error.notSupported });

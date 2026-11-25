@@ -1,7 +1,9 @@
 <script lang="ts">
-  // Compte : identite (lecture seule), double authentification, deconnexion.
+  // Compte : identite (lecture seule), code Google Home (si l'integration est active), double
+  // authentification, deconnexion.
   import CloudLayout from '#lib/components/layout/CloudLayout.svelte';
   import AccountActions from '#lib/components/screens/AccountActions.svelte';
+  import GooglePinPanel from '#lib/components/screens/GooglePinPanel.svelte';
   import Panel from '#lib/components/ui/Panel.svelte';
   import KeyValue from '#lib/components/ui/KeyValue.svelte';
   import { t, ROUTES, otherLang } from '#lib/i18n.ts';
@@ -19,5 +21,6 @@
     <KeyValue label={s.userLogin} value={a.email} />
     <KeyValue label={s.boxesWord} value={`${a.boitiers} / ${a.cap}`} />
   </Panel>
+  {#if data.googleHome}<GooglePinPanel lang={data.lang} pinSet={a.googlePinSet} />{/if}
   <AccountActions lang={data.lang} home={ROUTES.appareils[data.lang]} totpOn={data.totpOn} totpRequired={data.totpRequired} totpEnabled={a.totpEnabled} />
 </CloudLayout>

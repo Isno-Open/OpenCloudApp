@@ -23,7 +23,7 @@ db.exec(`
 const accountCols = db.prepare("PRAGMA table_info(accounts)").all() as { name: string }[];
 if (!accountCols.some((c) => c.name === "admin")) db.exec("ALTER TABLE accounts ADD COLUMN admin INTEGER NOT NULL DEFAULT 0");
 for (const [col, def] of [["name", "TEXT"], ["failed_count", "INTEGER NOT NULL DEFAULT 0"], ["locked_until", "INTEGER"],
-  ["totp_secret", "TEXT"], ["totp_enabled", "INTEGER NOT NULL DEFAULT 0"], ["totp_last_step", "INTEGER"],
+  ["totp_secret", "TEXT"], ["totp_enabled", "INTEGER NOT NULL DEFAULT 0"], ["totp_last_step", "INTEGER"], ["google_pin_hash", "TEXT"],
   ["source", "TEXT"], ["missing_since", "INTEGER"], ["created_at", "INTEGER"], ["last_active_at", "INTEGER"]] as const)
   if (!accountCols.some((c) => c.name === col)) db.exec(`ALTER TABLE accounts ADD COLUMN ${col} ${def}`);
 
@@ -34,12 +34,12 @@ if (!deviceCols.some((c) => c.name === "paired_at")) db.exec("ALTER TABLE device
 const DEVICE_COLS = "device_id AS deviceId, account_id AS accountId, name, firmware, last_seen_at AS lastSeenAt, paired_at AS pairedAt";
 
 type AccountRow = { id: string; name: string | null; deviceCap: number; passHash: string | null; admin: number;
-  failedCount: number; lockedUntil: number | null; totpSecret: string | null; totpEnabled: number; totpLastStep: number | null;
+  failedCount: number; lockedUntil: number | null; totpSecret: string | null; totpEnabled: number; totpLastStep: number | null; googlePinHash: string | null;
   source: string | null; missingSince: number | null; createdAt: number | null; lastActiveAt: number | null };
-const ACCOUNT_COLS = "id, name, device_cap AS deviceCap, pass_hash AS passHash, admin, failed_count AS failedCount, locked_until AS lockedUntil, totp_secret AS totpSecret, totp_enabled AS totpEnabled, totp_last_step AS totpLastStep, source, missing_since AS missingSince, created_at AS createdAt, last_active_at AS lastActiveAt";
+const ACCOUNT_COLS = "id, name, device_cap AS deviceCap, pass_hash AS passHash, admin, failed_count AS failedCount, locked_until AS lockedUntil, totp_secret AS totpSecret, totp_enabled AS totpEnabled, totp_last_step AS totpLastStep, google_pin_hash AS googlePinHash, source, missing_since AS missingSince, created_at AS createdAt, last_active_at AS lastActiveAt";
 const rowToAccount = (r: AccountRow | undefined): Account | null =>
   r ? { id: r.id, name: r.name, deviceCap: r.deviceCap, passHash: r.passHash, admin: !!r.admin,
-        failedCount: r.failedCount ?? 0, lockedUntil: r.lockedUntil, totpSecret: r.totpSecret, totpEnabled: !!r.totpEnabled, totpLastStep: r.totpLastStep,
+        failedCount: r.failedCount ?? 0, lockedUntil: r.lockedUntil, totpSecret: r.totpSecret, totpEnabled: !!r.totpEnabled, totpLastStep: r.totpLastStep, googlePinHash: r.googlePinHash ?? null,
         source: r.source ?? null, missingSince: r.missingSince ?? null, createdAt: r.createdAt ?? null, lastActiveAt: r.lastActiveAt ?? null } : null;
 
 export function init(): Promise<void> { return Promise.resolve(); }
@@ -68,6 +68,9 @@ export function resetLoginFailures(id: string): Promise<void> {
 }
 export function setTotp(id: string, secret: string | null, enabled: boolean): Promise<void> {
   db.prepare("UPDATE accounts SET totp_secret = ?, totp_enabled = ?, totp_last_step = NULL WHERE id = ?").run(secret, enabled ? 1 : 0, id); return Promise.resolve();
+}
+export function setGooglePinHash(id: string, hash: string | null): Promise<void> {
+  db.prepare("UPDATE accounts SET google_pin_hash = ? WHERE id = ?").run(hash, id); return Promise.resolve();
 }
 export function setTotpLastStep(id: string, step: number): Promise<void> {
   db.prepare("UPDATE accounts SET totp_last_step = ? WHERE id = ?").run(step, id); return Promise.resolve();

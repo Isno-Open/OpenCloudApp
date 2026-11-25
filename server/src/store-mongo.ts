@@ -21,11 +21,11 @@ export async function init(): Promise<void> {
 }
 const withAdmin = (a: Account | null): Account | null => (a ? {
   ...a, admin: a.admin ?? false, name: a.name ?? null, failedCount: a.failedCount ?? 0, lockedUntil: a.lockedUntil ?? null,
-  totpSecret: a.totpSecret ?? null, totpEnabled: a.totpEnabled ?? false, totpLastStep: a.totpLastStep ?? null,
+  totpSecret: a.totpSecret ?? null, totpEnabled: a.totpEnabled ?? false, totpLastStep: a.totpLastStep ?? null, googlePinHash: a.googlePinHash ?? null,
   source: a.source ?? null, missingSince: a.missingSince ?? null, createdAt: a.createdAt ?? null, lastActiveAt: a.lastActiveAt ?? null } : null);
 export const getAccount = (id: string): Promise<Account | null> => accounts().findOne({ id }, { projection: { _id: 0 } }).then(withAdmin);
 export async function createAccount(id: string, name: string, passHash: string | null, cap: number, admin: boolean): Promise<void> {
-  await accounts().insertOne({ id, name, deviceCap: cap, passHash, admin, failedCount: 0, lockedUntil: null, totpSecret: null, totpEnabled: false, totpLastStep: null, source: null, missingSince: null, createdAt: Date.now(), lastActiveAt: null });
+  await accounts().insertOne({ id, name, deviceCap: cap, passHash, admin, failedCount: 0, lockedUntil: null, totpSecret: null, totpEnabled: false, totpLastStep: null, googlePinHash: null, source: null, missingSince: null, createdAt: Date.now(), lastActiveAt: null });
 }
 export async function recordLoginFailure(id: string, maxFailures: number, minutes: number, now: number): Promise<number | null> {
   const a = await accounts().findOneAndUpdate({ id }, { $inc: { failedCount: 1 } }, { returnDocument: "after" });
@@ -39,6 +39,7 @@ export async function resetLoginFailures(id: string): Promise<void> { await acco
 export async function setTotp(id: string, secret: string | null, enabled: boolean): Promise<void> {
   await accounts().updateOne({ id }, { $set: { totpSecret: secret, totpEnabled: enabled, totpLastStep: null } });
 }
+export async function setGooglePinHash(id: string, hash: string | null): Promise<void> { await accounts().updateOne({ id }, { $set: { googlePinHash: hash } }); }
 export async function setTotpLastStep(id: string, step: number): Promise<void> { await accounts().updateOne({ id }, { $set: { totpLastStep: step } }); }
 export async function setAccountAdmin(id: string, admin: boolean): Promise<void> { await accounts().updateOne({ id }, { $set: { admin } }); }
 export async function listAccounts(): Promise<Account[]> {
@@ -68,7 +69,7 @@ export async function takePairing(code: string): Promise<Pairing | null> {
   return r ? { code: r.code, accountId: r.accountId, deviceId: r.deviceId, name: r.name } : null;
 }
 export async function ensureAccount(id: string, cap: number, name?: string, source?: string): Promise<void> {
-  await accounts().updateOne({ id }, { $setOnInsert: { id, name: null, deviceCap: cap, passHash: null, admin: false, failedCount: 0, lockedUntil: null, totpSecret: null, totpEnabled: false, totpLastStep: null, source: source ?? null, missingSince: null, createdAt: Date.now(), lastActiveAt: null } }, { upsert: true });
+  await accounts().updateOne({ id }, { $setOnInsert: { id, name: null, deviceCap: cap, passHash: null, admin: false, failedCount: 0, lockedUntil: null, totpSecret: null, totpEnabled: false, totpLastStep: null, googlePinHash: null, source: source ?? null, missingSince: null, createdAt: Date.now(), lastActiveAt: null } }, { upsert: true });
   // compte cree par cette source avant que l'origine soit notee : sans origine ni mot de passe, il la prend
   if (source) await accounts().updateOne({ id, source: null, passHash: null }, { $set: { source } });
   // nom connu (annuaire d'un site externe) : pose s'il manque, jamais par-dessus un nom choisi

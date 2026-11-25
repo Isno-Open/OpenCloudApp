@@ -94,6 +94,7 @@ export async function getAccountInfo(accountId: string): Promise<Account> {
     name: a?.name ?? null,
     admin: !!a?.admin,
     totpEnabled: !!a?.totpEnabled,
+    googlePinSet: !!a?.googlePinHash,
     boitiers: await countDevices(accountId),
     cap: a?.deviceCap ?? 5,
   };
