@@ -48,16 +48,29 @@ function signJwt(key: ServiceKey, now: number): string {
 }
 
 let cached: { token: string; exp: number } | null = null;
+// Apres un refus du jeton, on ne redemande pas avant ce delai : un compte de service supprime ou une cle
+// revoquee ne se repare pas tout seul, et chaque message de boitier relancerait sinon la demande.
+const TOKEN_RETRY_MS = 15 * 60_000;
+let refusedUntil = 0;
 
 /** Jeton d'acces HomeGraph (cache tant qu'il est valide), ou null si l'auth echoue. */
 async function accessToken(now = Date.now()): Promise<string | null> {
   if (cached && cached.exp > now + 60_000) return cached.token;
+  if (now < refusedUntil) return null;
   const key = serviceKey();
   if (!key) return null;
   try {
     const body = new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: signJwt(key, now) });
     const r = await fetch(key.tokenUri, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body, signal: AbortSignal.timeout(HTTP_TIMEOUT_MS) });
-    if (!r.ok) { console.error(`[homegraph] jeton refuse : HTTP ${r.status}`); return null; }
+    if (!r.ok) {
+      // la raison donnee par Google (« account not found », « invalid signature »...) : sans elle, le
+      // journal ne dit pas si c'est la cle, le compte de service ou le projet qui manque
+      const why: unknown = await r.json().catch(() => null);
+      const reason = why !== null && typeof why === 'object' ? field(why, 'error_description') ?? field(why, 'error') : undefined;
+      refusedUntil = now + TOKEN_RETRY_MS;
+      console.error(`[homegraph] jeton refuse : HTTP ${r.status}${typeof reason === 'string' ? ` (${reason})` : ''} ; nouvel essai dans ${TOKEN_RETRY_MS / 60_000} min`);
+      return null;
+    }
     const d: unknown = await r.json();
     const tok = d !== null && typeof d === 'object' ? field(d, 'access_token') : undefined;
     const ttl = d !== null && typeof d === 'object' ? field(d, 'expires_in') : undefined;
@@ -74,19 +87,26 @@ async function post(url: string, payload: object): Promise<boolean> {
   if (!token) return false;
   try {
     const r = await fetch(url, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(payload), signal: AbortSignal.timeout(HTTP_TIMEOUT_MS) });
-    if (!r.ok) { console.error(`[homegraph] ${url.split(':').pop()} : HTTP ${r.status}`); return false; }
+    if (!r.ok) {
+      if (r.status === 401) cached = null;   // jeton rejete : le prochain appel en redemande un
+      console.error(`[homegraph] ${url.split(':').pop()} : HTTP ${r.status}`);
+      return false;
+    }
     return true;
   } catch (e) { console.error('[homegraph] appel :', e instanceof Error ? e.message : e); return false; }
 }
 
-/** Pousse l'etat des appareils d'un compte a Google (Report State). `states` : par id d'appareil Google. */
-export async function reportState(agentUserId: string, states: Record<string, object>): Promise<void> {
-  if (!homeGraphReady() || Object.keys(states).length === 0) return;
-  await post(REPORT_URL, { requestId: reqId(), agentUserId, payload: { devices: { states } } });
+/** Pousse l'etat des appareils d'un compte a Google (Report State). `states` : par id d'appareil Google.
+ *  Rend true si Google l'a recu (ou s'il n'y avait rien a dire), false sinon. */
+export async function reportState(agentUserId: string, states: Record<string, object>): Promise<boolean> {
+  if (!homeGraphReady()) return false;
+  if (Object.keys(states).length === 0) return true;
+  return post(REPORT_URL, { requestId: reqId(), agentUserId, payload: { devices: { states } } });
 }
 
-/** Demande a Google de resynchroniser la liste des appareils d'un compte (Request Sync). */
-export async function requestSync(agentUserId: string): Promise<void> {
-  if (!homeGraphReady()) return;
-  await post(REQUEST_SYNC_URL, { agentUserId, async: true });
+/** Demande a Google de resynchroniser la liste des appareils d'un compte (Request Sync). Rend true si
+ *  la demande est partie. */
+export async function requestSync(agentUserId: string): Promise<boolean> {
+  if (!homeGraphReady()) return false;
+  return post(REQUEST_SYNC_URL, { agentUserId, async: true });
 }

@@ -32,6 +32,33 @@ export const deviceOnline = (family: string, box: string): boolean => boxState(f
 const boxUpdateListeners: ((family: string, box: string) => void)[] = [];
 export function onBoxUpdated(l: (family: string, box: string) => void): void { boxUpdateListeners.push(l); }
 
+// Etat PEUPLE ? Au demarrage, l'etat des boitiers est vide : il se remplit avec les messages retenus que
+// le broker ressert a l'abonnement. Tant que ce flot n'est pas retombe, une liste d'appareils lue dans
+// l'etat est INCOMPLETE, et la donner a un tiers qui la prend pour la verite (Google retire les appareils
+// absents d'un SYNC) detruirait ce qu'il sait. Peuple = chaque racine abonnee (SUBACK recu) et plus aucun
+// message retenu depuis SETTLE_MS. Une reconnexion ne remet pas en cause : l'etat en memoire reste.
+const SETTLE_MS = 2000;
+const subscribedAt = new Map<string, number | null>();   // par racine : date du premier SUBACK, null avant
+let lastRetainedAt = 0;
+/** Fonction pure (testable) : les abonnements sont-ils tous acquis, et le flot des retenus retombe ? */
+export const isSettled = (acks: Iterable<number | null>, lastRetained: number, now: number, settleMs: number = SETTLE_MS): boolean => {
+  let latest = lastRetained;
+  for (const a of acks) { if (a === null) return false; if (a > latest) latest = a; }
+  return now - latest >= settleMs;
+};
+/** L'etat des boitiers est-il peuple ? Faux tant que le relais n'est pas demarre. */
+export const relaySettled = (now: number = Date.now()): boolean => client !== null && isSettled(subscribedAt.values(), lastRetainedAt, now);
+const SETTLE_POLL_MS = 100;
+/** Attend que l'etat soit peuple, au plus `timeoutMs`. Rend false si le delai est passe. */
+export async function whenRelaySettled(timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (!relaySettled()) {
+    if (Date.now() >= deadline) return false;
+    await new Promise((r) => setTimeout(r, SETTLE_POLL_MS));
+  }
+  return true;
+}
+
 const released = new Set<string>();   // boitiers oublies deja retires
 let client: MqttClient | null = null;
 function get(brokerUrl: string): MqttClient {
@@ -45,6 +72,7 @@ function get(brokerUrl: string): MqttClient {
   client.on("error", (e: Error) => console.error("[mqtt relay]", e.message));
   client.on("message", (t: string, p: Buffer, packet: { retain: boolean }) => {
     const now = Date.now();
+    if (packet.retain) lastRetainedAt = now;   // le flot des retenus n'est pas retombe (voir relaySettled)
     const r = applyMessage(t, p.toString("utf8"), packet.retain, now);
     if (!r) return;
     for (const l of boxUpdateListeners) { try { l(r.family.id, r.box); } catch (e) { console.error("[mqtt relay] hook boitier:", e instanceof Error ? e.message : e); } }
@@ -73,11 +101,16 @@ const roots = new Set<string>();
  *  Les messages retenus peuplent l'etat des le branchement. */
 export function startRelay(brokerUrl: string): void {
   const c = get(brokerUrl);
-  const sub = (root: string): void => { c.subscribe(`${root}/+/#`, { qos: 1 }); };
+  const sub = (root: string): void => {
+    c.subscribe(`${root}/+/#`, { qos: 1 }, (err) => {
+      if (!err && subscribedAt.get(root) === null) subscribedAt.set(root, Date.now());
+    });
+  };
   c.on("connect", () => { for (const r of roots) sub(r); });
   onFamilyRegistered((f) => {
     if (roots.has(f.topicRoot)) return;
     roots.add(f.topicRoot);
+    subscribedAt.set(f.topicRoot, null);   // pas peuple tant que cette racine n'est pas abonnee
     if (c.connected) sub(f.topicRoot);
   });
 }
