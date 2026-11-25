@@ -20,6 +20,7 @@ export const setAccountAdmin = (id: string, admin: boolean): Promise<void> => m(
 export const recordLoginFailure = (id: string, max: number, minutes: number, now: number): Promise<number | null> => m().recordLoginFailure(id, max, minutes, now);
 export const resetLoginFailures = (id: string): Promise<void> => m().resetLoginFailures(id);
 export const setTotp = (id: string, secret: string | null, enabled: boolean): Promise<void> => m().setTotp(id, secret, enabled);
+export const setGooglePinHash = (id: string, hash: string | null): Promise<void> => m().setGooglePinHash(id, hash);
 export const setTotpLastStep = (id: string, step: number): Promise<void> => m().setTotpLastStep(id, step);
 export const removeAccount = (id: string): Promise<void> => m().removeAccount(id);
 export const countDevices = (a: string): Promise<number> => m().countDevices(a);

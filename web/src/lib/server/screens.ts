@@ -22,6 +22,7 @@ import type { FleetSummary } from '#lib/users-view.ts';
 import { listCatalogPlugins } from '#lib/server/supervisor.ts';
 import { accountFromLink } from '#lib/server/password.ts';
 import { boot } from '#lib/server/boot.ts';
+import { googleHomeReady } from '#lib/server/google-oauth.ts';
 import { HOST_CHECK, requestScheme, type HostCheck } from '#lib/server/hosts.ts';
 import { LANG, ROUTES, t, type Lang } from '#lib/i18n.ts';
 import { LINK_VIEW, LINK_COOKIE, type LinkView } from '#lib/link.ts';
@@ -65,7 +66,7 @@ export async function accountScreen(lang: Lang, request: Request) {
   const acc = await requireAccount(request, lang);
   const account = await getAccountInfo(acc);
   const sec = localAccountsSettings();
-  return { account, totpOn: totpAllowed(sec), totpRequired: totpRequiredFor(sec, account.admin) };
+  return { account, totpOn: totpAllowed(sec), totpRequired: totpRequiredFor(sec, account.admin), googleHome: await googleHomeReady() };
 }
 
 /** Connexion : renvoi vers le site externe s'il y en a un (sauf ?local=1, l'entree de l'operateur). */

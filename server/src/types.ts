@@ -7,6 +7,8 @@ export type Account = {
   // securite (greffon Comptes locaux) : echecs de connexion, blocage, double authentification
   failedCount: number; lockedUntil: number | null;
   totpSecret: string | null; totpEnabled: boolean; totpLastStep: number | null;
+  // code PIN que Google Home exige pour ouvrir un portail (greffon Google Home), garde hache ; null = aucun
+  googlePinHash: string | null;
   // origine : plugin qui a cree le compte (un site externe, par son annuaire ou a la premiere visite),
   // null pour un compte cree dans le portail (installation, connexion par mot de passe). missingSince :
   // date ou la source ne l'a plus liste (le compte est MARQUE, jamais supprime : il peut avoir des

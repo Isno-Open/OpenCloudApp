@@ -92,6 +92,7 @@ interface S {
   smtpUser: string; smtpPass: string; smtpPassKept: string; smtpFrom: string; smtpFromName: string; smtpTest: string; smtpTestOk: string; loginCaptchaError: string; loginLocked: string; loginTotpPrompt: string; loginTotpError: string; loginExpired: string; totpCodeLabel: string;
   // double authentification (Compte)
   totpTitle: string; totpIntro: string; totpEnable: string; totpManual: string; totpConfirm: string; totpOnNote: string; totpDisable: string; totpRequiredNotice: string;
+  googlePinTitle: string; googlePinIntro: string; googlePinOnNote: string; googlePinOffNote: string; googlePinSave: string; googlePinChange: string; googlePinRemove: string; googlePinInvalid: string;
   // utilisateurs : etat de securite
   lockedTag: string; unlockBtn: string; totpResetBtn: string;
   // parametres
@@ -212,6 +213,9 @@ export const STRINGS = {
     totpEnable: 'Activer', totpManual: 'Scannez le QR code avec votre appli, ou saisissez cette clé :', totpConfirm: 'Confirmer',
     totpOnNote: 'Double authentification activée.', totpDisable: 'Désactiver (code requis)',
     totpRequiredNotice: 'Ce portail exige la double authentification pour votre compte : activez-la pour continuer.',
+    googlePinTitle: 'Code Google Home', googlePinIntro: "Google exige un code pour ouvrir un portail depuis Google Home ou l'Assistant. Choisissez le vôtre (4 à 8 chiffres) : il vous sera demandé à chaque ouverture. La fermeture et les volets n'en demandent pas.",
+    googlePinOnNote: 'Code choisi.', googlePinOffNote: "Aucun code choisi : Google ne peut pas ouvrir vos portails.",
+    googlePinSave: 'Enregistrer', googlePinChange: 'Changer le code', googlePinRemove: 'Retirer', googlePinInvalid: 'Le code doit compter de 4 à 8 chiffres.',
     lockedTag: 'bloqué', unlockBtn: 'Débloquer', totpResetBtn: 'Réinitialiser la 2FA',
     generalTitle: 'Général', themeLabel: 'Thème', themeHint: 'Couleurs, polices et logo du portail, apportés par les plugins de thème. Le pied de page reste celui d’origine.', appNameLabel: 'Nom du portail', appNameHint: 'Affiché dans la barre et le titre des onglets. Vide : la marque par défaut.',
     saveBtn: 'Enregistrer', savedMsg: 'Enregistré.', saveError: 'Enregistrement impossible.',
@@ -326,6 +330,9 @@ export const STRINGS = {
     totpEnable: 'Enable', totpManual: 'Scan the QR code with your app, or enter this key:', totpConfirm: 'Confirm',
     totpOnNote: 'Two-factor authentication is on.', totpDisable: 'Disable (code required)',
     totpRequiredNotice: 'This portal requires two-factor authentication for your account: enable it to continue.',
+    googlePinTitle: 'Google Home code', googlePinIntro: 'Google requires a code to open a gate from Google Home or the Assistant. Choose yours (4 to 8 digits): you will be asked for it each time a gate opens. Closing and shutters need no code.',
+    googlePinOnNote: 'Code set.', googlePinOffNote: 'No code set: Google cannot open your gates.',
+    googlePinSave: 'Save', googlePinChange: 'Change code', googlePinRemove: 'Remove', googlePinInvalid: 'The code must be 4 to 8 digits.',
     lockedTag: 'locked', unlockBtn: 'Unlock', totpResetBtn: 'Reset 2FA',
     generalTitle: 'General', themeLabel: 'Theme', themeHint: 'Portal colors, fonts and logo, brought by theme plugins. The page footer stays the original one.', appNameLabel: 'Portal name', appNameHint: 'Shown in the top bar and tab titles. Empty: default branding.',
     saveBtn: 'Save', savedMsg: 'Saved.', saveError: 'Could not save.',

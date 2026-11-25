@@ -144,6 +144,14 @@ test("double authentification : secret, activation, dernier pas", async () => {
   assert.equal((await s.getAccount("dave@x.fr"))?.totpSecret, null);
 });
 
+test("code PIN Google Home : absent au depart, pose, retire", async () => {
+  assert.equal((await s.getAccount("dave@x.fr"))?.googlePinHash, null);
+  await s.setGooglePinHash("dave@x.fr", "SEL:PIN");
+  assert.equal((await s.getAccount("dave@x.fr"))?.googlePinHash, "SEL:PIN");
+  await s.setGooglePinHash("dave@x.fr", null);
+  assert.equal((await s.getAccount("dave@x.fr"))?.googlePinHash, null);
+});
+
 test("origine : un compte cree par une source la garde ; un compte du portail n'en a pas", async () => {
   await s.ensureAccount("client@site.fr", 5, "Client", "external-auth");
   assert.equal((await s.getAccount("client@site.fr"))?.source, "external-auth");

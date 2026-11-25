@@ -73,6 +73,8 @@ export type Account = {
   name: string | null;
   admin: boolean;
   totpEnabled: boolean;
+  /** Un code PIN Google Home est choisi (jamais le code lui-meme). */
+  googlePinSet: boolean;
   boitiers: number;
   cap: number;
 };
