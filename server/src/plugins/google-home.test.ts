@@ -42,3 +42,13 @@ test("Google Home : un envoi rate se rejoue (la memoire ne retient que ce qui es
   assert.equal(retry.sync, false);
   assert.equal(retry.report, true);
 });
+
+test("Google Home : un appareil retire puis remis dans le meme etat repart avec son etat", () => {
+  const first = planGooglePush({}, { "box:a": A });
+  const known = { ids: first.ids, states: first.states };
+  const removed = planGooglePush(known, {});
+  known.ids = removed.ids;   // Request Sync parti ; aucun etat a pousser, la memoire d'etat reste
+  const back = planGooglePush(known, { "box:a": A });
+  assert.equal(back.sync, true);
+  assert.equal(back.report, true, "l'appareil recree chez Google n'a pas d'etat tant qu'on ne le pousse pas");
+});
