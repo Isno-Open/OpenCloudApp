@@ -152,6 +152,20 @@ test("code PIN Google Home : absent au depart, pose, retire", async () => {
   assert.equal((await s.getAccount("dave@x.fr"))?.googlePinHash, null);
 });
 
+test("code PIN Google Home propre a un appareil : pose, change, retire, et part avec le compte", async () => {
+  await s.createAccount("pin@x.fr", "Pin", null, 5, false);
+  assert.deepEqual(await s.listGoogleDevicePins("pin@x.fr"), {});
+  await s.setGoogleDevicePin("pin@x.fr", "box:Portail", "SEL:A");
+  await s.setGoogleDevicePin("pin@x.fr", "box:Garage", "SEL:B");
+  await s.setGoogleDevicePin("pin@x.fr", "box:Portail", "SEL:C");
+  assert.deepEqual(await s.listGoogleDevicePins("pin@x.fr"), { "box:Portail": "SEL:C", "box:Garage": "SEL:B" });
+  assert.deepEqual(await s.listGoogleDevicePins("dave@x.fr"), {}, "les codes d'un compte ne se lisent pas depuis un autre");
+  await s.setGoogleDevicePin("pin@x.fr", "box:Garage", null);
+  assert.deepEqual(await s.listGoogleDevicePins("pin@x.fr"), { "box:Portail": "SEL:C" });
+  await s.removeAccount("pin@x.fr");
+  assert.deepEqual(await s.listGoogleDevicePins("pin@x.fr"), {});
+});
+
 test("origine : un compte cree par une source la garde ; un compte du portail n'en a pas", async () => {
   await s.ensureAccount("client@site.fr", 5, "Client", "external-auth");
   assert.equal((await s.getAccount("client@site.fr"))?.source, "external-auth");

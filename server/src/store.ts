@@ -21,6 +21,9 @@ export const recordLoginFailure = (id: string, max: number, minutes: number, now
 export const resetLoginFailures = (id: string): Promise<void> => m().resetLoginFailures(id);
 export const setTotp = (id: string, secret: string | null, enabled: boolean): Promise<void> => m().setTotp(id, secret, enabled);
 export const setGooglePinHash = (id: string, hash: string | null): Promise<void> => m().setGooglePinHash(id, hash);
+export const setGoogleDevicePin = (accountId: string, applianceId: string, hash: string | null): Promise<void> => m().setGoogleDevicePin(accountId, applianceId, hash);
+/** Codes propres du compte : identifiant d'appareil -> hache. */
+export const listGoogleDevicePins = (accountId: string): Promise<Record<string, string>> => m().listGoogleDevicePins(accountId);
 export const setTotpLastStep = (id: string, step: number): Promise<void> => m().setTotpLastStep(id, step);
 export const removeAccount = (id: string): Promise<void> => m().removeAccount(id);
 export const countDevices = (a: string): Promise<number> => m().countDevices(a);

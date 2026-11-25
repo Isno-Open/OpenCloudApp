@@ -21,6 +21,6 @@
     <KeyValue label={s.userLogin} value={a.email} />
     <KeyValue label={s.boxesWord} value={`${a.boitiers} / ${a.cap}`} />
   </Panel>
-  {#if data.googleHome}<GooglePinPanel lang={data.lang} pinSet={a.googlePinSet} />{/if}
+  {#if data.googleHome}<GooglePinPanel lang={data.lang} pinSet={a.googlePinSet} gates={data.googleGates} />{/if}
   <AccountActions lang={data.lang} home={ROUTES.appareils[data.lang]} totpOn={data.totpOn} totpRequired={data.totpRequired} totpEnabled={a.totpEnabled} />
 </CloudLayout>
