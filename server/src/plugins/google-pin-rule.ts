@@ -23,43 +23,43 @@ export const PIN_VERDICT = {
   locked: "locked",     // trop d'essais faux : plus aucun essai jusqu'a la fin du blocage
 } as const;
 export type PinVerdict = (typeof PIN_VERDICT)[keyof typeof PIN_VERDICT];
-/** Essais faux en cours d'un compte, et fin du blocage (0 = pas bloque). */
+/** Essais faux en cours contre UN code, et fin du blocage (0 = pas bloque). */
 export type PinAttempts = { failed: number; lockedUntil: number };
 /** Fonction pure (testable) : juge UN code presente pour PLUSIEURS appareils d'un meme ordre, chacun
  *  avec le hache du code qui le protege (le sien, sinon celui du compte ; null = aucun code choisi).
- *  Rend une issue par appareil, dans l'ordre recu, et le compteur d'essais a retenir (undefined = rien
- *  a retenir). Un ordre ou au moins un appareil est refuse compte pour UN essai faux, quel que soit le
- *  nombre d'appareils. Un blocage en cours ne regarde meme pas le code. `verify` compare le code au
- *  hache garde (verifyPass) : il est passe par l'appelant pour que ce module reste lisible par le
- *  navigateur. */
+ *  Rend une issue par appareil, dans l'ordre recu, et les compteurs d'essais a retenir.
+ *
+ *  Les essais se comptent PAR CODE PROTEGE (cle = son hache), jamais pour le compte entier : ouvrir un
+ *  portail avec son bon code ne doit pas effacer les essais faux contre le code d'un autre, sinon on
+ *  devinerait ce dernier sans jamais etre bloque, en alternant avec une ouverture reussie. Un code faux
+ *  compte pour UN essai par code vise, quel que soit le nombre d'appareils qu'il protege. Un code bloque
+ *  n'est meme pas compare.
+ *
+ *  `verify` compare le code au hache garde (verifyPass) : il est passe par l'appelant pour que ce
+ *  module reste lisible par le navigateur. */
 export function judgeGooglePins(
-  pinHashes: readonly (string | null)[], given: unknown, attempts: PinAttempts | undefined, now: number,
+  pinHashes: readonly (string | null)[], given: unknown, attempts: ReadonlyMap<string, PinAttempts>, now: number,
   verify: (pin: string, stored: string) => boolean,
-): { verdicts: PinVerdict[]; attempts: PinAttempts | undefined } {
-  const all = (v: PinVerdict): PinVerdict[] => pinHashes.map(() => v);
-  if (attempts && attempts.lockedUntil > now) return { verdicts: all(PIN_VERDICT.locked), attempts };
-  if (given === undefined || given === null || given === "") return { verdicts: all(PIN_VERDICT.needed), attempts };
+): { verdicts: PinVerdict[]; attempts: Map<string, PinAttempts> } {
+  const next = new Map(attempts);
+  const absent = given === undefined || given === null || given === "";
   const pin = normalizeGooglePin(given);
-  const checked = new Map<string, boolean>();   // un meme hache (le code du compte) n'est compare qu'une fois
-  const right = (hash: string | null): boolean => {
-    if (hash === null || pin === null) return false;
-    let ok = checked.get(hash);
-    if (ok === undefined) { ok = verify(pin, hash); checked.set(hash, ok); }
-    return ok;
+  const judged = new Map<string, PinVerdict>();   // un meme code (celui du compte) n'est juge qu'une fois
+  const judge = (hash: string): PinVerdict => {
+    const known = next.get(hash);
+    if (known && known.lockedUntil > now) return PIN_VERDICT.locked;
+    if (absent) return PIN_VERDICT.needed;
+    if (pin !== null && verify(pin, hash)) { next.delete(hash); return PIN_VERDICT.granted; }
+    const failed = (known?.failed ?? 0) + 1;
+    next.set(hash, failed >= GOOGLE_PIN.maxFailures ? { failed: 0, lockedUntil: now + GOOGLE_PIN.lockMinutes * 60_000 } : { failed, lockedUntil: 0 });
+    return PIN_VERDICT.failed;
   };
-  const verdicts = pinHashes.map((h) => (right(h) ? PIN_VERDICT.granted : PIN_VERDICT.failed));
-  if (!verdicts.includes(PIN_VERDICT.failed)) return { verdicts, attempts: undefined };
-  const failed = (attempts?.failed ?? 0) + 1;
-  return {
-    verdicts,
-    attempts: failed >= GOOGLE_PIN.maxFailures ? { failed: 0, lockedUntil: now + GOOGLE_PIN.lockMinutes * 60_000 } : { failed, lockedUntil: 0 },
-  };
-}
-/** Le cas d'un seul appareil (ou du seul code du compte). */
-export function judgeGooglePin(
-  pinHash: string | null, given: unknown, attempts: PinAttempts | undefined, now: number,
-  verify: (pin: string, stored: string) => boolean,
-): { verdict: PinVerdict; attempts: PinAttempts | undefined } {
-  const r = judgeGooglePins([pinHash], given, attempts, now, verify);
-  return { verdict: r.verdicts[0] ?? PIN_VERDICT.failed, attempts: r.attempts };
+  const verdicts = pinHashes.map((hash) => {
+    // aucun code choisi : rien a deviner, donc rien a compter ; l'ouverture reste refusee
+    if (hash === null) return absent ? PIN_VERDICT.needed : PIN_VERDICT.failed;
+    let v = judged.get(hash);
+    if (v === undefined) { v = judge(hash); judged.set(hash, v); }
+    return v;
+  });
+  return { verdicts, attempts: next };
 }

@@ -156,8 +156,8 @@ export async function onExecute(accountId: string, commands: readonly unknown[])
       const openPercent = typeof raw === 'number' ? clamp(raw, 0, 100) : 100;   // « ouvre » sans valeur = 100
       const pin = field(field(exec, 'challenge'), 'pin');
       // D'abord ce que chaque appareil doit recevoir, puis UN jugement du code pour toutes les ouvertures
-      // a proteger de l'ordre (un code faux compte pour un essai, quel que soit le nombre de portails),
-      // enfin l'envoi de ce qui est permis.
+      // a proteger de l'ordre (un code faux compte pour un essai par code vise, quel que soit le nombre
+      // de portails), enfin l'envoi de ce qui est permis.
       const ready: { id: string; topic: string; payload: string; retain: boolean; secured: boolean }[] = [];
       for (const id of ids) {
         const a = byId.get(id);
