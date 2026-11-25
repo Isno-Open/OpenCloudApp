@@ -40,6 +40,20 @@ export function normalizeGoogleHome(raw: unknown): GoogleHomeSettings {
 /** Reglages courants du plugin (depuis la config du portail). */
 export const googleHomeSettings = (): GoogleHomeSettings => normalizeGoogleHome(loadConfig()?.pluginSettings?.[GOOGLE_HOME_ID]);
 
+// Ce qu'un boitier a deja fait savoir a Google : la liste de ses appareils et leur dernier etat pousse.
+// Un boitier publie sa sante chaque minute ; sans cette memoire, le meme etat repartait chez Google a
+// chaque message. On ne retient une valeur qu'APRES un envoi reussi : un echec se rejoue au message suivant.
+export type GooglePushMemory = { ids?: string; states?: string };
+export type GooglePushPlan = { ids: string; states: string; sync: boolean; report: boolean };
+/** Fonction pure (testable) : que faut-il envoyer a Google pour ces etats, vu ce qu'il sait deja ?
+ *  `sync` : la liste des appareils a change (Request Sync). `report` : un etat a change (Report State). */
+export function planGooglePush(known: GooglePushMemory, states: Readonly<Record<string, object>>): GooglePushPlan {
+  const sorted = Object.keys(states).sort();
+  const ids = sorted.join(",");
+  const key = JSON.stringify(sorted.map((id) => [id, states[id]]));
+  return { ids, states: key, sync: known.ids !== ids, report: sorted.length > 0 && known.states !== key };
+}
+
 const settings: PluginSettings = {
   fields: [
     { key: "clientId", kind: SETTING_KIND.text, format: TEXT_FORMAT.plain, maxLength: CLIENT_ID_MAX,

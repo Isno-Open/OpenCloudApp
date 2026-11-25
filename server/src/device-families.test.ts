@@ -2,7 +2,7 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { CONTROL, FACT, EVENT_LEVEL, FAMILY_CONTRACT, BOX_FILE_TYPE, type FamilyDecl, type FamilyMessage, type Fact } from "./family-contract.js";
 import { asFamily, registerDeviceFamily, clearDeviceFamilies, applyMessage, buildCommand, boxState, familyById, onFamilyRegistered, buildFileRequest, awaitBoxFile, BOX_FILE_MAX, buildUnpair, buildBoxName } from "./device-families.js";
-import { isLiveActivity } from "./mqtt.js";
+import { isLiveActivity, isSettled } from "./mqtt.js";
 
 // Petite famille de test : « store » publie `<boitier>/en_ligne` et `<boitier>/store/<id>/{type,pos,etat}` ;
 // elle se commande par `store/<id>/cmd` et `store/<id>/aller`.
@@ -178,6 +178,16 @@ test("activite : un message direct, ou une presence en ligne retenue ; pas un me
   assert.equal(isLiveActivity(true, true), true);
   assert.equal(isLiveActivity(true, null), false);
   assert.equal(isLiveActivity(true, false), false);
+});
+
+test("etat peuple : chaque racine abonnee, et plus de message retenu depuis le delai", () => {
+  assert.equal(isSettled([], 0, 10_000, 2000), true, "aucune famille : rien a attendre");
+  assert.equal(isSettled([null], 0, 10_000, 2000), false, "abonnement pas encore acquitte");
+  assert.equal(isSettled([1000, null], 0, 10_000, 2000), false, "une seule racine en retard suffit");
+  assert.equal(isSettled([9000], 0, 10_000, 2000), false, "abonne depuis 1 s : les retenus arrivent");
+  assert.equal(isSettled([1000], 9500, 10_000, 2000), false, "un retenu il y a 0,5 s : le flot continue");
+  assert.equal(isSettled([1000], 7999, 10_000, 2000), true, "silence de 2 s apres le dernier retenu");
+  assert.equal(isSettled([8000], 1000, 10_000, 2000), true, "pile au delai");
 });
 
 test("ACL du broker : une racine par famille, le relais partout, chaque boitier chez lui seulement", async () => {
