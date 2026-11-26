@@ -227,7 +227,11 @@ export type BoxEvent = { at: number; level: EventLevel; code: string; text: Loca
 /** disabled : hors ligne parce que le boitier a coupe le cloud lui-meme (fait presence) ; forgotten :
  *  il a ete oublie sur lui-meme, le relais le retire de son compte */
 export type BoxState = { online: boolean | null; disabled: boolean; forgotten: boolean; firmware: string | null; board: string | null; latest: string | null; trial: boolean | null; previous: string | null;
-  actions: Map<string, boolean>; health: BoxHealth; network: BoxNetwork; devices: Map<string, DeviceState>; events: BoxEvent[] };
+  actions: Map<string, boolean>; health: BoxHealth; network: BoxNetwork; devices: Map<string, DeviceState>; events: BoxEvent[];
+  /** etats arrives AVANT l'annonce de leur appareil (par appareil, puis par controle), en attente de celle-ci */
+  early: Map<string, Map<string, unknown>> };
+/** Bornes de l'attente : un boitier qui publierait des etats sans jamais annoncer d'appareil ne remplit pas la memoire. */
+const EARLY_DEVICES_MAX = 64, EARLY_CONTROLS_MAX = 16;
 const boxes = new Map<string, BoxState>();
 const key = (family: string, box: string): string => `${family}/${box}`;
 export const boxState = (family: string, box: string): BoxState | null => boxes.get(key(family, box)) ?? null;
@@ -305,7 +309,7 @@ export function applyFacts(f: FamilyDecl, box: string, facts: unknown, now: numb
   const refused: string[] = [];
   if (!Array.isArray(facts)) return ["read() n'a pas rendu une liste"];
   let s = boxes.get(key(f.id, box));
-  if (!s) { s = { online: null, disabled: false, forgotten: false, firmware: null, board: null, latest: null, trial: null, previous: null, actions: new Map(), health: {}, network: {}, devices: new Map(), events: [] }; boxes.set(key(f.id, box), s); }
+  if (!s) { s = { online: null, disabled: false, forgotten: false, firmware: null, board: null, latest: null, trial: null, previous: null, actions: new Map(), health: {}, network: {}, devices: new Map(), early: new Map(), events: [] }; boxes.set(key(f.id, box), s); }
   for (const x of facts) {
     if (!isObj(x)) { refused.push("fait : objet attendu"); continue; }
     switch (x.fact) {
@@ -349,14 +353,33 @@ export function applyFacts(f: FamilyDecl, box: string, facts: unknown, now: numb
         }
         const rank = isNum(x.rank) && Number.isInteger(x.rank) && x.rank >= 1 && x.rank <= 999 ? x.rank : x.rank === undefined ? prev?.rank ?? null : null;
         if (x.rank !== undefined && rank === null) refused.push(`rang refuse (${x.device})`);
-        s.devices.set(x.device, { kind: x.kind, known: !!kind, uid, identity, name, hidden: new Set(hidden), values: prev && prev.kind === x.kind ? prev.values : new Map(), settings, rank });
+        const values = prev && prev.kind === x.kind ? prev.values : new Map<string, ControlValue>();
+        // etats arrives avant cette annonce (les messages retenus d'un broker n'ont pas d'ordre garanti) :
+        // ils s'appliquent maintenant, verifies contre le type comme tout etat
+        const waiting = s.early.get(x.device);
+        if (waiting) {
+          s.early.delete(x.device);
+          if (kind) for (const [control, value] of waiting) {
+            const c = kind.controls.find((k) => k.id === control);
+            if (c && valueFits(c, value)) values.set(c.id, value); else refused.push(`etat : appareil, controle ou valeur refuses (${x.device}/${control})`);
+          }
+        }
+        s.devices.set(x.device, { kind: x.kind, known: !!kind, uid, identity, name, hidden: new Set(hidden), values, settings, rank });
         break;
       }
       case FACT.gone:
-        if (typeof x.device === "string" && NAME_RE.test(x.device)) s.devices.delete(x.device); else refused.push("disparu : identifiant invalide");
+        if (typeof x.device === "string" && NAME_RE.test(x.device)) { s.devices.delete(x.device); s.early.delete(x.device); } else refused.push("disparu : identifiant invalide");
         break;
       case FACT.state: {
         const d = typeof x.device === "string" ? s.devices.get(x.device) : undefined;
+        // l'appareil n'est pas encore annonce : son etat attend l'annonce au lieu d'etre perdu (il ne serait
+        // republie qu'au prochain mouvement). Borne, et le dernier etat recu d'un controle remplace le precedent.
+        if (!d && typeof x.device === "string" && NAME_RE.test(x.device) && typeof x.control === "string" && NAME_RE.test(x.control)) {
+          const held = s.early.get(x.device) ?? new Map<string, unknown>();
+          if ((s.early.has(x.device) || s.early.size < EARLY_DEVICES_MAX) && (held.has(x.control) || held.size < EARLY_CONTROLS_MAX)) {
+            held.set(x.control, x.value); s.early.set(x.device, held); break;
+          }
+        }
         const c = d?.known ? f.kinds.find((k) => k.id === d.kind)?.controls.find((k) => k.id === x.control) : undefined;
         if (!d || !c || !valueFits(c, x.value)) { refused.push(`etat : appareil, controle ou valeur refuses (${String(x.device)}/${String(x.control)})`); break; }
         d.values.set(c.id, x.value);

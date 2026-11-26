@@ -79,7 +79,8 @@ test("un fait mal forme est ecarte seul et signale ; les autres passent", () => 
   assert.equal(applyMessage("test-famille/b1/store/y/type", "a b", true, 1)!.refused.length, 1, "type au nom invalide");
   assert.deepEqual(applyMessage("test-famille/b1/store/z/type", "", true, 1)!.refused, [], "aucun type declare : appareil inconnu");
   assert.equal(boxState("famille-test", "b1")!.devices.get("z")!.known, false);
-  assert.equal(applyMessage("test-famille/b1/store/fantome/pos", "10", true, 1)!.refused.length, 1, "etat d'un appareil jamais vu");
+  // l'etat d'un appareil pas encore annonce attend son annonce : ni refuse, ni createur d'appareil
+  assert.deepEqual(applyMessage("test-famille/b1/store/fantome/pos", "10", true, 1)!.refused, [], "etat d'un appareil jamais vu : il attend");
 });
 
 test("une famille qui leve une erreur ne casse pas le relais", () => {
@@ -518,4 +519,22 @@ test("identifiant stable : un appareil renomme sur le boitier reste le meme appa
   // un autre boitier peut porter le meme identifiant : l'identite est par boitier
   applyFacts(f, "b2", [{ fact: FACT.device, device: "Salon", kind: "store", uid: "Salon" }], 0);
   assert.equal(boxState("famille-test", "b1")!.devices.get("Sejour")!.uid, "Salon");
+});
+
+test("un etat arrive AVANT l'annonce de son appareil n'est pas perdu (messages retenus sans ordre garanti)", () => {
+  clearDeviceFamilies();
+  registerDeviceFamily(STORE);
+  const f = familyById("famille-test")!;
+  assert.deepEqual(applyFacts(f, "b9", [{ fact: FACT.state, device: "Salon", control: "pos", value: 40 }], 0), [], "l'etat attend, il n'est pas refuse");
+  assert.equal(boxState("famille-test", "b9")!.devices.size, 0, "aucun appareil n'est cree par un etat");
+  assert.deepEqual(applyFacts(f, "b9", [{ fact: FACT.state, device: "Salon", control: "pos", value: 71 }], 0), [], "le dernier etat recu remplace le precedent");
+  assert.deepEqual(applyFacts(f, "b9", [{ fact: FACT.device, device: "Salon", kind: "store", name: "Salon" }], 0), []);
+  assert.equal(boxState("famille-test", "b9")!.devices.get("Salon")!.values.get("pos"), 71, "l'annonce applique l'etat en attente");
+  // un etat en attente reste verifie contre le type : valeur hors bornes ou controle inconnu, refuses a l'annonce
+  applyFacts(f, "b9", [{ fact: FACT.state, device: "Cuisine", control: "pos", value: 400 }, { fact: FACT.state, device: "Cuisine", control: "autre", value: 1 }], 0);
+  assert.equal(applyFacts(f, "b9", [{ fact: FACT.device, device: "Cuisine", kind: "store", name: "Cuisine" }], 0).length, 2);
+  assert.equal(boxState("famille-test", "b9")!.devices.get("Cuisine")!.values.size, 0);
+  // un appareil retire emporte son etat en attente
+  applyFacts(f, "b9", [{ fact: FACT.state, device: "Bureau", control: "pos", value: 10 }, { fact: FACT.gone, device: "Bureau" }, { fact: FACT.device, device: "Bureau", kind: "store", name: "Bureau" }], 0);
+  assert.equal(boxState("famille-test", "b9")!.devices.get("Bureau")!.values.size, 0);
 });
