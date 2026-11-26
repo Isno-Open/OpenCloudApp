@@ -77,6 +77,10 @@ const DIRECTORY_EVERY_MS = 15 * 60_000;   // relecture periodique
 const DIRECTORY_MIN_GAP_MS = 60_000;      // jamais plus d'une lecture par minute
 const EMAIL_RE = /^[^\s@]+@[^\s@]+$/;
 let directoryApi: PluginApi | null = null;
+/** Comptes que leur titulaire a FERMES sur le site externe, d'apres la derniere lecture de l'annuaire. */
+let closedAccounts: ReadonlySet<string> = new Set();
+/** L'annuaire a-t-il ete lu avec succes depuis le demarrage ? Avant, on ne sait pas quels comptes sont fermes. */
+let directoryRead = false;
 let lastSync = 0;
 let inflight: Promise<number | null> | null = null;   // lecture en cours : on l'attend plutot que de la sauter
 
@@ -108,6 +112,12 @@ function parseHardware(v: unknown): AccountHardware[] {
 }
 
 type DirectoryEntry = { email: string; name?: string; hardware: AccountHardware[] };
+/** Les comptes fermes annonces par l'annuaire (champ `closed`, une liste d'adresses). */
+function parseClosed(body: unknown): string[] {
+  const list = body !== null && typeof body === "object" ? Object.getOwnPropertyDescriptor(body, "closed")?.value : undefined;
+  if (!Array.isArray(list)) return [];
+  return list.slice(0, DIRECTORY_MAX).map((e) => (typeof e === "string" ? e.trim().toLowerCase() : "")).filter((e) => EMAIL_RE.test(e));
+}
 function parseDirectory(body: unknown): DirectoryEntry[] {
   const list = body !== null && typeof body === "object" ? Object.getOwnPropertyDescriptor(body, "accounts")?.value : undefined;
   if (!Array.isArray(list)) return [];
@@ -119,6 +129,17 @@ function parseDirectory(body: unknown): DirectoryEntry[] {
   }
   return out;
 }
+
+/** Ce qu'on sait au moment d'ouvrir une session venue du site externe. */
+export type ProvisionState = { configured: boolean; read: boolean; exists: boolean; closed: boolean };
+/** Fonction pure : cette session peut-elle ouvrir (et au besoin creer) son compte ? Jamais un compte ferme.
+ *  Et un compte ABSENT du portail ne se cree que si l'on sait qu'il n'est pas ferme : annuaire lu depuis
+ *  le demarrage, ou aucun annuaire configure (rien ne ferme alors un compte). Un compte qui existe deja
+ *  n'attend pas l'annuaire : un compte ferme a ete retire, il n'existerait plus. */
+export const provisionAllowed = (s: ProvisionState): boolean => !s.closed && (!s.configured || s.read || s.exists);
+
+/** Un compte ferme par son titulaire, d'apres la derniere lecture de l'annuaire. */
+export const isClosedAccount = (email: string): boolean => closedAccounts.has(email.toLowerCase());
 
 /** Lit l'annuaire du site externe et cree les comptes manquants. Rend le nombre de comptes lus, ou
  *  null si rien a faire (plugin inactif, pas d'adresse, lecture trop recente) ou si la lecture echoue. */
@@ -133,11 +154,19 @@ export function syncExternalDirectory(now: number = Date.now()): Promise<number 
 
 /** Lecture et application de l'annuaire. `get` : le fetch (remplace dans les essais). Exportee pour
  *  les essais, qui verifient qu'elle cree ET rapproche. */
-export async function readDirectory(api: Pick<PluginApi, "ensureAccount" | "reconcileAccounts" | "defaultCap">, url: string, key: string, now: number, get: typeof fetch = fetch): Promise<number | null> {
+export async function readDirectory(api: Pick<PluginApi, "ensureAccount" | "reconcileAccounts" | "closeAccounts" | "defaultCap">, url: string, key: string, now: number, get: typeof fetch = fetch): Promise<number | null> {
   try {
     const r = await get(url, { headers: { [DIRECTORY_HEADER]: signDirectory(key, now) }, signal: AbortSignal.timeout(DIRECTORY_TIMEOUT_MS) });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const entries = parseDirectory(await r.json());
+    const body: unknown = await r.json();
+    // un compte ferme par son titulaire : retire du portail avec ses boitiers, et il ne se recree pas
+    // (ni par l'annuaire, ni par une session encore ouverte ailleurs). S'il figure aussi dans la liste
+    // des comptes, la fermeture l'emporte.
+    const closed = new Set(parseClosed(body));
+    const entries = parseDirectory(body).filter((e) => !closed.has(e.email));
+    closedAccounts = closed;
+    directoryRead = true;
+    await api.closeAccounts([...closed]);
     for (const e of entries) await api.ensureAccount(e.email, api.defaultCap, e.name);
     hardware = new Map(entries.filter((e) => e.hardware.length).map((e) => [e.email, e.hardware]));
     // ses comptes que le site ne liste plus : marques, jamais supprimes (ils peuvent avoir des boitiers)
@@ -173,6 +202,11 @@ export const externalAuthPlugin: Plugin = {
       resolveAccount: async (cookie) => {
         const email = readSignedSession(cookieValue(cookie, current().cookieName), secret());
         if (!email) return null;
+        // Compte ferme, ou dont on ne sait pas encore s'il l'est : la session du site externe ne l'ouvre
+        // pas. Le titulaire a pu le rouvrir, ou l'annuaire n'a pas encore ete lu : on le relit (au plus une
+        // fois par minute) avant de refuser.
+        const state = async (): Promise<ProvisionState> => ({ configured: !!current().directoryUrl, read: directoryRead, exists: await api.accountExists(email), closed: closedAccounts.has(email.toLowerCase()) });
+        if (!provisionAllowed(await state())) { await syncExternalDirectory(); if (!provisionAllowed(await state())) return null; }
         await api.ensureAccount(email, api.defaultCap);   // compte cree a la premiere visite
         return email;
       },

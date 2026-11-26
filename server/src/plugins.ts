@@ -17,7 +17,7 @@ import { googleHomePlugin } from "./plugins/google-home.js";
 import { customThemePlugin } from "./plugins/theme-custom.js";
 import type { PortalConfig } from "./config.js";
 import { registerAuthProvider, localProvider } from "./auth-provider.js";
-import { ensureAccount, markMissingAccounts } from "./store.js";
+import { ensureAccount, markMissingAccounts, getAccount, listAccounts, removeAccount } from "./store.js";
 import { DEFAULT_CAP } from "./entitlement.js";
 import { localAccountsPlugin } from "./plugins/local-accounts.js";
 import { loadConfig } from "./config.js";
@@ -61,6 +61,12 @@ function pluginExtra(raw: Readonly<Record<string, unknown>>): PluginExtra {
   return out;
 }
 
+/** Fonction pure : ce compte est-il a ce plugin, et peut-il le fermer ? Les siens : ceux qu'il a crees,
+ *  et ceux d'avant que l'origine soit notee (sans origine ni mot de passe : la regle de ensureAccount, qui
+ *  les lui attribue). Jamais un operateur : le portail resterait sans personne. */
+export const ownAccount = (a: { source: string | null; passHash: string | null; admin: boolean }, pluginId: string): boolean =>
+  !a.admin && (a.source === pluginId || (a.source === null && a.passHash === null));
+
 const host = createPluginHost<PluginApi, PluginCategory, PluginExtra>({
   builtins: BUILTIN_PLUGINS,
   catalogDir: PLUGINS_DIR,
@@ -74,7 +80,22 @@ const host = createPluginHost<PluginApi, PluginCategory, PluginExtra>({
     provideCapability: (c) => { capabilities.add(c); },
     // le plugin devient la source des comptes qu'il cree ; il ne rapproche que les siens
     ensureAccount: (acc, cap, name) => ensureAccount(acc, cap, name, id),
+    accountExists: async (acc) => (await getAccount(acc)) !== null,
     reconcileAccounts: (present) => markMissingAccounts(id, present, Date.now()),
+    // un plugin ne ferme que SES comptes, et jamais un operateur (le portail resterait sans personne)
+    closeAccounts: async (closed) => {
+      if (closed.length === 0) return 0;
+      // sans egard a la casse : l'annuaire donne les adresses en minuscules, un compte cree par une session
+      // garde la casse de son cookie, et le magasin compare les identifiants a la lettre
+      const wanted = new Set(closed.map((c) => c.toLowerCase()));
+      let n = 0;
+      for (const a of await listAccounts()) {
+        if (!wanted.has(a.id.toLowerCase()) || !ownAccount(a, id)) continue;
+        await removeAccount(a.id);
+        n++;
+      }
+      return n;
+    },
     defaultCap: DEFAULT_CAP,
     registerDeviceFamily,
     registerTheme,

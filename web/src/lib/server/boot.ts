@@ -10,7 +10,7 @@ import { loadConfig, applyStoreEnv } from '@opencloudapp/core/config.js';
 import { ensureCA, ensureRelayCert } from '@opencloudapp/core/pki.js';
 import { prepareBroker, brokerInternal } from '#lib/server/broker.ts';
 import { loadPlugins, enabledPlugins } from '@opencloudapp/core/plugins.js';
-import { startGoogleReporting } from '#lib/server/google-report.ts';
+import { startGoogleReporting, startGoogleUnlinking } from '#lib/server/google-report.ts';
 
 const log = (what: string, e: unknown) => console.error(`[boot] ${what} :`, e instanceof Error ? e.message : e);
 
@@ -26,6 +26,7 @@ export function boot(): Promise<void> {
     if (cfg.operator && !(await getAccount(cfg.operator.email)))
       await createAccount(cfg.operator.email, cfg.operator.name, cfg.operator.passHash, DEFAULT_CAP, true);
     // les familles de boitiers viennent des plugins : chargees AVANT le relais, qui s'abonne a leurs racines
+    startGoogleUnlinking();   // avant les plugins : un compte ferme pendant l'arret est retire des leur chargement
     try { await loadPlugins(enabledPlugins()); } catch (e) { log('plugins', e); }
     try {
       const r = await prepareBroker(new URL(cfg.brokerPublicUrl).hostname);

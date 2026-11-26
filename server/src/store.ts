@@ -25,7 +25,14 @@ export const setGoogleDevicePin = (accountId: string, applianceId: string, hash:
 /** Codes propres du compte : identifiant d'appareil -> hache. */
 export const listGoogleDevicePins = (accountId: string): Promise<Record<string, string>> => m().listGoogleDevicePins(accountId);
 export const setTotpLastStep = (id: string, step: number): Promise<void> => m().setTotpLastStep(id, step);
-export const removeAccount = (id: string): Promise<void> => m().removeAccount(id);
+// Un compte retire emporte ce que d'autres parties gardent a son nom (la liaison Google Home, par exemple).
+// Le magasin ne les connait pas : il previent, apres le retrait, ceux qui se sont inscrits.
+const accountRemovedListeners: ((id: string) => void)[] = [];
+export function onAccountRemoved(l: (id: string) => void): void { accountRemovedListeners.push(l); }
+export const removeAccount = async (id: string): Promise<void> => {
+  await m().removeAccount(id);
+  for (const l of accountRemovedListeners) { try { l(id); } catch (e) { console.error("[store] apres retrait d'un compte :", e instanceof Error ? e.message : e); } }
+};
 export const countDevices = (a: string): Promise<number> => m().countDevices(a);
 export const listDevices = (a: string): Promise<Device[]> => m().listDevices(a);
 export const findDevice = (d: string, a: string): Promise<Device | null> => m().findDevice(d, a);

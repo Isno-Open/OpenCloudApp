@@ -19,7 +19,9 @@ export type PluginApi = {
   registerAuthProvider: (p: AuthProvider) => void;
   provideCapability: (c: Capability) => void;
   ensureAccount: (id: string, cap: number, name?: string) => Promise<void>;   // provisionne un compte (1re visite, annuaire) ; le plugin en devient la source
+  accountExists: (id: string) => Promise<boolean>;                            // ce compte existe-t-il deja dans le portail ?
   reconcileAccounts: (present: readonly string[]) => Promise<number>;         // ses comptes absents de cette liste sont marques (jamais supprimes)
+  closeAccounts: (closed: readonly string[]) => Promise<number>;              // ses comptes FERMES par leur titulaire : retires avec leurs boitiers ; rend le nombre retire
   registerDeviceFamily: (decl: FamilyDecl) => void;            // apporte une famille de boitiers (docs/FAMILLES.md)
   registerTheme: (decl: ThemeDecl | (() => ThemeDecl)) => void;   // apporte un theme ; une fonction : relu a chaque page
   defaultCap: number;
