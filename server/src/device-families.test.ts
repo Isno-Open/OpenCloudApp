@@ -334,6 +334,11 @@ test("appareil disparu : sa carte s'en va ; types sur la page du boitier : ongle
   assert.throws(() => asFamily({ ...GERE, kinds: [STORE.kinds[0]!, { ...k, group: undefined }] }), /onglet/);
   assert.throws(() => asFamily({ ...GERE, kinds: [STORE.kinds[0]!, { ...k, place: "cave" }] }), /emplacement/);
   assert.throws(() => asFamily({ ...GERE, kinds: [STORE.kinds[0]!, { ...k, controls: [{ ...k.controls[0]!, confirm: "Supprimer ?" }] }] }), /confirmation/);
+  // action qui donne acces : gardee telle que la famille la declare, jamais ajoutee, et rien d'autre que true
+  const secured = asFamily({ ...GERE, kinds: [STORE.kinds[0]!, { ...k, controls: [{ ...k.controls[0]!, secure: true }] }] }).kinds[1]!.controls[0]!;
+  assert.equal(secured.kind === CONTROL.action ? secured.secure : null, true);
+  assert.equal(tel.controls[0]!.kind === CONTROL.action ? tel.controls[0]!.secure : null, undefined);
+  assert.throws(() => asFamily({ ...GERE, kinds: [STORE.kinds[0]!, { ...k, controls: [{ ...k.controls[0]!, secure: "oui" }] }] }), /secure/);
 });
 
 test("isolation : un reglage traduit hors du boitier est refuse", async () => {
