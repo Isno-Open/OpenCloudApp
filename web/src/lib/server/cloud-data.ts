@@ -3,7 +3,7 @@
 // (device-families.ts). La famille d'un boitier est celle qu'il a declaree a l'enrolement (firmware).
 import { listDevices, countDevices, findDevice, getAccount } from '@opencloudapp/core/store.js';
 import { deviceOnline } from '@opencloudapp/core/mqtt.js';
-import { familyById, boxState, compareDevices, deviceIdentities, type DeviceState } from '@opencloudapp/core/device-families.js';
+import { familyById, boxState, compareDevices, type DeviceState } from '@opencloudapp/core/device-families.js';
 import { KIND_PLACE } from '@opencloudapp/core/family-contract.js';
 import { isNewerVersion } from '@opencloudapp/core/version.js';
 import type { Appareil, Boitier, Account } from '#lib/types.ts';
@@ -116,13 +116,12 @@ export async function listAppareils(accountId: string): Promise<Appareil[]> {
     if (!fam || !st) continue;
     const online = deviceOnline(d.firmware, d.deviceId);
     // classes par rang d'affichage, ceux sans rang a la suite dans l'ordre des types de la famille
-    const identities = deviceIdentities(st.devices);
     const ordered = [...st.devices].sort(([, a], [, b]) => compareDevices(fam, a, b));
     for (const [slug, dev] of ordered) {
       out.push({
         // identite de l'appareil hors du portail (Google, code propre) : elle survit a un renommage sur
-        // le boitier quand il annonce un identifiant stable (deviceIdentities)
-        id: `${d.deviceId}:${identities.get(slug) ?? slug}`, boitierId: d.deviceId, slug, name: dev.name,
+        // le boitier quand il annonce un identifiant stable (DeviceState.identity)
+        id: `${d.deviceId}:${dev.identity}`, boitierId: d.deviceId, slug, name: dev.name,
         kind: dev.known ? fam.kinds.find((k) => k.id === dev.kind) ?? null : null, declaredType: dev.kind,
         values: Object.fromEntries(dev.values), hidden: [...dev.hidden], settings: Object.fromEntries(dev.settings), online,
       });

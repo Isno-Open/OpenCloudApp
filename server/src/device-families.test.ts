@@ -1,7 +1,7 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { CONTROL, FACT, EVENT_LEVEL, FAMILY_CONTRACT, BOX_FILE_TYPE, type FamilyDecl, type FamilyMessage, type Fact } from "./family-contract.js";
-import { asFamily, registerDeviceFamily, clearDeviceFamilies, applyMessage, applyFacts, deviceIdentities, buildCommand, boxState, familyById, onFamilyRegistered, buildFileRequest, awaitBoxFile, BOX_FILE_MAX, buildUnpair, buildBoxName } from "./device-families.js";
+import { asFamily, registerDeviceFamily, clearDeviceFamilies, applyMessage, applyFacts, buildCommand, boxState, familyById, onFamilyRegistered, buildFileRequest, awaitBoxFile, BOX_FILE_MAX, buildUnpair, buildBoxName } from "./device-families.js";
 import { isLiveActivity, isSettled } from "./mqtt.js";
 
 // Petite famille de test : « store » publie `<boitier>/en_ligne` et `<boitier>/store/<id>/{type,pos,etat}` ;
@@ -489,19 +489,22 @@ test("identifiant stable : un appareil renomme sur le boitier reste le meme appa
   // un identifiant invalide est refuse et ne vaut rien, l'appareil reste
   assert.deepEqual(applyFacts(f, "b1", [{ fact: FACT.device, device: "Bureau", kind: "store", uid: "pas valable" }], 0), ["identifiant stable refuse (Bureau)"]);
   assert.equal(boxState("famille-test", "b1")!.devices.get("Bureau")!.uid, null);
-  // identites toujours distinctes : un identifiant stable egal a l'identite d'un appareil qui n'a que son
-  // identifiant de boitier ne vaut pas, dans un ordre comme dans l'autre
-  const identities = (box: string): [string, string][] => [...deviceIdentities(boxState("famille-test", box)!.devices)].sort(([a], [b]) => a.localeCompare(b));
-  applyFacts(f, "b3", [{ fact: FACT.device, device: "Salon", kind: "store" }, { fact: FACT.device, device: "Sejour", kind: "store", uid: "Salon" }], 0);
+  // identites toujours distinctes, et jamais reattribuees : c'est le nouvel arrivant qui s'adapte
+  const identities = (box: string): [string, string][] => [...boxState("famille-test", box)!.devices].map(([slug, d]): [string, string] => [slug, d.identity]).sort(([a], [b]) => a.localeCompare(b));
+  assert.deepEqual(identities("b1"), [["Bureau", "Bureau"], ["Cuisine", "Cuisine"], ["Sejour", "Salon"]], "renomme : l'identite d'origine ; sans identifiant stable : l'identifiant de boitier");
+  // son identifiant stable est deja l'identite d'un autre : il prend son identifiant de boitier
+  assert.deepEqual(applyFacts(f, "b3", [{ fact: FACT.device, device: "Salon", kind: "store" }, { fact: FACT.device, device: "Sejour", kind: "store", uid: "Salon" }], 0), []);
   assert.deepEqual(identities("b3"), [["Salon", "Salon"], ["Sejour", "Sejour"]]);
-  applyFacts(f, "b4", [{ fact: FACT.device, device: "Sejour", kind: "store", uid: "Salon" }, { fact: FACT.device, device: "Salon", kind: "store" }], 0);
-  assert.deepEqual(identities("b4"), [["Salon", "Salon"], ["Sejour", "Sejour"]]);
-  // en cascade : C sans identifiant deloge A (uid C), qui reprend A et deloge B (uid A)
-  applyFacts(f, "b5", [{ fact: FACT.device, device: "B", kind: "store", uid: "A" }, { fact: FACT.device, device: "A", kind: "store", uid: "C" }, { fact: FACT.device, device: "D", kind: "store", uid: "Z" }], 0);
-  assert.deepEqual(identities("b5"), [["A", "C"], ["B", "A"], ["D", "Z"]], "sans collision : chacun son identifiant stable");
-  applyFacts(f, "b5", [{ fact: FACT.device, device: "C", kind: "store" }], 0);
-  assert.deepEqual(identities("b5"), [["A", "A"], ["B", "B"], ["C", "C"], ["D", "Z"]], "la collision se propage, celui qui n'est pas touche garde le sien");
-  assert.equal(new Set(identities("b5").map(([, id]) => id)).size, 4);
+  // un appareil sans identifiant stable arrive sous l'identite d'un autre : refuse, l'autre garde la sienne
+  assert.deepEqual(applyFacts(f, "b4", [{ fact: FACT.device, device: "Sejour", kind: "store", uid: "Salon" }, { fact: FACT.device, device: "Salon", kind: "store" }], 0), ["appareil refuse, son identite est celle d'un autre (Salon)"]);
+  assert.deepEqual(identities("b4"), [["Sejour", "Salon"]]);
+  // ni son identifiant stable ni son identifiant de boitier ne sont libres : refuse
+  applyFacts(f, "b5", [{ fact: FACT.device, device: "B", kind: "store", uid: "A" }, { fact: FACT.device, device: "C", kind: "store" }], 0);
+  assert.deepEqual(applyFacts(f, "b5", [{ fact: FACT.device, device: "A", kind: "store", uid: "C" }], 0), ["appareil refuse, son identite est celle d'un autre (A)"]);
+  assert.deepEqual(identities("b5"), [["B", "A"], ["C", "C"]]);
+  // une nouvelle annonce du meme appareil ne change rien a son identite
+  applyFacts(f, "b3", [{ fact: FACT.device, device: "Sejour", kind: "store", uid: "Salon", name: "Séjour" }], 0);
+  assert.deepEqual(identities("b3"), [["Salon", "Salon"], ["Sejour", "Sejour"]]);
   // un autre boitier peut porter le meme identifiant : l'identite est par boitier
   applyFacts(f, "b2", [{ fact: FACT.device, device: "Salon", kind: "store", uid: "Salon" }], 0);
   assert.equal(boxState("famille-test", "b1")!.devices.get("Sejour")!.uid, "Salon");

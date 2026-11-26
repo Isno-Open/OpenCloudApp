@@ -217,7 +217,11 @@ export const clearDeviceFamilies = (): void => { families.clear(); boxes.clear()
 // ── Etat vu des boitiers, cle `<famille>/<boitier>` ──
 /** kind : le type tel que le boitier le declare ; known : la famille le connait (sinon l'appareil est
  *  montre « inconnu », sans commandes : un firmware plus recent que son plugin, par exemple). */
-export type DeviceState = { kind: string; known: boolean; uid: string | null; name: string; hidden: ReadonlySet<string>; values: Map<string, ControlValue>; settings: Map<string, SettingValue>; rank: number | null };
+/** identity : l'IDENTITE de l'appareil hors du portail (assistant vocal, reglages gardes par appareil).
+ *  Son identifiant stable (uid) s'il est libre, a defaut son identifiant de boitier. Attribuee a
+ *  l'arrivee de l'appareil, elle ne change plus tant qu'il annonce le meme uid, et deux appareils d'un
+ *  boitier ne portent jamais la meme : une carte ou une commande viserait l'autre. */
+export type DeviceState = { kind: string; known: boolean; uid: string | null; identity: string; name: string; hidden: ReadonlySet<string>; values: Map<string, ControlValue>; settings: Map<string, SettingValue>; rank: number | null };
 export type BoxEvent = { at: number; level: EventLevel; code: string; text: LocalizedText; device?: string };
 /** disabled : hors ligne parce que le boitier a coupe le cloud lui-meme (fait presence) ; forgotten :
  *  il a ete oublie sur lui-meme, le relais le retire de son compte */
@@ -225,22 +229,6 @@ export type BoxState = { online: boolean | null; disabled: boolean; forgotten: b
   actions: Map<string, boolean>; health: BoxHealth; network: BoxNetwork; devices: Map<string, DeviceState>; events: BoxEvent[] };
 const boxes = new Map<string, BoxState>();
 const key = (family: string, box: string): string => `${family}/${box}`;
-/** L'IDENTITE de chaque appareil d'un boitier hors du portail (assistant vocal, reglages gardes par
- *  appareil), par identifiant de boitier : son identifiant stable, a defaut son identifiant de boitier.
- *  TOUJOURS distinctes, sinon une carte ou une commande viserait un autre appareil. Un identifiant
- *  stable egal a l'identite d'un appareil qui n'a que son identifiant de boitier (boitier en cours de
- *  mise a jour, descriptions d'avant encore retenues) ne vaut pas : son appareil prend lui aussi son
- *  identifiant de boitier, ce qui peut en deloger un autre, d'ou la reprise jusqu'a stabilite. Les
- *  identifiants de boitier sont distincts entre eux, les identifiants stables aussi (applyFacts). */
-export function deviceIdentities(devices: ReadonlyMap<string, DeviceState>): Map<string, string> {
-  const bySlug = new Set<string>();
-  for (const [slug, d] of devices) if (d.uid === null) bySlug.add(slug);
-  for (let moved = true; moved;) {
-    moved = false;
-    for (const [slug, d] of devices) if (d.uid !== null && !bySlug.has(slug) && bySlug.has(d.uid)) { bySlug.add(slug); moved = true; }
-  }
-  return new Map([...devices].map(([slug, d]) => [slug, d.uid !== null && !bySlug.has(slug) ? d.uid : slug]));
-}
 export const boxState = (family: string, box: string): BoxState | null => boxes.get(key(family, box)) ?? null;
 
 /** Valeur acceptable pour ce controle (celle qu'un boitier publie, ou qu'un utilisateur envoie). */
@@ -339,6 +327,14 @@ export function applyFacts(f: FamilyDecl, box: string, facts: unknown, now: numb
         // le MEME identifiant stable sous un autre identifiant de boitier : l'appareil vient d'etre renomme.
         // L'ancien s'en va, quel que soit l'ordre d'arrivee du retrait et de la nouvelle annonce.
         if (uid !== null) for (const [other, d] of s.devices) if (other !== x.device && d.uid === uid) s.devices.delete(other);
+        // identite : gardee telle quelle tant que l'appareil annonce le meme identifiant stable. Sinon
+        // (nouvel appareil) son identifiant stable s'il est libre, a defaut son identifiant de boitier.
+        // Les deux deja portes par d'autres (boitier en cours de mise a jour, descriptions d'avant encore
+        // retenues) : c'est le NOUVEL arrivant qui est refuse, jamais une identite deja attribuee qui change.
+        const taken = (id: string): boolean => [...s.devices].some(([other, d]) => other !== x.device && d.identity === id);
+        const known = s.devices.get(x.device);
+        const identity = known && known.uid === uid ? known.identity : uid !== null && !taken(uid) ? uid : !taken(x.device) ? x.device : null;
+        if (identity === null) { refused.push(`appareil refuse, son identite est celle d'un autre (${x.device})`); break; }
         // un appareil qui change de type repart d'un etat vide (les valeurs d'avant ne veulent plus rien dire)
         // reglages : seulement ceux que le type declare, chacun dans ses bornes ; un reglage absent garde sa valeur
         const settings = prev && prev.kind === x.kind ? prev.settings : new Map<string, SettingValue>();
@@ -348,7 +344,7 @@ export function applyFacts(f: FamilyDecl, box: string, facts: unknown, now: numb
         }
         const rank = isNum(x.rank) && Number.isInteger(x.rank) && x.rank >= 1 && x.rank <= 999 ? x.rank : x.rank === undefined ? prev?.rank ?? null : null;
         if (x.rank !== undefined && rank === null) refused.push(`rang refuse (${x.device})`);
-        s.devices.set(x.device, { kind: x.kind, known: !!kind, uid, name, hidden: new Set(hidden), values: prev && prev.kind === x.kind ? prev.values : new Map(), settings, rank });
+        s.devices.set(x.device, { kind: x.kind, known: !!kind, uid, identity, name, hidden: new Set(hidden), values: prev && prev.kind === x.kind ? prev.values : new Map(), settings, rank });
         break;
       }
       case FACT.gone:
