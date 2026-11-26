@@ -72,7 +72,11 @@ export type Fact =
   | { fact: typeof FACT.presence; online: boolean; disabled?: boolean; forgotten?: boolean }
   // appareil vu : son type (un `kinds`), son nom, et les controles masques sur CET appareil (ex. la
   // position d'un volet qui ne la donne pas)
-  | { fact: typeof FACT.device; device: string; kind: string; name?: string; hidden?: readonly string[];
+  // uid : identifiant STABLE de l'appareil, que le boitier garde quand il le RENOMME (son `device`, lui,
+  // change alors). Le portail s'en sert pour reconnaitre l'appareil hors de lui (assistant vocal,
+  // reglages gardes par appareil) : sans uid, `device` en tient lieu et un renommage fait un autre appareil.
+  // Pour un appareil deja connu sans uid, annoncer SON `device` du moment : son identite ne change pas.
+  | { fact: typeof FACT.device; device: string; kind: string; uid?: string; name?: string; hidden?: readonly string[];
       // valeurs actuelles de ses reglages (par cle de champ), telles que le boitier les publie
       settings?: Readonly<Record<string, SettingValue>>;
       // rang d'affichage parmi les appareils du boitier (1 = premier) : le portail classe les cartes ainsi ;

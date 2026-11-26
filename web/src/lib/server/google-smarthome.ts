@@ -94,21 +94,24 @@ export async function withGooglePinState(accountId: string, appareils: readonly 
   return appareils.map((a) => (needsOpenPin(a) ? { ...a, googlePinSet: own[a.id] !== undefined } : a));
 }
 
+/** Ce que SYNC declare d'un appareil a Google. UNE seule construction : la reponse SYNC, et la memoire
+ *  qui decide d'un Request Sync (google-report.ts), pour qu'aucun changement declare ne lui echappe. */
+function syncDeclaration(a: Appareil): { id: string } & Record<string, unknown> {
+  const positional = withPosition(a);
+  return {
+    id: a.id,
+    type: positional ? GOOGLE.type.blinds : GOOGLE.type.gate,
+    traits: [GOOGLE.trait.openClose],
+    name: { name: a.name },
+    willReportState: homeGraphReady(),   // true : on pousse l'etat (Report State) ; sinon Google interroge (QUERY)
+    attributes: positional ? { discreteOnlyOpenClose: false } : { discreteOnlyOpenClose: true },
+    deviceInfo: { manufacturer: 'ISNO', model: a.kind ? a.kind.id : a.declaredType },
+  };
+}
+
 /** SYNC : la liste des appareils du compte, en appareils Google. */
 export async function onSync(accountId: string): Promise<{ agentUserId: string; devices: object[] }> {
-  const devices = (await listAppareils(accountId)).filter(exposable).map((a) => {
-    const positional = withPosition(a);
-    return {
-      id: a.id,
-      type: positional ? GOOGLE.type.blinds : GOOGLE.type.gate,
-      traits: [GOOGLE.trait.openClose],
-      name: { name: a.name },
-      willReportState: homeGraphReady(),   // true : on pousse l'etat (Report State) ; sinon Google interroge (QUERY)
-      attributes: positional ? { discreteOnlyOpenClose: false } : { discreteOnlyOpenClose: true },
-      deviceInfo: { manufacturer: 'ISNO', model: a.kind ? a.kind.id : a.declaredType },
-    };
-  });
-  return { agentUserId: accountId, devices };
+  return { agentUserId: accountId, devices: (await listAppareils(accountId)).filter(exposable).map(syncDeclaration) };
 }
 
 /** QUERY : l'etat des appareils demandes (position + en ligne). */
@@ -123,14 +126,16 @@ export async function onQuery(accountId: string, ids: readonly string[]): Promis
   return out;
 }
 
-/** Etats a pousser a Google (Report State), par id d'appareil ; optionnellement pour un seul boitier. */
-export async function reportableStates(accountId: string, boxId?: string): Promise<Record<string, object>> {
-  const out: Record<string, object> = {};
+/** Ce qu'il faut tenir Google au courant, par id d'appareil : l'etat a pousser (Report State), et ce
+ *  que SYNC en declare (un changement demande un Request Sync) ; optionnellement pour un seul boitier. */
+export async function reportable(accountId: string, boxId?: string): Promise<{ states: Record<string, object>; declared: Record<string, object> }> {
+  const states: Record<string, object> = {}, declared: Record<string, object> = {};
   for (const a of (await listAppareils(accountId)).filter(exposable)) {
     if (boxId !== undefined && a.boitierId !== boxId) continue;
-    out[a.id] = applianceState(a);
+    states[a.id] = applianceState(a);
+    declared[a.id] = syncDeclaration(a);
   }
-  return out;
+  return { states, declared };
 }
 
 /** La commande famille (controle + valeur) qui realise un openPercent Google pour cet appareil.

@@ -5,7 +5,7 @@ import { onBoxUpdated, relaySettled } from '@opencloudapp/core/mqtt.js';
 import { planGooglePush, settleGooglePush } from '@opencloudapp/core/plugins/google-home.js';
 import { pushMemory, rememberPush, forgetBox } from '#lib/server/google-push-memory.ts';
 import { deviceAccount } from '@opencloudapp/core/store.js';
-import { reportableStates } from '#lib/server/google-smarthome.ts';
+import { reportable } from '#lib/server/google-smarthome.ts';
 import { reportState, requestSync, homeGraphReady } from '#lib/server/google-homegraph.ts';
 
 const DEBOUNCE_MS = 1500;
@@ -31,10 +31,10 @@ async function push(family: string, box: string): Promise<void> {
   try {
     const account = await deviceAccount(box);   // le message MQTT ne porte pas le compte
     if (!account) { forgetBox(box); return; }
-    const states = await reportableStates(account, box);
+    const { states, declared } = await reportable(account, box);
     const memory = pushMemory(box, account);
-    const plan = planGooglePush(memory, states);
-    // la liste a change : Google re-synchronise (le nouveau volet apparait). On ne retient que ce qui
+    const plan = planGooglePush(memory, states, declared);
+    // la liste, ou ce qu'elle declare d'un appareil (son nom), a change : Google re-synchronise. On ne retient que ce qui
     // est reellement parti : un echec se rejoue au message suivant.
     const sync = plan.sync && await requestSync(account);
     const report = plan.report && await reportState(account, states);

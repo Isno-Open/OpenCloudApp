@@ -119,7 +119,9 @@ export async function listAppareils(accountId: string): Promise<Appareil[]> {
     const ordered = [...st.devices].sort(([, a], [, b]) => compareDevices(fam, a, b));
     for (const [slug, dev] of ordered) {
       out.push({
-        id: `${d.deviceId}:${slug}`, boitierId: d.deviceId, slug, name: dev.name,
+        // identite de l'appareil hors du portail (Google, code propre) : elle survit a un renommage sur
+        // le boitier quand il annonce un identifiant stable (DeviceState.identity)
+        id: `${d.deviceId}:${dev.identity}`, boitierId: d.deviceId, slug, name: dev.name,
         kind: dev.known ? fam.kinds.find((k) => k.id === dev.kind) ?? null : null, declaredType: dev.kind,
         values: Object.fromEntries(dev.values), hidden: [...dev.hidden], settings: Object.fromEntries(dev.settings), online,
       });

@@ -218,7 +218,11 @@ export const clearDeviceFamilies = (): void => { families.clear(); boxes.clear()
 // ── Etat vu des boitiers, cle `<famille>/<boitier>` ──
 /** kind : le type tel que le boitier le declare ; known : la famille le connait (sinon l'appareil est
  *  montre « inconnu », sans commandes : un firmware plus recent que son plugin, par exemple). */
-export type DeviceState = { kind: string; known: boolean; name: string; hidden: ReadonlySet<string>; values: Map<string, ControlValue>; settings: Map<string, SettingValue>; rank: number | null };
+/** identity : l'IDENTITE de l'appareil hors du portail (assistant vocal, reglages gardes par appareil).
+ *  Son identifiant stable (uid) s'il est libre, a defaut son identifiant de boitier. Attribuee a
+ *  l'arrivee de l'appareil, elle ne change plus tant qu'il annonce le meme uid, et deux appareils d'un
+ *  boitier ne portent jamais la meme : une carte ou une commande viserait l'autre. */
+export type DeviceState = { kind: string; known: boolean; uid: string | null; identity: string; name: string; hidden: ReadonlySet<string>; values: Map<string, ControlValue>; settings: Map<string, SettingValue>; rank: number | null };
 export type BoxEvent = { at: number; level: EventLevel; code: string; text: LocalizedText; device?: string };
 /** disabled : hors ligne parce que le boitier a coupe le cloud lui-meme (fait presence) ; forgotten :
  *  il a ete oublie sur lui-meme, le relais le retire de son compte */
@@ -317,7 +321,25 @@ export function applyFacts(f: FamilyDecl, box: string, facts: unknown, now: numb
         const kind = f.kinds.find((k) => k.id === x.kind);
         const hidden = kind && Array.isArray(x.hidden) ? x.hidden.filter((h): h is string => typeof h === "string" && kind.controls.some((c) => c.id === h)) : [];
         const name = typeof x.name === "string" && x.name.length > 0 && x.name.length <= 64 ? x.name : s.devices.get(x.device)?.name ?? x.device;
-        const prev = s.devices.get(x.device);
+        // identifiant stable : celui que le boitier annonce ; il n'en annonce pas (ou un invalide) : aucun
+        const uid = typeof x.uid === "string" && NAME_RE.test(x.uid) ? x.uid : null;
+        if (x.uid !== undefined && uid === null) refused.push(`identifiant stable refuse (${x.device})`);
+        const here = s.devices.get(x.device);
+        // le MEME identifiant stable sous un autre identifiant de boitier : l'appareil vient d'etre renomme.
+        // L'ancien s'en va, quel que soit l'ordre d'arrivee du retrait et de la nouvelle annonce.
+        let moved: DeviceState | null = null;
+        if (uid !== null) for (const [other, d] of s.devices) if (other !== x.device && d.uid === uid) { moved = d; s.devices.delete(other); }
+        // ce qu'on savait de lui : sous cet identifiant de boitier, sinon sous celui qu'il vient de quitter
+        // (sa position, ses reglages et son rang le suivent, le boitier ne les republie pas forcement)
+        const prev = here ?? moved;
+        // identite : gardee telle quelle tant que l'appareil annonce le meme identifiant stable, reprise de
+        // l'ancien s'il vient d'etre renomme (meme si ce n'etait pas son identifiant stable). Sinon (nouvel
+        // appareil) son identifiant stable s'il est libre, a defaut son identifiant de boitier. Les deux deja
+        // portes par d'autres (boitier en cours de mise a jour, descriptions d'avant encore retenues) : c'est
+        // le NOUVEL arrivant qui est refuse, jamais une identite deja attribuee qui change.
+        const taken = (id: string): boolean => [...s.devices].some(([other, d]) => other !== x.device && d.identity === id);
+        const identity = prev && prev.uid === uid ? prev.identity : uid !== null && !taken(uid) ? uid : !taken(x.device) ? x.device : null;
+        if (identity === null) { refused.push(`appareil refuse, son identite est celle d'un autre (${x.device})`); break; }
         // un appareil qui change de type repart d'un etat vide (les valeurs d'avant ne veulent plus rien dire)
         // reglages : seulement ceux que le type declare, chacun dans ses bornes ; un reglage absent garde sa valeur
         const settings = prev && prev.kind === x.kind ? prev.settings : new Map<string, SettingValue>();
@@ -327,7 +349,7 @@ export function applyFacts(f: FamilyDecl, box: string, facts: unknown, now: numb
         }
         const rank = isNum(x.rank) && Number.isInteger(x.rank) && x.rank >= 1 && x.rank <= 999 ? x.rank : x.rank === undefined ? prev?.rank ?? null : null;
         if (x.rank !== undefined && rank === null) refused.push(`rang refuse (${x.device})`);
-        s.devices.set(x.device, { kind: x.kind, known: !!kind, name, hidden: new Set(hidden), values: prev && prev.kind === x.kind ? prev.values : new Map(), settings, rank });
+        s.devices.set(x.device, { kind: x.kind, known: !!kind, uid, identity, name, hidden: new Set(hidden), values: prev && prev.kind === x.kind ? prev.values : new Map(), settings, rank });
         break;
       }
       case FACT.gone:
