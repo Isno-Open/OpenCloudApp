@@ -12,9 +12,9 @@
   import KeyValue from '#lib/components/ui/KeyValue.svelte';
   import IconMark from '#lib/components/ui/IconMark.svelte';
   import GearIcon from '#lib/components/ui/GearIcon.svelte';
-  import GooglePinField from '#lib/components/screens/GooglePinField.svelte';
+  import { GOOGLE_PIN, normalizeGooglePin } from '@opencloudapp/core/plugins/google-pin-rule.js';
   import SettingsForm from '@isno-open/plugin-host/svelte/SettingsForm.svelte';
-  import { SETTING_KIND, type SettingField, type SettingValue } from '@opencloudapp/core/plugin-contract.js';
+  import { SETTING_KIND, TEXT_FORMAT, type SettingField, type SettingValue } from '@opencloudapp/core/plugin-contract.js';
 
   /** siblings : les autres appareils du meme boitier (un reglage peut en choisir, ex. membres d'une centrale) */
   interface Props { appareil: KnownAppareil; siblings: readonly Appareil[]; boitierName: string; lang: Lang; grouped?: boolean; grip?: Snippet; }
@@ -42,13 +42,38 @@
   // ses valeurs ; l'ecran de reglages est celui du moteur partage, le meme pour tous les plugins
   // un choix d'appareils devient un choix multiple : une case par appareil du boitier d'un type permis,
   // par son nom (l'ecran partage ne connait pas les boitiers)
-  const settingsFields = $derived((a.kind.settings ?? []).map((f): SettingField => f.kind !== DEVICE_SETTING.devices ? f : {
+  const deviceFields = $derived((a.kind.settings ?? []).map((f): SettingField => f.kind !== DEVICE_SETTING.devices ? f : {
     kind: SETTING_KIND.multi, key: f.key, label: f.label, ...(f.hint ? { hint: f.hint } : {}),
     options: siblings.filter((o) => o.slug !== a.slug && o.kind !== null && f.kinds.includes(o.kind.id)).map((o) => ({ value: o.slug, label: { fr: o.name, en: o.name } })),
   }));
+  // le code que Google exige pour CET appareil se regle dans le MEME formulaire, sous le meme bouton : une
+  // case (il a son propre code, ou celui du compte) et la saisie dessous. Ces deux champs sont au portail,
+  // pas a la famille : a l'enregistrement ils partent vers le compte, pas vers le boitier. Le code n'est
+  // jamais reaffiche (il est garde hache) : une saisie vide garde le code en place.
+  const PIN_FIELD = { own: 'google-pin-own', code: 'google-pin-code' } as const;
+  const fr = t('fr'), en = t('en');
+  const pinFields = $derived<SettingField[]>(a.googlePinSet === undefined ? [] : [
+    { kind: SETTING_KIND.toggle, key: PIN_FIELD.own, label: { fr: fr.googlePinOwnToggle, en: en.googlePinOwnToggle } },
+    { kind: SETTING_KIND.text, key: PIN_FIELD.code, under: PIN_FIELD.own, format: TEXT_FORMAT.plain, maxLength: GOOGLE_PIN.maxLength, label: { fr: fr.googlePinCodeLabel, en: en.googlePinCodeLabel },
+      hint: a.googlePinSet ? { fr: fr.googlePinKeepHint, en: en.googlePinKeepHint } : { fr: fr.googlePinCodeHint, en: en.googlePinCodeHint } },
+  ]);
+  const settingsFields = $derived([...deviceFields, ...pinFields]);
+  const settingsValues = $derived({ ...a.settings, ...(a.googlePinSet === undefined ? {} : { [PIN_FIELD.own]: a.googlePinSet, [PIN_FIELD.code]: '' }) });
+  /** Le code propre : pose, retire, ou laisse tel quel. Rend faux si la saisie est refusee. */
+  async function savePin(own: boolean, code: string): Promise<boolean> {
+    if (!own) return !a.googlePinSet || (await postJson('/api/account/google-pin/clear', { appliance: a.id }, s.saveError, ignoreBody)).ok;
+    if (code === '') return a.googlePinSet === true;   // rien de saisi : le code en place reste, mais il en faut un
+    if (normalizeGooglePin(code) === null) return false;
+    return (await postJson('/api/account/google-pin/set', { appliance: a.id, pin: code }, s.saveError, ignoreBody)).ok;
+  }
   async function saveSettings(values: Record<string, SettingValue>): Promise<boolean> {
-    const r = await postJson('/api/device/settings', { device_id: a.boitierId, slug: a.slug, values }, s.saveError, ignoreBody);
-    return r.ok;
+    const { [PIN_FIELD.own]: own, [PIN_FIELD.code]: code, ...device } = values;
+    if (deviceFields.length && !(await postJson('/api/device/settings', { device_id: a.boitierId, slug: a.slug, values: device }, s.saveError, ignoreBody)).ok) return false;
+    if (a.googlePinSet === undefined) return true;
+    if (!(await savePin(own === true, typeof code === 'string' ? code.trim() : ''))) return false;
+    // l'etat du code vient du serveur : la page le relit s'il a pu changer
+    if ((own === true) !== a.googlePinSet || code) location.reload();
+    return true;
   }
   const reading = (c: ControlDecl): string => {
     const v = a.values[c.id];
@@ -123,13 +148,7 @@
       {#if !a.online}<KeyValue label={s.state} value={s.offline} />{/if}
       {#if settingsFields.length}
         <div class="dev-settings" data-settings={a.slug}>
-          <SettingsForm fields={settingsFields} values={a.settings} {lang} onSave={saveSettings} idPrefix={`set-${a.boitierId}-${a.slug}`} />
-        </div>
-      {/if}
-      <!-- code que Google exige pour ouvrir CET appareil : le sien, ou a defaut celui du compte -->
-      {#if a.googlePinSet !== undefined}
-        <div class="dev-pin" data-google-pin={a.slug}>
-          <GooglePinField {lang} label={s.googlePinTitle} status={a.googlePinSet ? `✓ ${s.googlePinOwnNote}` : s.googlePinDefaultNote} pinSet={a.googlePinSet} appliance={a.id} idSuffix={`${a.boitierId}-${a.slug}`} />
+          <SettingsForm fields={settingsFields} values={settingsValues} {lang} onSave={saveSettings} idPrefix={`set-${a.boitierId}-${a.slug}`} />
         </div>
       {/if}
     </div>
@@ -146,7 +165,5 @@
   .ctl-setpoint input { width: 5rem; }
   .ctl-reading.alert { color: var(--danger); }
   /* l'ecran de reglages partage, aux couleurs du portail */
-  /* le code Google : un bloc a part sous les reglages, separe par un trait */
-  .dev-pin { margin-top: .75rem; border-top: 1px solid var(--border); }
   .dev-settings { margin-top: 0.75rem; --oph-border: var(--border); --oph-input: var(--bg-elev); --oph-muted: var(--text-muted); --oph-danger: var(--danger); --oph-accent: var(--accent); }
 </style>

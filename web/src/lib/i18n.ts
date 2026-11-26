@@ -93,7 +93,7 @@ interface S {
   // double authentification (Compte)
   totpTitle: string; totpIntro: string; totpEnable: string; totpManual: string; totpConfirm: string; totpOnNote: string; totpDisable: string; totpRequiredNotice: string;
   googlePinTitle: string; googlePinIntro: string; googlePinOnNote: string; googlePinOffNote: string; googlePinSave: string; googlePinChange: string; googlePinRemove: string; googlePinInvalid: string;
-  googlePinAccountLabel: string; googlePinGatesIntro: string; googlePinOwnNote: string; googlePinDefaultNote: string;
+  googlePinAccountLabel: string; googlePinGatesIntro: string; googlePinOwnNote: string; googlePinDefaultNote: string; googlePinOwnToggle: string; googlePinCodeLabel: string; googlePinCodeHint: string; googlePinKeepHint: string;
   // utilisateurs : etat de securite
   lockedTag: string; unlockBtn: string; totpResetBtn: string;
   // parametres
@@ -219,6 +219,7 @@ export const STRINGS = {
     googlePinSave: 'Enregistrer', googlePinChange: 'Changer le code', googlePinRemove: 'Retirer', googlePinInvalid: 'Le code doit compter de 4 à 8 chiffres.',
     googlePinAccountLabel: 'Code du compte', googlePinGatesIntro: "Un portail peut avoir son propre code, qui remplace alors le code du compte pour lui seul : il se règle sur la carte du portail, dans Mes appareils (roue crantée). Sans code propre, le portail s'ouvre avec le code du compte.",
     googlePinOwnNote: 'code propre à ce portail', googlePinDefaultNote: 'pas de code propre : code du compte',
+    googlePinOwnToggle: 'Code Google Home propre à cet appareil', googlePinCodeLabel: 'Code', googlePinCodeHint: '4 à 8 chiffres. Sans code propre, Google demande le code du compte.', googlePinKeepHint: '4 à 8 chiffres. Laissez vide pour garder le code actuel.',
     lockedTag: 'bloqué', unlockBtn: 'Débloquer', totpResetBtn: 'Réinitialiser la 2FA',
     generalTitle: 'Général', themeLabel: 'Thème', themeHint: 'Couleurs, polices et logo du portail, apportés par les plugins de thème. Le pied de page reste celui d’origine.', appNameLabel: 'Nom du portail', appNameHint: 'Affiché dans la barre et le titre des onglets. Vide : la marque par défaut.',
     saveBtn: 'Enregistrer', savedMsg: 'Enregistré.', saveError: 'Enregistrement impossible.',
@@ -338,6 +339,7 @@ export const STRINGS = {
     googlePinSave: 'Save', googlePinChange: 'Change code', googlePinRemove: 'Remove', googlePinInvalid: 'The code must be 4 to 8 digits.',
     googlePinAccountLabel: 'Account code', googlePinGatesIntro: 'A gate can have its own code, which then replaces the account code for that gate only: set it on the gate card, in My devices (gear icon). Without its own code, the gate opens with the account code.',
     googlePinOwnNote: 'own code for this gate', googlePinDefaultNote: 'no own code: account code',
+    googlePinOwnToggle: 'Own Google Home code for this device', googlePinCodeLabel: 'Code', googlePinCodeHint: '4 to 8 digits. Without its own code, Google asks for the account code.', googlePinKeepHint: '4 to 8 digits. Leave empty to keep the current code.',
     lockedTag: 'locked', unlockBtn: 'Unlock', totpResetBtn: 'Reset 2FA',
     generalTitle: 'General', themeLabel: 'Theme', themeHint: 'Portal colors, fonts and logo, brought by theme plugins. The page footer stays the original one.', appNameLabel: 'Portal name', appNameHint: 'Shown in the top bar and tab titles. Empty: default branding.',
     saveBtn: 'Save', savedMsg: 'Saved.', saveError: 'Could not save.',
