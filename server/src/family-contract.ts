@@ -23,7 +23,9 @@ export type ControlKind = (typeof CONTROL)[keyof typeof CONTROL];
 type ControlBase = { id: string; label: LocalizedText };
 export type ControlDecl =
   // confirm : question posee avant d'envoyer (action qu'on ne defait pas, ex. supprimer)
-  | (ControlBase & { kind: typeof CONTROL.action; icon?: Icon; confirm?: LocalizedText })
+  // secure : l'action DONNE ACCES aux lieux (ouvrir un portail, une porte). La famille le declare, le
+  // portail ne le devine jamais : un pilotage exterieur (assistant vocal) exige alors un code.
+  | (ControlBase & { kind: typeof CONTROL.action; icon?: Icon; confirm?: LocalizedText; secure?: true })
   | (ControlBase & { kind: typeof CONTROL.toggle })
   | (ControlBase & { kind: typeof CONTROL.setpoint; min: number; max: number; step: number; unit: string })
   | (ControlBase & { kind: typeof CONTROL.position; settable: boolean })
