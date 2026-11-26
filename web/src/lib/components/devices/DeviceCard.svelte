@@ -146,5 +146,7 @@
   .ctl-setpoint input { width: 5rem; }
   .ctl-reading.alert { color: var(--danger); }
   /* l'ecran de reglages partage, aux couleurs du portail */
+  /* le code Google : un bloc a part sous les reglages, separe par un trait */
+  .dev-pin { margin-top: .75rem; border-top: 1px solid var(--border); }
   .dev-settings { margin-top: 0.75rem; --oph-border: var(--border); --oph-input: var(--bg-elev); --oph-muted: var(--text-muted); --oph-danger: var(--danger); --oph-accent: var(--accent); }
 </style>

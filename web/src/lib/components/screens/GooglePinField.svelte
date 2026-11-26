@@ -32,19 +32,25 @@
   }
 </script>
 
+<!-- un champ comme ceux de l'edition d'un appareil sur le boitier (OpenProfalux) : le libelle, puis la
+     saisie et son bouton sur UNE ligne, a la meme hauteur, puis la note dessous -->
 <div class="pin-field" data-pin={idSuffix}>
-  <div class="pin-head"><span class="pin-label">{label}</span><span class="note">{status}</span></div>
-  <div class="row">
-    <input class="code-in" id={`googlePin-${idSuffix}`} type="password" inputmode="numeric" autocomplete="off" aria-label={label} minlength={GOOGLE_PIN.minLength} maxlength={GOOGLE_PIN.maxLength} bind:value={pin} />
-    <button class="btn primary sm" type="button" data-pin-save disabled={busy} onclick={save}>{pinSet ? s.googlePinChange : s.googlePinSave}</button>
-    {#if pinSet}<button class="btn ghost sm" type="button" data-pin-remove disabled={busy} onclick={remove}>{s.googlePinRemove}</button>{/if}
+  <label class="pin-label" for={`googlePin-${idSuffix}`}>{label}</label>
+  <div class="pin-line">
+    <input class="pin-in" id={`googlePin-${idSuffix}`} type="password" inputmode="numeric" autocomplete="off" minlength={GOOGLE_PIN.minLength} maxlength={GOOGLE_PIN.maxLength} bind:value={pin} />
+    <button class="btn" type="button" data-pin-save disabled={busy} onclick={save}>{pinSet ? s.googlePinChange : s.googlePinSave}</button>
+    {#if pinSet}<button class="btn ghost" type="button" data-pin-remove disabled={busy} onclick={remove}>{s.googlePinRemove}</button>{/if}
   </div>
+  <span class="note">{status}</span>
   <ErrorText error={error} id={`googlePinErr-${idSuffix}`} />
 </div>
 
 <style>
-  .pin-field { margin-top: .7rem; }
-  .pin-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem; margin-bottom: .3rem; }
-  .pin-label { font-weight: 550; }
-  .pin-head .note { margin: 0; }
+  .pin-field { display: flex; flex-direction: column; gap: 6px; margin-top: .75rem; }
+  .pin-label { font-weight: 600; }
+  .pin-line { display: flex; align-items: stretch; gap: 8px; }
+  .pin-in { flex: 1; min-width: 0; min-height: 44px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-elev); color: inherit; font: inherit; letter-spacing: .15em; }
+  .pin-in:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-weak); }
+  .pin-line .btn { flex: none; }
+  .pin-field .note { margin: 0; }
 </style>
