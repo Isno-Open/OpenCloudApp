@@ -94,7 +94,10 @@ existe sur ce boîtier, a un type permis et n'est pas l'appareil lui-même.
 **Où vivent les cartes.** Par défaut sur l'accueil. Un type déclaré `place: "box"` avec un `group`
 (ex. « Télécommandes ») a ses cartes sur la page du boîtier, dans un onglet de ce nom : ce qu'on gère
 sans le piloter. Un bouton `action` peut porter `confirm` (question posée dans la carte avant
-l'envoi, pour ce qu'on ne défait pas). Un appareil retiré du boîtier se signale par le fait `gone` :
+l'envoi, pour ce qu'on ne défait pas), et `secure: true` s'il **donne accès aux lieux** (ouvrir un
+portail, une porte) : un pilotage extérieur, comme Google Home, exige alors un code avant de
+l'envoyer. C'est la famille qui le déclare ; le portail ne le déduit jamais du type ni des contrôles,
+et sans déclaration aucun code n'est demandé. Un appareil retiré du boîtier se signale par le fait `gone` :
 sa carte disparaît.
 
 **Identité d'un appareil.** Le fait `device` peut porter `uid`, un identifiant **stable** que le

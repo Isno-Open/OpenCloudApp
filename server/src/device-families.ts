@@ -44,7 +44,8 @@ function asControl(v: unknown, where: string): ControlDecl {
       const icon = v.icon === undefined ? null : asIcon(v.icon);
       if (v.icon !== undefined && !icon) throw new Error(`${at} : icone invalide`);
       if (v.confirm !== undefined && !isText(v.confirm)) throw new Error(`${at} : confirmation fr et en`);
-      return { kind: CONTROL.action, id, label, ...(icon ? { icon } : {}), ...(v.confirm !== undefined ? { confirm: v.confirm } : {}) };
+      if (v.secure !== undefined && v.secure !== true) throw new Error(`${at} : secure vaut true ou est absent`);
+      return { kind: CONTROL.action, id, label, ...(icon ? { icon } : {}), ...(v.confirm !== undefined ? { confirm: v.confirm } : {}), ...(v.secure === true ? { secure: true } : {}) };
     }
     case CONTROL.toggle: return { kind: CONTROL.toggle, id, label };
     case CONTROL.setpoint:
