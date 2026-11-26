@@ -7,8 +7,9 @@
 // OpenClose en commande seule). La position du portail est un % de FERMETURE (0 = ouvert, 100 = ferme),
 // l'inverse du openPercent de Google (% d'OUVERTURE), d'ou la conversion 100 - p.
 //
-// Ouvrir un GATE demande un code PIN (verification secondaire exigee par Google) : voir commandFor et
-// google-pin.ts. Rien a declarer dans SYNC, c'est la reponse EXECUTE qui reclame le code.
+// Une action que la famille declare `secure` (ouvrir un portail) demande un code PIN, par la verification
+// secondaire de Google : voir commandFor et google-pin.ts. Rien a declarer dans SYNC, c'est la reponse
+// EXECUTE qui reclame le code.
 import { listAppareils } from '#lib/server/cloud-data.ts';
 import { findDevice, listGoogleDevicePins } from '@opencloudapp/core/store.js';
 import { familyById, buildCommand } from '@opencloudapp/core/device-families.js';
@@ -74,9 +75,11 @@ function applianceState(a: Appareil): Record<string, unknown> {
   return { online: a.online, openPercent: op };
 }
 
-/** Un appareil dont l'OUVERTURE par Google demande un code : celui declare GATE. La meme regle que SYNC
- *  (type) et EXECUTE (commandFor), pour que le reglage du code s'affiche sur ces cartes-la exactement. */
-const needsOpenPin = (a: Appareil): boolean => exposable(a) && !withPosition(a);
+/** Un appareil dont l'OUVERTURE par Google demande un code : celui dont la commande d'ouverture est
+ *  declaree `secure` par sa famille. C'est commandFor qui le dit, la regle d'EXECUTE elle-meme, pour
+ *  que le reglage du code s'affiche sur ces cartes-la exactement. */
+const FULLY_OPEN = 100;
+const needsOpenPin = (a: Appareil): boolean => exposable(a) && commandFor(a, FULLY_OPEN)?.secured === true;
 
 /** Les appareils du compte dont l'ouverture par Google demande un code. */
 export async function securedAppliances(accountId: string): Promise<{ id: string; name: string }[]> {
@@ -134,8 +137,9 @@ export async function reportableStates(accountId: string, boxId?: string): Promi
  *  Positionnel : on ecrit la position (% de fermeture). Sinon : l'action extreme (ouverture si >= 50 %,
  *  fermeture sinon). L'ordre des actions suit la declaration de la famille (ouverture d'abord, fermeture
  *  en dernier : up, stop, down).
- *  `secured` : la commande OUVRE un appareil declare GATE a Google. Google exige alors un code PIN
- *  (verification secondaire) ; la fermeture et les volets n'en demandent pas. */
+ *  `secured` : l'action envoyee est declaree `secure` par la FAMILLE (elle donne acces aux lieux, ex.
+ *  ouvrir un portail). On exige alors un code PIN (verification secondaire de Google). Le portail ne
+ *  le deduit ni du type ni de la position : sans declaration, pas de code. */
 function commandFor(a: Appareil, openPercent: number): { control: string; value: number | null; secured: boolean } | null {
   if (!a.kind) return null;
   if (withPosition(a)) {
@@ -147,7 +151,7 @@ function commandFor(a: Appareil, openPercent: number): { control: string; value:
   const open = acts[0], close = acts[acts.length - 1];
   const opening = openPercent >= 50;
   const ctl = opening ? open : close;
-  return ctl ? { control: ctl.id, value: null, secured: opening } : null;
+  return ctl ? { control: ctl.id, value: null, secured: ctl.secure === true } : null;
 }
 
 /** EXECUTE : applique les commandes OpenClose. Rend les groupes de resultats attendus par Google. */
