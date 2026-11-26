@@ -104,6 +104,11 @@ par appareil (code propre d'un portail). Quand un fait `device` annonce un `uid`
 autre identifiant du même boîtier, c'est le même appareil renommé : l'ancien s'en va. Sans `uid`,
 `device` en tient lieu, et un renommage fait un autre appareil.
 
+Une famille qui se met à annoncer `uid` pour des appareils déjà connus doit leur donner **leur
+`device` du moment** pour `uid` : l'identité ne change alors pas, et ce qui y est attaché (pièce chez
+Google, code propre) reste en place. Un `uid` différent du `device` d'un appareil déjà connu en fait,
+pour l'extérieur, un nouvel appareil : le portail ne devine pas la correspondance.
+
 **Ordre des cartes.** Le portail classe les appareils d'un boîtier par rang (`rank` du fait
 appareil) ; ceux sans rang suivent, dans l'ordre où la famille déclare ses types (`kinds`), puis par
 nom. Une famille qui fournit `reorder(cible, rang)` rend ses cartes déplaçables : on les glisse par

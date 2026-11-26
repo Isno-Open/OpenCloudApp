@@ -73,6 +73,7 @@ export type Fact =
   // uid : identifiant STABLE de l'appareil, que le boitier garde quand il le RENOMME (son `device`, lui,
   // change alors). Le portail s'en sert pour reconnaitre l'appareil hors de lui (assistant vocal,
   // reglages gardes par appareil) : sans uid, `device` en tient lieu et un renommage fait un autre appareil.
+  // Pour un appareil deja connu sans uid, annoncer SON `device` du moment : son identite ne change pas.
   | { fact: typeof FACT.device; device: string; kind: string; uid?: string; name?: string; hidden?: readonly string[];
       // valeurs actuelles de ses reglages (par cle de champ), telles que le boitier les publie
       settings?: Readonly<Record<string, SettingValue>>;
