@@ -43,19 +43,21 @@ export const googleHomeSettings = (): GoogleHomeSettings => normalizeGoogleHome(
 // Ce qu'un boitier a deja fait savoir a Google : la liste de ses appareils et leur dernier etat pousse.
 // Un boitier publie sa sante chaque minute ; sans cette memoire, le meme etat repartait chez Google a
 // chaque message. On ne retient une valeur qu'APRES un envoi reussi : un echec se rejoue au message suivant.
-export type GooglePushMemory = { ids?: string; states?: string };
-export type GooglePushPlan = { ids: string; states: string; sync: boolean; report: boolean };
+export type GooglePushMemory = { listing?: string; states?: string };
+export type GooglePushPlan = { listing: string; states: string; sync: boolean; report: boolean };
 /** Fonction pure (testable) : que faut-il envoyer a Google pour ces etats, vu ce qu'il sait deja ?
- *  `sync` : la liste des appareils a change (Request Sync). `report` : un etat a change, ou la liste
- *  (Report State). */
-export function planGooglePush(known: GooglePushMemory, states: Readonly<Record<string, object>>): GooglePushPlan {
+ *  `declared` : ce que SYNC dit de chaque appareil (nom, type...), par identifiant.
+ *  `sync` : la liste des appareils OU ce qu'elle declare de l'un d'eux a change (Request Sync) : un
+ *  appareil renomme garde son identifiant, et sans cela Google ne verrait jamais son nouveau nom.
+ *  `report` : un etat a change, ou la liste (Report State). */
+export function planGooglePush(known: GooglePushMemory, states: Readonly<Record<string, object>>, declared: Readonly<Record<string, object>>): GooglePushPlan {
   const sorted = Object.keys(states).sort();
-  const ids = sorted.join(",");
+  const listing = JSON.stringify(sorted.map((id) => [id, declared[id] ?? null]));
   const key = JSON.stringify(sorted.map((id) => [id, states[id]]));
-  const sync = known.ids !== ids;
+  const sync = known.listing !== listing;
   // Une liste qui change emporte aussi l'etat : un appareil (re)cree chez Google par le SYNC n'a pas
   // d'etat tant qu'on ne le lui pousse pas, meme si le sien n'a pas bouge depuis le dernier envoi.
-  return { ids, states: key, sync, report: sorted.length > 0 && (sync || known.states !== key) };
+  return { listing, states: key, sync, report: sorted.length > 0 && (sync || known.states !== key) };
 }
 
 /** Fonction pure (testable) : la memoire apres une tentative. `sent` dit ce qui est reellement parti.
@@ -63,7 +65,7 @@ export function planGooglePush(known: GooglePushMemory, states: Readonly<Record<
  *  Report State qui l'accompagne n'a pas reussi, il doit etre rejoue, meme si l'etat n'a pas bouge. */
 export function settleGooglePush(known: GooglePushMemory, plan: GooglePushPlan, sent: { sync: boolean; report: boolean }): GooglePushMemory {
   const next: GooglePushMemory = { ...known };
-  if (plan.sync) { delete next.states; if (sent.sync) next.ids = plan.ids; }
+  if (plan.sync) { delete next.states; if (sent.sync) next.listing = plan.listing; }
   if (plan.report && sent.report) next.states = plan.states;
   return next;
 }

@@ -1,7 +1,7 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { CONTROL, FACT, EVENT_LEVEL, FAMILY_CONTRACT, BOX_FILE_TYPE, type FamilyDecl, type FamilyMessage, type Fact } from "./family-contract.js";
-import { asFamily, registerDeviceFamily, clearDeviceFamilies, applyMessage, buildCommand, boxState, familyById, onFamilyRegistered, buildFileRequest, awaitBoxFile, BOX_FILE_MAX, buildUnpair, buildBoxName } from "./device-families.js";
+import { asFamily, registerDeviceFamily, clearDeviceFamilies, applyMessage, applyFacts, buildCommand, boxState, familyById, onFamilyRegistered, buildFileRequest, awaitBoxFile, BOX_FILE_MAX, buildUnpair, buildBoxName } from "./device-families.js";
 import { isLiveActivity, isSettled } from "./mqtt.js";
 
 // Petite famille de test : « store » publie `<boitier>/en_ligne` et `<boitier>/store/<id>/{type,pos,etat}` ;
@@ -472,4 +472,24 @@ test("explication d'onglet : seulement pour un type range sur la page du boitier
   assert.throws(() => asFamily({ ...STORE, kinds: [{ ...k, place: "box", group: { fr: "Onglet", en: "Tab" }, hint: { fr: "seul" } }] }), /fr et en/);
   assert.throws(() => asFamily({ ...STORE, kinds: [{ ...k, place: "box", group: { fr: "Onglet", en: "Tab" }, hint: { fr: "x".repeat(601), en: "y" } }] }), /600/);
   assert.equal(asFamily({ ...STORE, kinds: [{ ...k, place: "box", group: { fr: "Onglet", en: "Tab" }, hint: { fr: "x".repeat(400), en: "y" } }] }).kinds[0]!.hint?.fr.length, 400, "plus long qu'un libelle");
+});
+
+test("identifiant stable : un appareil renomme sur le boitier reste le meme appareil, sans doublon", () => {
+  clearDeviceFamilies();
+  registerDeviceFamily(STORE);
+  const f = familyById("famille-test")!;
+  const uids = (): (string | null)[][] => [...boxState("famille-test", "b1")!.devices].map(([slug, d]) => [slug, d.uid, d.name]);
+  assert.deepEqual(applyFacts(f, "b1", [{ fact: FACT.device, device: "Salon", kind: "store", uid: "Salon", name: "Salon" }, { fact: FACT.device, device: "Cuisine", kind: "store", name: "Cuisine" }], 0), []);
+  assert.deepEqual(uids(), [["Salon", "Salon", "Salon"], ["Cuisine", null, "Cuisine"]], "sans identifiant annonce : aucun (son identifiant de boitier en tiendra lieu)");
+  // renomme : le boitier annonce le nouveau nom avec le MEME identifiant, AVANT de retirer l'ancien
+  assert.deepEqual(applyFacts(f, "b1", [{ fact: FACT.device, device: "Sejour", kind: "store", uid: "Salon", name: "Séjour" }], 0), []);
+  assert.deepEqual(uids(), [["Cuisine", null, "Cuisine"], ["Sejour", "Salon", "Séjour"]], "l'ancien identifiant de boitier s'en va : jamais deux appareils de meme identite");
+  assert.deepEqual(applyFacts(f, "b1", [{ fact: FACT.gone, device: "Salon" }], 0), [], "le retrait de l'ancien, arrive apres, ne casse rien");
+  assert.equal(boxState("famille-test", "b1")!.devices.size, 2);
+  // un identifiant invalide est refuse et ne vaut rien, l'appareil reste
+  assert.deepEqual(applyFacts(f, "b1", [{ fact: FACT.device, device: "Bureau", kind: "store", uid: "pas valable" }], 0), ["identifiant stable refuse (Bureau)"]);
+  assert.equal(boxState("famille-test", "b1")!.devices.get("Bureau")!.uid, null);
+  // un autre boitier peut porter le meme identifiant : l'identite est par boitier
+  applyFacts(f, "b2", [{ fact: FACT.device, device: "Salon", kind: "store", uid: "Salon" }], 0);
+  assert.equal(boxState("famille-test", "b1")!.devices.get("Sejour")!.uid, "Salon");
 });

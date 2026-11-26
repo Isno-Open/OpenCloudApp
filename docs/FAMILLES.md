@@ -97,6 +97,13 @@ sans le piloter. Un bouton `action` peut porter `confirm` (question posée dans 
 l'envoi, pour ce qu'on ne défait pas). Un appareil retiré du boîtier se signale par le fait `gone` :
 sa carte disparaît.
 
+**Identité d'un appareil.** Le fait `device` peut porter `uid`, un identifiant **stable** que le
+boîtier garde quand il renomme l'appareil (son `device`, lui, change alors). Le portail s'en sert
+pour reconnaître l'appareil hors de lui : chez Google Home (pièce, routines) et pour ce qu'il garde
+par appareil (code propre d'un portail). Quand un fait `device` annonce un `uid` déjà porté par un
+autre identifiant du même boîtier, c'est le même appareil renommé : l'ancien s'en va. Sans `uid`,
+`device` en tient lieu, et un renommage fait un autre appareil.
+
 **Ordre des cartes.** Le portail classe les appareils d'un boîtier par rang (`rank` du fait
 appareil) ; ceux sans rang suivent, dans l'ordre où la famille déclare ses types (`kinds`), puis par
 nom. Une famille qui fournit `reorder(cible, rang)` rend ses cartes déplaçables : on les glisse par

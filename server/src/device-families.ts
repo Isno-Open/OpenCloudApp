@@ -217,7 +217,7 @@ export const clearDeviceFamilies = (): void => { families.clear(); boxes.clear()
 // ── Etat vu des boitiers, cle `<famille>/<boitier>` ──
 /** kind : le type tel que le boitier le declare ; known : la famille le connait (sinon l'appareil est
  *  montre « inconnu », sans commandes : un firmware plus recent que son plugin, par exemple). */
-export type DeviceState = { kind: string; known: boolean; name: string; hidden: ReadonlySet<string>; values: Map<string, ControlValue>; settings: Map<string, SettingValue>; rank: number | null };
+export type DeviceState = { kind: string; known: boolean; uid: string | null; name: string; hidden: ReadonlySet<string>; values: Map<string, ControlValue>; settings: Map<string, SettingValue>; rank: number | null };
 export type BoxEvent = { at: number; level: EventLevel; code: string; text: LocalizedText; device?: string };
 /** disabled : hors ligne parce que le boitier a coupe le cloud lui-meme (fait presence) ; forgotten :
  *  il a ete oublie sur lui-meme, le relais le retire de son compte */
@@ -317,6 +317,13 @@ export function applyFacts(f: FamilyDecl, box: string, facts: unknown, now: numb
         const hidden = kind && Array.isArray(x.hidden) ? x.hidden.filter((h): h is string => typeof h === "string" && kind.controls.some((c) => c.id === h)) : [];
         const name = typeof x.name === "string" && x.name.length > 0 && x.name.length <= 64 ? x.name : s.devices.get(x.device)?.name ?? x.device;
         const prev = s.devices.get(x.device);
+        // identifiant stable : celui que le boitier annonce ; il n'en annonce pas (ou un invalide) : aucun
+        const uid = typeof x.uid === "string" && NAME_RE.test(x.uid) ? x.uid : null;
+        if (x.uid !== undefined && uid === null) refused.push(`identifiant stable refuse (${x.device})`);
+        // le MEME appareil sous un autre identifiant de boitier : il vient d'etre renomme. L'ancien s'en
+        // va, quel que soit l'ordre dans lequel le retrait et la nouvelle annonce arrivent : deux
+        // appareils ne portent jamais la meme identite.
+        if (uid !== null) for (const [other, d] of s.devices) if (other !== x.device && d.uid === uid) s.devices.delete(other);
         // un appareil qui change de type repart d'un etat vide (les valeurs d'avant ne veulent plus rien dire)
         // reglages : seulement ceux que le type declare, chacun dans ses bornes ; un reglage absent garde sa valeur
         const settings = prev && prev.kind === x.kind ? prev.settings : new Map<string, SettingValue>();
@@ -326,7 +333,7 @@ export function applyFacts(f: FamilyDecl, box: string, facts: unknown, now: numb
         }
         const rank = isNum(x.rank) && Number.isInteger(x.rank) && x.rank >= 1 && x.rank <= 999 ? x.rank : x.rank === undefined ? prev?.rank ?? null : null;
         if (x.rank !== undefined && rank === null) refused.push(`rang refuse (${x.device})`);
-        s.devices.set(x.device, { kind: x.kind, known: !!kind, name, hidden: new Set(hidden), values: prev && prev.kind === x.kind ? prev.values : new Map(), settings, rank });
+        s.devices.set(x.device, { kind: x.kind, known: !!kind, uid, name, hidden: new Set(hidden), values: prev && prev.kind === x.kind ? prev.values : new Map(), settings, rank });
         break;
       }
       case FACT.gone:
