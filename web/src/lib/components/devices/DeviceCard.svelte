@@ -59,21 +59,29 @@
   ]);
   const settingsFields = $derived([...deviceFields, ...pinFields]);
   const settingsValues = $derived({ ...a.settings, ...(a.googlePinSet === undefined ? {} : { [PIN_FIELD.own]: a.googlePinSet, [PIN_FIELD.code]: '' }) });
-  /** Le code propre : pose, retire, ou laisse tel quel. Rend faux si la saisie est refusee. */
-  async function savePin(own: boolean, code: string): Promise<boolean> {
-    if (!own) return !a.googlePinSet || (await postJson('/api/account/google-pin/clear', { appliance: a.id }, s.saveError, ignoreBody)).ok;
-    if (code === '') return a.googlePinSet === true;   // rien de saisi : le code en place reste, mais il en faut un
-    if (normalizeGooglePin(code) === null) return false;
-    return (await postJson('/api/account/google-pin/set', { appliance: a.id, pin: code }, s.saveError, ignoreBody)).ok;
+  // ce que l'enregistrement fera du code propre, decide AVANT tout envoi : une saisie refusee n'enregistre rien
+  const PIN_STEP = { none: 'none', clear: 'clear', set: 'set', invalid: 'invalid' } as const;
+  type PinStep = (typeof PIN_STEP)[keyof typeof PIN_STEP];
+  function pinStep(own: boolean, code: string): PinStep {
+    if (a.googlePinSet === undefined) return PIN_STEP.none;
+    if (!own) return a.googlePinSet ? PIN_STEP.clear : PIN_STEP.none;
+    // rien de saisi : le code en place reste, mais il en faut un
+    if (code === '') return a.googlePinSet ? PIN_STEP.none : PIN_STEP.invalid;
+    return normalizeGooglePin(code) === null ? PIN_STEP.invalid : PIN_STEP.set;
   }
   async function saveSettings(values: Record<string, SettingValue>): Promise<boolean> {
-    const { [PIN_FIELD.own]: own, [PIN_FIELD.code]: code, ...device } = values;
+    const { [PIN_FIELD.own]: own, [PIN_FIELD.code]: typed, ...device } = values;
+    const code = typeof typed === 'string' ? typed.trim() : '';
+    const step = pinStep(own === true, code);
+    if (step === PIN_STEP.invalid) return false;
     if (deviceFields.length && !(await postJson('/api/device/settings', { device_id: a.boitierId, slug: a.slug, values: device }, s.saveError, ignoreBody)).ok) return false;
-    if (a.googlePinSet === undefined) return true;
-    if (!(await savePin(own === true, typeof code === 'string' ? code.trim() : ''))) return false;
-    // l'etat du code vient du serveur : la page le relit s'il a pu changer
-    if ((own === true) !== a.googlePinSet || code) location.reload();
-    return true;
+    if (step === PIN_STEP.none) return true;
+    const r = step === PIN_STEP.set
+      ? await postJson('/api/account/google-pin/set', { appliance: a.id, pin: code }, s.saveError, ignoreBody)
+      : await postJson('/api/account/google-pin/clear', { appliance: a.id }, s.saveError, ignoreBody);
+    // l'etat du code vient du serveur : la page le relit quand il a change
+    if (r.ok) location.reload();
+    return r.ok;
   }
   const reading = (c: ControlDecl): string => {
     const v = a.values[c.id];
