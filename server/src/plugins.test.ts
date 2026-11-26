@@ -35,3 +35,13 @@ test("connexion : categorie a choix unique ; en activer une eteint l'autre, pas 
   const themes = await withPluginOnExclusive(start, "theme-custom");
   assert.deepEqual(themes.turnedOff, [], "apparence : pas exclusive (le theme ISNO reste toujours actif)");
 });
+
+test("fermeture par un plugin : seulement ses comptes (ou sans origine ni mot de passe), jamais un operateur", async () => {
+  const { ownAccount } = await import("./plugins.js");
+  const base = { source: "external-auth", passHash: null, admin: false };
+  assert.equal(ownAccount(base, "external-auth"), true);
+  assert.equal(ownAccount({ ...base, source: null }, "external-auth"), true, "compte d'avant le suivi de l'origine");
+  assert.equal(ownAccount({ ...base, source: null, passHash: "h" }, "external-auth"), false, "compte cree dans le portail");
+  assert.equal(ownAccount({ ...base, source: "autre" }, "external-auth"), false, "compte d'une autre source");
+  assert.equal(ownAccount({ ...base, admin: true }, "external-auth"), false, "jamais un operateur");
+});

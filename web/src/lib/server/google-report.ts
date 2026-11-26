@@ -63,6 +63,17 @@ export function startGoogleReporting(): void {
   onBoxUpdated(schedule);
 }
 
+// Une rupture qui echoue (Google injoignable) est RETENTEE : apres le retrait du compte, plus rien d'autre
+// ne la redemanderait, et Google garderait l'utilisateur et ses appareils. Delais croissants, puis on le
+// dit au journal. Limite connue : les tentatives en attente sont en memoire, un redemarrage les perd.
+const UNLINK_RETRY_MS = [30_000, 5 * 60_000, 30 * 60_000, 2 * 3_600_000, 12 * 3_600_000] as const;
+async function unlinkWithRetry(account: string, attempt: number): Promise<void> {
+  if (!homeGraphReady() || await unlinkAgentUser(account)) return;
+  const wait = UNLINK_RETRY_MS[attempt];
+  if (wait === undefined) { console.error('[google-report] liaison Google non rompue apres plusieurs essais, a retirer a la main chez Google'); return; }
+  setTimeout(() => { void unlinkWithRetry(account, attempt + 1); }, wait).unref?.();
+}
+
 let unlinking = false;
 /** Un compte retire du portail (ferme par son titulaire, supprime par l'operateur) : sa liaison Google
  *  s'en va. A poser AVANT le chargement des plugins : l'annuaire d'un site externe est lu des leur
@@ -70,5 +81,5 @@ let unlinking = false;
 export function startGoogleUnlinking(): void {
   if (unlinking) return;
   unlinking = true;
-  onAccountRemoved((account) => { void unlinkAgentUser(account); });
+  onAccountRemoved((account) => { void unlinkWithRetry(account, 0); });
 }
