@@ -79,6 +79,8 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+$/;
 let directoryApi: PluginApi | null = null;
 /** Comptes que leur titulaire a FERMES sur le site externe, d'apres la derniere lecture de l'annuaire. */
 let closedAccounts: ReadonlySet<string> = new Set();
+/** L'annuaire a-t-il ete lu avec succes depuis le demarrage ? Avant, on ne sait pas quels comptes sont fermes. */
+let directoryRead = false;
 let lastSync = 0;
 let inflight: Promise<number | null> | null = null;   // lecture en cours : on l'attend plutot que de la sauter
 
@@ -128,6 +130,14 @@ function parseDirectory(body: unknown): DirectoryEntry[] {
   return out;
 }
 
+/** Ce qu'on sait au moment d'ouvrir une session venue du site externe. */
+export type ProvisionState = { configured: boolean; read: boolean; exists: boolean; closed: boolean };
+/** Fonction pure : cette session peut-elle ouvrir (et au besoin creer) son compte ? Jamais un compte ferme.
+ *  Et un compte ABSENT du portail ne se cree que si l'on sait qu'il n'est pas ferme : annuaire lu depuis
+ *  le demarrage, ou aucun annuaire configure (rien ne ferme alors un compte). Un compte qui existe deja
+ *  n'attend pas l'annuaire : un compte ferme a ete retire, il n'existerait plus. */
+export const provisionAllowed = (s: ProvisionState): boolean => !s.closed && (!s.configured || s.read || s.exists);
+
 /** Un compte ferme par son titulaire, d'apres la derniere lecture de l'annuaire. */
 export const isClosedAccount = (email: string): boolean => closedAccounts.has(email.toLowerCase());
 
@@ -155,6 +165,7 @@ export async function readDirectory(api: Pick<PluginApi, "ensureAccount" | "reco
     const closed = new Set(parseClosed(body));
     const entries = parseDirectory(body).filter((e) => !closed.has(e.email));
     closedAccounts = closed;
+    directoryRead = true;
     await api.closeAccounts([...closed]);
     for (const e of entries) await api.ensureAccount(e.email, api.defaultCap, e.name);
     hardware = new Map(entries.filter((e) => e.hardware.length).map((e) => [e.email, e.hardware]));
@@ -191,9 +202,11 @@ export const externalAuthPlugin: Plugin = {
       resolveAccount: async (cookie) => {
         const email = readSignedSession(cookieValue(cookie, current().cookieName), secret());
         if (!email) return null;
-        // compte ferme : la session du site externe ne le rouvre pas ici. Le titulaire a pu le rouvrir
-        // entre-temps : on relit l'annuaire (au plus une fois par minute) avant de refuser.
-        if (closedAccounts.has(email.toLowerCase())) { await syncExternalDirectory(); if (closedAccounts.has(email.toLowerCase())) return null; }
+        // Compte ferme, ou dont on ne sait pas encore s'il l'est : la session du site externe ne l'ouvre
+        // pas. Le titulaire a pu le rouvrir, ou l'annuaire n'a pas encore ete lu : on le relit (au plus une
+        // fois par minute) avant de refuser.
+        const state = async (): Promise<ProvisionState> => ({ configured: !!current().directoryUrl, read: directoryRead, exists: await api.accountExists(email), closed: closedAccounts.has(email.toLowerCase()) });
+        if (!provisionAllowed(await state())) { await syncExternalDirectory(); if (!provisionAllowed(await state())) return null; }
         await api.ensureAccount(email, api.defaultCap);   // compte cree a la premiere visite
         return email;
       },

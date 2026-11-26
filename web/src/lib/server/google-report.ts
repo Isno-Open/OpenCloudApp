@@ -61,6 +61,14 @@ export function startGoogleReporting(): void {
   if (started) return;
   started = true;
   onBoxUpdated(schedule);
-  // un compte retire du portail (ferme par son titulaire, supprime par l'operateur) : sa liaison Google s'en va
+}
+
+let unlinking = false;
+/** Un compte retire du portail (ferme par son titulaire, supprime par l'operateur) : sa liaison Google
+ *  s'en va. A poser AVANT le chargement des plugins : l'annuaire d'un site externe est lu des leur
+ *  enregistrement, et un compte ferme pendant l'arret du portail est retire a ce moment-la. */
+export function startGoogleUnlinking(): void {
+  if (unlinking) return;
+  unlinking = true;
   onAccountRemoved((account) => { void unlinkAgentUser(account); });
 }

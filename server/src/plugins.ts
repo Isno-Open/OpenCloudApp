@@ -74,13 +74,17 @@ const host = createPluginHost<PluginApi, PluginCategory, PluginExtra>({
     provideCapability: (c) => { capabilities.add(c); },
     // le plugin devient la source des comptes qu'il cree ; il ne rapproche que les siens
     ensureAccount: (acc, cap, name) => ensureAccount(acc, cap, name, id),
+    accountExists: async (acc) => (await getAccount(acc)) !== null,
     reconcileAccounts: (present) => markMissingAccounts(id, present, Date.now()),
     // un plugin ne ferme que SES comptes, et jamais un operateur (le portail resterait sans personne)
     closeAccounts: async (closed) => {
       let n = 0;
       for (const acc of closed) {
         const a = await getAccount(acc);
-        if (!a || a.source !== id || a.admin) continue;
+        // les siens : ceux qu'il a crees, et ceux d'avant que l'origine soit notee (sans origine ni mot de
+        // passe : la meme regle que ensureAccount, qui les lui attribue)
+        const own = !!a && (a.source === id || (a.source === null && a.passHash === null));
+        if (!a || !own || a.admin) continue;
         await removeAccount(acc);
         n++;
       }

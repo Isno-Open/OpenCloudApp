@@ -58,6 +58,7 @@ test("annuaire : un compte ferme par son titulaire est retire, pas recree, et se
     ensureAccount: (id: string): Promise<void> => { created.push(id); return Promise.resolve(); },
     reconcileAccounts: (ids: readonly string[]): Promise<number> => { present = ids; return Promise.resolve(0); },
     closeAccounts: (ids: readonly string[]): Promise<number> => { closed = ids; return Promise.resolve(ids.length); },
+    accountExists: (): Promise<boolean> => Promise.resolve(false),
   };
   const reply = (body: object) => (): Promise<Response> => Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
   // la fermeture l'emporte, meme si le compte figure encore dans la liste (il a des commandes)
@@ -75,4 +76,16 @@ test("annuaire : un compte ferme par son titulaire est retire, pas recree, et se
   assert.equal(await readDirectory(api, "https://site.fr/annuaire", "cle", 0, reply({ accounts: [{ email: "ferme@site.fr" }] })), 1);
   assert.equal(isClosedAccount("ferme@site.fr"), false);
   assert.deepEqual(closed, []);
+});
+
+test("session du site externe : jamais un compte ferme ; un compte absent ne se cree que si l'annuaire a ete lu", async () => {
+  const { provisionAllowed } = await import("./plugins/external-auth.js");
+  const base = { configured: true, read: true, exists: false, closed: false };
+  assert.equal(provisionAllowed(base), true, "annuaire lu, compte non ferme : il se cree");
+  assert.equal(provisionAllowed({ ...base, closed: true }), false);
+  assert.equal(provisionAllowed({ ...base, closed: true, exists: true }), false, "ferme l'emporte, meme s'il existe encore");
+  // apres un redemarrage, avant la premiere lecture : un compte ferme a ete retire, donc absent ; le creer le rouvrirait
+  assert.equal(provisionAllowed({ ...base, read: false }), false);
+  assert.equal(provisionAllowed({ ...base, read: false, exists: true }), true, "un compte qui existe n'attend pas l'annuaire");
+  assert.equal(provisionAllowed({ ...base, configured: false, read: false }), true, "sans annuaire, rien ne ferme un compte");
 });
