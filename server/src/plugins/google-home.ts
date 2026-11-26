@@ -9,6 +9,7 @@
 // il est CREE a la premiere activation et garde (plugin-secrets.ts), comme le secret du SSO externe.
 import { loadConfig } from "../config.js";
 import { PLUGIN_CATEGORY, CAPABILITY, SETTING_KIND, TEXT_FORMAT, type Plugin, type PluginSettings } from "../plugin-types.js";
+import { createHmac } from "node:crypto";
 import { ensurePluginSecret } from "../plugin-secrets.js";
 
 export const GOOGLE_HOME_ID = "google-home";
@@ -39,6 +40,15 @@ export function normalizeGoogleHome(raw: unknown): GoogleHomeSettings {
 }
 /** Reglages courants du plugin (depuis la config du portail). */
 export const googleHomeSettings = (): GoogleHomeSettings => normalizeGoogleHome(loadConfig()?.pluginSettings?.[GOOGLE_HOME_ID]);
+
+/** L'identifiant d'un compte TEL QUE GOOGLE LE VOIT (agentUserId du SYNC, du Report State et du Request
+ *  Sync). Google exige un identifiant par utilisateur, pas son adresse : on lui donne une empreinte du
+ *  compte, signee par le secret du plugin. Elle est stable (meme compte, meme identifiant), ne dit rien
+ *  du compte, et ne se recalcule pas sans le secret. Fonction pure. */
+const AGENT_USER_CONTEXT = "agent-user";
+const AGENT_USER_HEX = 32;
+export const googleAgentUserId = (secret: string, accountId: string): string =>
+  `u-${createHmac("sha256", secret).update(`${AGENT_USER_CONTEXT}\0${accountId}`).digest("hex").slice(0, AGENT_USER_HEX)}`;
 
 // Ce qu'un boitier a deja fait savoir a Google : la liste de ses appareils et leur dernier etat pousse.
 // Un boitier publie sa sante chaque minute ; sans cette memoire, le meme etat repartait chez Google a

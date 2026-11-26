@@ -10,6 +10,7 @@
 // Une action que la famille declare `secure` (ouvrir un portail) demande un code PIN, par la verification
 // secondaire de Google : voir commandFor et google-pin.ts. Rien a declarer dans SYNC, c'est la reponse
 // EXECUTE qui reclame le code.
+import { agentUserIdOf } from '#lib/server/google-oauth.ts';
 import { listAppareils } from '#lib/server/cloud-data.ts';
 import { findDevice, listGoogleDevicePins } from '@opencloudapp/core/store.js';
 import { familyById, buildCommand } from '@opencloudapp/core/device-families.js';
@@ -111,7 +112,8 @@ function syncDeclaration(a: Appareil): { id: string } & Record<string, unknown> 
 
 /** SYNC : la liste des appareils du compte, en appareils Google. */
 export async function onSync(accountId: string): Promise<{ agentUserId: string; devices: object[] }> {
-  return { agentUserId: accountId, devices: (await listAppareils(accountId)).filter(exposable).map(syncDeclaration) };
+  // agentUserId : l'identifiant opaque du compte, pas son adresse (le jeton presente prouve que le secret existe)
+  return { agentUserId: agentUserIdOf(accountId) ?? '', devices: (await listAppareils(accountId)).filter(exposable).map(syncDeclaration) };
 }
 
 /** QUERY : l'etat des appareils demandes (position + en ligne). */

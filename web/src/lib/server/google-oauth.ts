@@ -6,7 +6,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { hasCapability, CAPABILITY } from '@opencloudapp/core/plugins.js';
 import { storedPluginSecret } from '@opencloudapp/core/plugin-secrets.js';
-import { googleHomeSettings, GOOGLE_HOME_ID } from '@opencloudapp/core/plugins/google-home.js';
+import { googleHomeSettings, googleAgentUserId, GOOGLE_HOME_ID } from '@opencloudapp/core/plugins/google-home.js';
 import { plugins } from '#lib/server/auth.ts';
 
 /** Hotes de redirection OAuth de Google (account linking) : seules destinations acceptees pour un code.
@@ -23,6 +23,8 @@ const TOKEN = { code: 'code', access: 'access', refresh: 'refresh' } as const;
 type TokenKind = (typeof TOKEN)[keyof typeof TOKEN];
 
 const key = (): string | null => storedPluginSecret(GOOGLE_HOME_ID);
+/** L'identifiant d'un compte tel que Google le voit (jamais son adresse), ou null si le plugin n'a pas de secret. */
+export const agentUserIdOf = (accountId: string): string | null => { const secret = key(); return secret ? googleAgentUserId(secret, accountId) : null; };
 const mac = (secret: string, ctx: TokenKind, body: string): string =>
   createHmac('sha256', secret).update(`${ctx}\0${body}`).digest('hex');
 
