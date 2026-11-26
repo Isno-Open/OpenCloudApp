@@ -489,6 +489,13 @@ test("identifiant stable : un appareil renomme sur le boitier reste le meme appa
   // un identifiant invalide est refuse et ne vaut rien, l'appareil reste
   assert.deepEqual(applyFacts(f, "b1", [{ fact: FACT.device, device: "Bureau", kind: "store", uid: "pas valable" }], 0), ["identifiant stable refuse (Bureau)"]);
   assert.equal(boxState("famille-test", "b1")!.devices.get("Bureau")!.uid, null);
+  // identites toujours distinctes : un identifiant stable egal a l'identifiant de boitier d'un appareil
+  // qui n'en annonce pas est refuse, dans un ordre comme dans l'autre
+  const identities = (box: string): string[] => [...boxState("famille-test", box)!.devices].map(([slug, d]) => d.uid ?? slug).sort();
+  assert.deepEqual(applyFacts(f, "b3", [{ fact: FACT.device, device: "Salon", kind: "store" }, { fact: FACT.device, device: "Sejour", kind: "store", uid: "Salon" }], 0), ["identifiant stable deja porte par un autre appareil (Sejour)"]);
+  assert.deepEqual(identities("b3"), ["Salon", "Sejour"]);
+  assert.deepEqual(applyFacts(f, "b4", [{ fact: FACT.device, device: "Sejour", kind: "store", uid: "Salon" }, { fact: FACT.device, device: "Salon", kind: "store" }], 0), ["identifiant stable retire, pris par un autre appareil (Sejour)"]);
+  assert.deepEqual(identities("b4"), ["Salon", "Sejour"]);
   // un autre boitier peut porter le meme identifiant : l'identite est par boitier
   applyFacts(f, "b2", [{ fact: FACT.device, device: "Salon", kind: "store", uid: "Salon" }], 0);
   assert.equal(boxState("famille-test", "b1")!.devices.get("Sejour")!.uid, "Salon");

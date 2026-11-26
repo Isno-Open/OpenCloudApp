@@ -318,12 +318,20 @@ export function applyFacts(f: FamilyDecl, box: string, facts: unknown, now: numb
         const name = typeof x.name === "string" && x.name.length > 0 && x.name.length <= 64 ? x.name : s.devices.get(x.device)?.name ?? x.device;
         const prev = s.devices.get(x.device);
         // identifiant stable : celui que le boitier annonce ; il n'en annonce pas (ou un invalide) : aucun
-        const uid = typeof x.uid === "string" && NAME_RE.test(x.uid) ? x.uid : null;
+        let uid = typeof x.uid === "string" && NAME_RE.test(x.uid) ? x.uid : null;
         if (x.uid !== undefined && uid === null) refused.push(`identifiant stable refuse (${x.device})`);
-        // le MEME appareil sous un autre identifiant de boitier : il vient d'etre renomme. L'ancien s'en
-        // va, quel que soit l'ordre dans lequel le retrait et la nouvelle annonce arrivent : deux
-        // appareils ne portent jamais la meme identite.
+        // L'IDENTITE d'un appareil est son identifiant stable, a defaut son identifiant de boitier : deux
+        // appareils d'un boitier ne portent jamais la meme (une carte, une commande Google, viseraient l'autre).
+        // 1. le MEME identifiant stable sous un autre identifiant de boitier : l'appareil vient d'etre
+        //    renomme. L'ancien s'en va, quel que soit l'ordre d'arrivee du retrait et de la nouvelle annonce.
         if (uid !== null) for (const [other, d] of s.devices) if (other !== x.device && d.uid === uid) s.devices.delete(other);
+        // 2. un identifiant stable egal a l'identifiant de boitier d'un AUTRE appareil qui n'en annonce pas
+        //    (boitier en cours de mise a jour, descriptions d'avant encore retenues) : refuse, il se
+        //    confondrait avec lui ; l'appareil garde son identifiant de boitier pour identite.
+        if (uid !== null && uid !== x.device && s.devices.get(uid)?.uid === null) { refused.push(`identifiant stable deja porte par un autre appareil (${x.device})`); uid = null; }
+        // 3. l'inverse : cet appareil n'en annonce pas, et son identifiant de boitier est l'identifiant
+        //    stable d'un autre : c'est l'autre qui le perd, pour la meme raison.
+        if (uid === null) for (const [other, d] of s.devices) if (other !== x.device && d.uid === x.device) { d.uid = null; refused.push(`identifiant stable retire, pris par un autre appareil (${other})`); }
         // un appareil qui change de type repart d'un etat vide (les valeurs d'avant ne veulent plus rien dire)
         // reglages : seulement ceux que le type declare, chacun dans ses bornes ; un reglage absent garde sa valeur
         const settings = prev && prev.kind === x.kind ? prev.settings : new Map<string, SettingValue>();
