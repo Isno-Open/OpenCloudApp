@@ -12,6 +12,7 @@
   import KeyValue from '#lib/components/ui/KeyValue.svelte';
   import IconMark from '#lib/components/ui/IconMark.svelte';
   import GearIcon from '#lib/components/ui/GearIcon.svelte';
+  import GooglePinField from '#lib/components/screens/GooglePinField.svelte';
   import SettingsForm from '@isno-open/plugin-host/svelte/SettingsForm.svelte';
   import { SETTING_KIND, type SettingField, type SettingValue } from '@opencloudapp/core/plugin-contract.js';
 
@@ -123,6 +124,12 @@
       {#if settingsFields.length}
         <div class="dev-settings" data-settings={a.slug}>
           <SettingsForm fields={settingsFields} values={a.settings} {lang} onSave={saveSettings} idPrefix={`set-${a.boitierId}-${a.slug}`} />
+        </div>
+      {/if}
+      <!-- code que Google exige pour ouvrir CET appareil : le sien, ou a defaut celui du compte -->
+      {#if a.googlePinSet !== undefined}
+        <div class="dev-pin" data-google-pin={a.slug}>
+          <GooglePinField {lang} label={s.googlePinTitle} status={a.googlePinSet ? `✓ ${s.googlePinOwnNote}` : s.googlePinDefaultNote} pinSet={a.googlePinSet} appliance={a.id} idSuffix={`${a.boitierId}-${a.slug}`} />
         </div>
       {/if}
     </div>
