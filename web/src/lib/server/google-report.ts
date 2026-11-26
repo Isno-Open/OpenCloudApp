@@ -4,9 +4,9 @@
 import { onBoxUpdated, relaySettled } from '@opencloudapp/core/mqtt.js';
 import { planGooglePush, settleGooglePush } from '@opencloudapp/core/plugins/google-home.js';
 import { pushMemory, rememberPush, forgetBox } from '#lib/server/google-push-memory.ts';
-import { deviceAccount } from '@opencloudapp/core/store.js';
+import { deviceAccount, onAccountRemoved } from '@opencloudapp/core/store.js';
 import { reportable } from '#lib/server/google-smarthome.ts';
-import { reportState, requestSync, homeGraphReady } from '#lib/server/google-homegraph.ts';
+import { reportState, requestSync, unlinkAgentUser, homeGraphReady } from '#lib/server/google-homegraph.ts';
 
 const DEBOUNCE_MS = 1500;
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -61,4 +61,6 @@ export function startGoogleReporting(): void {
   if (started) return;
   started = true;
   onBoxUpdated(schedule);
+  // un compte retire du portail (ferme par son titulaire, supprime par l'operateur) : sa liaison Google s'en va
+  onAccountRemoved((account) => { void unlinkAgentUser(account); });
 }

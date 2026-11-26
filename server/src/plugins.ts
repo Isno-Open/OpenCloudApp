@@ -17,7 +17,7 @@ import { googleHomePlugin } from "./plugins/google-home.js";
 import { customThemePlugin } from "./plugins/theme-custom.js";
 import type { PortalConfig } from "./config.js";
 import { registerAuthProvider, localProvider } from "./auth-provider.js";
-import { ensureAccount, markMissingAccounts } from "./store.js";
+import { ensureAccount, markMissingAccounts, getAccount, removeAccount } from "./store.js";
 import { DEFAULT_CAP } from "./entitlement.js";
 import { localAccountsPlugin } from "./plugins/local-accounts.js";
 import { loadConfig } from "./config.js";
@@ -75,6 +75,17 @@ const host = createPluginHost<PluginApi, PluginCategory, PluginExtra>({
     // le plugin devient la source des comptes qu'il cree ; il ne rapproche que les siens
     ensureAccount: (acc, cap, name) => ensureAccount(acc, cap, name, id),
     reconcileAccounts: (present) => markMissingAccounts(id, present, Date.now()),
+    // un plugin ne ferme que SES comptes, et jamais un operateur (le portail resterait sans personne)
+    closeAccounts: async (closed) => {
+      let n = 0;
+      for (const acc of closed) {
+        const a = await getAccount(acc);
+        if (!a || a.source !== id || a.admin) continue;
+        await removeAccount(acc);
+        n++;
+      }
+      return n;
+    },
     defaultCap: DEFAULT_CAP,
     registerDeviceFamily,
     registerTheme,

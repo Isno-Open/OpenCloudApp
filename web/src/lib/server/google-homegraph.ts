@@ -13,6 +13,7 @@ const SCOPE = 'https://www.googleapis.com/auth/homegraph';
 const DEFAULT_TOKEN_URI = 'https://oauth2.googleapis.com/token';
 const REPORT_URL = 'https://homegraph.googleapis.com/v1/devices:reportStateAndNotification';
 const REQUEST_SYNC_URL = 'https://homegraph.googleapis.com/v1/devices:requestSync';
+const AGENT_USERS_URL = 'https://homegraph.googleapis.com/v1/agentUsers';
 const JWT_TTL_S = 3600;
 const HTTP_TIMEOUT_MS = 8000;
 
@@ -115,4 +116,21 @@ export async function requestSync(accountId: string): Promise<boolean> {
   const agentUserId = agentUserIdOf(accountId);
   if (!agentUserId) return false;
   return post(REQUEST_SYNC_URL, { agentUserId, async: true });
+}
+
+/** Rompt la liaison d'un compte chez Google : Google oublie cet utilisateur et ses appareils (appele
+ *  quand le compte est retire du portail). Rend true si Google l'a pris en compte, ou s'il ne
+ *  connaissait deja plus cet utilisateur. */
+export async function unlinkAgentUser(accountId: string): Promise<boolean> {
+  if (!homeGraphReady()) return false;
+  const agentUserId = agentUserIdOf(accountId), token = await accessToken();
+  if (!agentUserId || !token) return false;
+  try {
+    const r = await fetch(`${AGENT_USERS_URL}/${encodeURIComponent(agentUserId)}?requestId=${encodeURIComponent(reqId())}`,
+      { method: 'DELETE', headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(HTTP_TIMEOUT_MS) });
+    if (r.ok || r.status === 404) return true;   // 404 : Google ne le connait pas (jamais lie, ou deja delie)
+    if (r.status === 401) cached = null;
+    console.error(`[homegraph] agentUsers.delete : HTTP ${r.status}`);
+    return false;
+  } catch (e) { console.error('[homegraph] appel :', e instanceof Error ? e.message : e); return false; }
 }

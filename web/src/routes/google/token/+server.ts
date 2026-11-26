@@ -3,6 +3,7 @@
 // jeton d'acces). Client authentifie en Basic (coche dans la console Google), a defaut dans le corps.
 import type { RequestHandler } from './$types';
 import { readBody } from '#lib/server/http.ts';
+import { getAccount } from '@opencloudapp/core/store.js';
 import { googleHomeReady, clientOk, readAuthCode, readRefreshToken, makeAccessToken, makeRefreshToken, ACCESS_TTL_S } from '#lib/server/google-oauth.ts';
 
 const GRANT = { code: 'authorization_code', refresh: 'refresh_token' } as const;
@@ -25,7 +26,8 @@ export const POST: RequestHandler = async ({ request }) => {
   }
   if (grant === GRANT.refresh) {
     const acc = readRefreshToken(String(b.refresh_token ?? ''));
-    if (!acc) return reply(400, { error: 'invalid_grant' });
+    // compte retire depuis la liaison : le jeton, sans etat, verifie encore ; Google doit cesser de le rafraichir
+    if (!acc || !(await getAccount(acc))) return reply(400, { error: 'invalid_grant' });
     const access = makeAccessToken(acc);
     if (!access) return reply(500, { error: 'server_error' });
     return reply(200, { token_type: TOKEN_TYPE, access_token: access, expires_in: ACCESS_TTL_S });
