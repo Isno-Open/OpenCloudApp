@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Ecran d'un boitier : onglets Configuration (lecture seule) et Gerer (renommer, supprimer avec
+  // Ecran d'un boitier : onglets Configuration (lecture seule), Appareils (les reglages de chacun) et Gerer (renommer, supprimer avec
   // confirmation dans la page).
   import KeyValue from '#lib/components/ui/KeyValue.svelte';
   import Field from '#lib/components/ui/Field.svelte';
@@ -12,6 +12,7 @@
   import { isKnownAppareil } from '#lib/types.ts';
   import { KIND_PLACE } from '@opencloudapp/core/family-contract.js';
   import DeviceCard from '#lib/components/devices/DeviceCard.svelte';
+  import DeviceList from '#lib/components/devices/DeviceList.svelte';
   import { relativeTime } from '#lib/time.ts';
 
   interface Props { boitier: Boitier; appareils: readonly Appareil[]; lang: Lang; now: number; }
@@ -51,7 +52,7 @@
     finally { fileBusy = null; }
   }
 
-  const TAB = { cfg: 'cfg', manage: 'manage' } as const;
+  const TAB = { cfg: 'cfg', devices: 'devices', manage: 'manage' } as const;
   let tab = $state<string>(TAB.cfg);
   // appareils que la famille range sur la page du boitier : un onglet par groupe (ex. Telecommandes),
   // dans l'ordre ou ils apparaissent
@@ -87,18 +88,24 @@
   }
 </script>
 
-<SubTabs label={s.tabConfig} bind:current={tab} items={[{ id: TAB.cfg, label: s.tabConfig }, ...groups.map((g) => ({ id: g.id, label: g.label })), { id: TAB.manage, label: s.tabManage }]} />
+<SubTabs label={s.tabConfig} bind:current={tab} items={[{ id: TAB.cfg, label: s.tabConfig }, { id: TAB.devices, label: s.tabDevices }, ...groups.map((g) => ({ id: g.id, label: g.label })), { id: TAB.manage, label: s.tabManage }]} />
 
 {#each groups as g (g.id)}
   <div class="subpanel" data-panel={g.id} hidden={tab !== g.id}>
     {#if g.hint}<p class="note group-hint" data-group-hint={g.id}>{g.hint}</p>{/if}
     <div class="hw-grid">
       {#each g.items as a (a.id)}
-        {#if isKnownAppareil(a)}<DeviceCard appareil={a} siblings={appareils} boitierName={b.name} {lang} grouped />{/if}
+        {#if isKnownAppareil(a)}<DeviceCard appareil={a} boitierName={b.name} {lang} grouped />{/if}
       {/each}
     </div>
   </div>
 {/each}
+
+<!-- les reglages de chaque appareil (le pilotage reste sur les cartes) -->
+<div class="subpanel" data-panel={TAB.devices} hidden={tab !== TAB.devices}>
+  <p class="note group-hint">{s.tabDevicesHint}</p>
+  <DeviceList {appareils} {lang} />
+</div>
 
 <div class="subpanel" data-panel={TAB.cfg} hidden={tab !== TAB.cfg}>
   <div class="cfg-grid">

@@ -98,7 +98,7 @@
             <div class={['drag-item', { dragging: drag?.box === b.id && drag.slug === a.slug }]} data-drag-box={b.id} data-drag-slug={a.slug} animate:flip={{ duration: 160 }}>
               {#snippet grip()}{#if movable}<button type="button" class="grip" title={s.dragHandle} aria-label={s.dragHandle}
                 onpointerdown={(e) => startDrag(b.id, a.slug, e)}>⠿</button>{/if}{/snippet}
-              {#if isKnownAppareil(a)}<DeviceCard appareil={a} siblings={covers} boitierName={b.name} lang={data.lang} grouped {grip} />
+              {#if isKnownAppareil(a)}<DeviceCard appareil={a} boitierName={b.name} lang={data.lang} grouped {grip} />
               {:else}<UnknownDeviceCard appareil={a} boitierName={b.name} lang={data.lang} grouped {grip} />{/if}
             </div>
           {/each}

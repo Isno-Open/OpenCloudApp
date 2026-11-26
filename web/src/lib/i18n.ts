@@ -34,7 +34,7 @@ interface S {
   cloudMode: string; cloudModeValue: (online: boolean, cloudDisabled: boolean) => string; updAvail: string; configure: string; devicesWord: string;
   // page appareil (configuration)
   backBoxes: string; leadBoitier: (id: string, count: number, uptime?: string) => string;
-  tabConfig: string; tabManage: string;
+  tabConfig: string; tabManage: string; tabDevices: string; tabDevicesHint: string; editOpen: string; editClose: string; noDeviceToSet: string;
   availability: string; readonly: string; editable: string; state: string; since: string;
   onTrial: string; previousVersion: string; confirmAction: string; actionError: string; actionSent: string;
   wifiSignal: string; wifiNetwork: string; ipAddress: string; localBroker: string; memory: string; memoryValue: (free: number, min: number) => string; lastReset: string; uptimeValue: (s: number) => string; radios: string; firmware: string; upToDate: string; updateAvailable: string;
@@ -93,7 +93,7 @@ interface S {
   // double authentification (Compte)
   totpTitle: string; totpIntro: string; totpEnable: string; totpManual: string; totpConfirm: string; totpOnNote: string; totpDisable: string; totpRequiredNotice: string;
   googlePinTitle: string; googlePinIntro: string; googlePinOnNote: string; googlePinOffNote: string; googlePinSave: string; googlePinChange: string; googlePinRemove: string; googlePinInvalid: string;
-  googlePinAccountLabel: string; googlePinGatesIntro: string; googlePinOwnNote: string; googlePinDefaultNote: string;
+  googlePinAccountLabel: string; googlePinGatesIntro: string; googlePinOwnNote: string; googlePinDefaultNote: string; googlePinOwnToggle: string; googlePinCodeLabel: string; googlePinCodeHint: string; googlePinKeepHint: string;
   // utilisateurs : etat de securite
   lockedTag: string; unlockBtn: string; totpResetBtn: string;
   // parametres
@@ -120,7 +120,7 @@ export const STRINGS = {
     cloudMode: 'Mode cloud', cloudModeValue: (on, dis) => (on ? 'activé' : dis ? 'désactivé sur la carte' : 'inconnu (carte injoignable)'), updAvail: 'maj dispo', configure: 'Configurer', devicesWord: 'volets',
     backBoxes: 'Mes appareils',
     leadBoitier: (id, c, up) => `${id} · ${c} volets${up ? ` · actif depuis ${up}` : ''}`,
-    tabConfig: 'Configuration', tabManage: 'Gérer',
+    tabConfig: 'Configuration', tabManage: 'Gérer', tabDevices: 'Appareils', tabDevicesHint: "Les réglages de chaque appareil de ce boîtier. Le pilotage reste dans Mes appareils.", editOpen: 'Modifier', editClose: 'Fermer', noDeviceToSet: 'Aucun appareil à régler.',
     availability: 'Disponibilité', readonly: 'lecture seule', editable: 'modifiable', state: 'État', since: 'Depuis',
     onTrial: 'en essai (pas encore validée)', previousVersion: 'Version précédente', confirmAction: 'Confirmer', actionError: 'Action impossible.', actionSent: 'Demande envoyée à la carte.',
     wifiSignal: 'Signal Wi-Fi', wifiNetwork: 'Réseau Wi-Fi', ipAddress: 'Adresse IP', localBroker: 'Broker local', memory: 'Mémoire libre', memoryValue: (f, m) => `${Math.round(f / 1024)} Ko (au plus bas ${Math.round(m / 1024)} Ko)`, lastReset: 'Dernier redémarrage', uptimeValue: (x) => x >= 86400 ? `${Math.floor(x / 86400)} j ${Math.floor((x % 86400) / 3600)} h` : `${Math.floor(x / 3600)} h ${Math.floor((x % 3600) / 60)} min`, radios: 'Radios', firmware: 'Firmware', upToDate: 'à jour', updateAvailable: 'mise à jour dispo',
@@ -217,8 +217,9 @@ export const STRINGS = {
     googlePinTitle: 'Code Google Home', googlePinIntro: "Google exige un code pour commander un portail depuis Google Home ou l'Assistant. Choisissez le vôtre (4 à 8 chiffres) : il vous sera demandé à chaque commande du portail. Les volets n'en demandent pas.",
     googlePinOnNote: 'Code choisi.', googlePinOffNote: "Aucun code de compte : Google ne peut commander que les portails qui ont leur propre code.",
     googlePinSave: 'Enregistrer', googlePinChange: 'Changer le code', googlePinRemove: 'Retirer', googlePinInvalid: 'Le code doit compter de 4 à 8 chiffres.',
-    googlePinAccountLabel: 'Code du compte', googlePinGatesIntro: "Un portail peut avoir son propre code, qui remplace alors le code du compte pour lui seul : il se règle sur la carte du portail, dans Mes appareils (roue crantée). Sans code propre, le portail s'ouvre avec le code du compte.",
+    googlePinAccountLabel: 'Code du compte', googlePinGatesIntro: "Un portail peut avoir son propre code, qui remplace alors le code du compte pour lui seul : il se règle sur la page du boîtier, onglet Appareils (bouton Modifier du portail). Sans code propre, le portail s'ouvre avec le code du compte.",
     googlePinOwnNote: 'code propre à ce portail', googlePinDefaultNote: 'pas de code propre : code du compte',
+    googlePinOwnToggle: 'Code Google Home propre à cet appareil', googlePinCodeLabel: 'Code', googlePinCodeHint: '4 à 8 chiffres. Sans code propre, Google demande le code du compte.', googlePinKeepHint: '4 à 8 chiffres. Laissez vide pour garder le code actuel.',
     lockedTag: 'bloqué', unlockBtn: 'Débloquer', totpResetBtn: 'Réinitialiser la 2FA',
     generalTitle: 'Général', themeLabel: 'Thème', themeHint: 'Couleurs, polices et logo du portail, apportés par les plugins de thème. Le pied de page reste celui d’origine.', appNameLabel: 'Nom du portail', appNameHint: 'Affiché dans la barre et le titre des onglets. Vide : la marque par défaut.',
     saveBtn: 'Enregistrer', savedMsg: 'Enregistré.', saveError: 'Enregistrement impossible.',
@@ -239,7 +240,7 @@ export const STRINGS = {
     cloudMode: 'Cloud mode', cloudModeValue: (on, dis) => (on ? 'on' : dis ? 'turned off on the box' : 'unknown (box unreachable)'), updAvail: 'update', configure: 'Configure', devicesWord: 'shutters',
     backBoxes: 'My devices',
     leadBoitier: (id, c, up) => `${id} · ${c} shutters${up ? ` · up for ${up}` : ''}`,
-    tabConfig: 'Configuration', tabManage: 'Manage',
+    tabConfig: 'Configuration', tabManage: 'Manage', tabDevices: 'Devices', tabDevicesHint: 'The settings of each device of this box. Controls stay in My devices.', editOpen: 'Edit', editClose: 'Close', noDeviceToSet: 'No device to set up.',
     availability: 'Availability', readonly: 'read only', editable: 'editable', state: 'State', since: 'Up for',
     onTrial: 'on trial (not yet validated)', previousVersion: 'Previous version', confirmAction: 'Confirm', actionError: 'Action failed.', actionSent: 'Request sent to the box.',
     wifiSignal: 'Wi-Fi signal', wifiNetwork: 'Wi-Fi network', ipAddress: 'IP address', localBroker: 'Local broker', memory: 'Free memory', memoryValue: (f, m) => `${Math.round(f / 1024)} KB (lowest ${Math.round(m / 1024)} KB)`, lastReset: 'Last restart', uptimeValue: (x) => x >= 86400 ? `${Math.floor(x / 86400)} d ${Math.floor((x % 86400) / 3600)} h` : `${Math.floor(x / 3600)} h ${Math.floor((x % 3600) / 60)} min`, radios: 'Radios', firmware: 'Firmware', upToDate: 'up to date', updateAvailable: 'update available',
@@ -336,8 +337,9 @@ export const STRINGS = {
     googlePinTitle: 'Google Home code', googlePinIntro: 'Google requires a code to operate a gate from Google Home or the Assistant. Choose yours (4 to 8 digits): you will be asked for it each time the gate is operated. Shutters need no code.',
     googlePinOnNote: 'Code set.', googlePinOffNote: 'No account code: Google can only operate gates that have their own code.',
     googlePinSave: 'Save', googlePinChange: 'Change code', googlePinRemove: 'Remove', googlePinInvalid: 'The code must be 4 to 8 digits.',
-    googlePinAccountLabel: 'Account code', googlePinGatesIntro: 'A gate can have its own code, which then replaces the account code for that gate only: set it on the gate card, in My devices (gear icon). Without its own code, the gate opens with the account code.',
+    googlePinAccountLabel: 'Account code', googlePinGatesIntro: 'A gate can have its own code, which then replaces the account code for that gate only: set it on the box page, Devices tab (Edit button of the gate). Without its own code, the gate opens with the account code.',
     googlePinOwnNote: 'own code for this gate', googlePinDefaultNote: 'no own code: account code',
+    googlePinOwnToggle: 'Own Google Home code for this device', googlePinCodeLabel: 'Code', googlePinCodeHint: '4 to 8 digits. Without its own code, Google asks for the account code.', googlePinKeepHint: '4 to 8 digits. Leave empty to keep the current code.',
     lockedTag: 'locked', unlockBtn: 'Unlock', totpResetBtn: 'Reset 2FA',
     generalTitle: 'General', themeLabel: 'Theme', themeHint: 'Portal colors, fonts and logo, brought by theme plugins. The page footer stays the original one.', appNameLabel: 'Portal name', appNameHint: 'Shown in the top bar and tab titles. Empty: default branding.',
     saveBtn: 'Save', savedMsg: 'Saved.', saveError: 'Could not save.',
