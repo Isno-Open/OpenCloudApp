@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { planGooglePush, settleGooglePush, type GooglePushMemory } from "./google-home.js";
+import { planGooglePush, settleGooglePush, googleAgentUserId, type GooglePushMemory } from "./google-home.js";
 
 const A = { online: true, openPercent: 100 }, B = { online: true, openPercent: 0 };
 // ce que SYNC declare de chaque appareil
@@ -85,4 +85,14 @@ test("Google Home : un appareil renomme garde son identifiant, et Google doit qu
   const renamed = planGooglePush(known, { "box:a": A, "box:b": B }, { ...D, "box:a": { name: "Séjour" } });
   assert.equal(renamed.sync, true, "meme liste d'identifiants, autre nom : Request Sync");
   assert.equal(planGooglePush(known, { "box:a": A, "box:b": B }, { "box:b": { name: "Chambre" }, "box:a": { name: "Salon" } }).sync, false, "rien de declare n'a change : pas de Request Sync");
+});
+
+test("Google Home : l'identifiant donne a Google est stable, propre au compte, et ne contient pas l'adresse", () => {
+  const account = "client@exemple.fr";
+  const id = googleAgentUserId("secret-a", account);
+  assert.equal(id, googleAgentUserId("secret-a", account), "meme compte, meme identifiant");
+  assert.match(id, /^u-[0-9a-f]{32}$/);
+  assert.ok(!id.includes("client") && !id.includes("exemple"), "rien de l'adresse n'y figure");
+  assert.notEqual(id, googleAgentUserId("secret-a", "autre@exemple.fr"), "deux comptes, deux identifiants");
+  assert.notEqual(id, googleAgentUserId("secret-b", account), "il ne se recalcule pas sans le secret");
 });

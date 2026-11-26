@@ -7,6 +7,7 @@
 // est silencieusement inactif (Google interroge alors l'etat par QUERY, ce qui suffit).
 import { createSign } from 'node:crypto';
 import { googleHomeSettings } from '@opencloudapp/core/plugins/google-home.js';
+import { agentUserIdOf } from '#lib/server/google-oauth.ts';
 
 const SCOPE = 'https://www.googleapis.com/auth/homegraph';
 const DEFAULT_TOKEN_URI = 'https://oauth2.googleapis.com/token';
@@ -98,15 +99,20 @@ async function post(url: string, payload: object): Promise<boolean> {
 
 /** Pousse l'etat des appareils d'un compte a Google (Report State). `states` : par id d'appareil Google.
  *  Rend true si Google l'a recu (ou s'il n'y avait rien a dire), false sinon. */
-export async function reportState(agentUserId: string, states: Record<string, object>): Promise<boolean> {
+export async function reportState(accountId: string, states: Record<string, object>): Promise<boolean> {
   if (!homeGraphReady()) return false;
   if (Object.keys(states).length === 0) return true;
+  // Google connait le compte par son identifiant opaque, jamais par son adresse
+  const agentUserId = agentUserIdOf(accountId);
+  if (!agentUserId) return false;
   return post(REPORT_URL, { requestId: reqId(), agentUserId, payload: { devices: { states } } });
 }
 
 /** Demande a Google de resynchroniser la liste des appareils d'un compte (Request Sync). Rend true si
  *  la demande est partie. */
-export async function requestSync(agentUserId: string): Promise<boolean> {
+export async function requestSync(accountId: string): Promise<boolean> {
   if (!homeGraphReady()) return false;
+  const agentUserId = agentUserIdOf(accountId);
+  if (!agentUserId) return false;
   return post(REQUEST_SYNC_URL, { agentUserId, async: true });
 }
