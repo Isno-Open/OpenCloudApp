@@ -505,6 +505,9 @@ test("identifiant stable : un appareil renomme sur le boitier reste le meme appa
   // une nouvelle annonce du meme appareil ne change rien a son identite
   applyFacts(f, "b3", [{ fact: FACT.device, device: "Sejour", kind: "store", uid: "Salon", name: "Séjour" }], 0);
   assert.deepEqual(identities("b3"), [["Salon", "Salon"], ["Sejour", "Sejour"]]);
+  // renomme alors que son identite etait son identifiant de boitier (identifiant stable deja pris) : il la garde
+  applyFacts(f, "b3", [{ fact: FACT.device, device: "Bureau", kind: "store", uid: "Salon" }], 0);
+  assert.deepEqual(identities("b3"), [["Bureau", "Sejour"], ["Salon", "Salon"]]);
   // un autre boitier peut porter le meme identifiant : l'identite est par boitier
   applyFacts(f, "b2", [{ fact: FACT.device, device: "Salon", kind: "store", uid: "Salon" }], 0);
   assert.equal(boxState("famille-test", "b1")!.devices.get("Sejour")!.uid, "Salon");
