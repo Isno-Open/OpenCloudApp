@@ -112,7 +112,8 @@ pour l'extérieur, un nouvel appareil : le portail ne devine pas la correspondan
 Deux appareils d'un boîtier ne portent jamais la même identité, et une identité attribuée ne change
 plus. Si l'`uid` d'un nouvel appareil est déjà l'identité d'un autre, il prend son `device` ; si
 celui-ci l'est aussi, le fait est refusé. Cela n'arrive que le temps d'une mise à jour, quand des
-descriptions d'avant sont encore retenues.
+descriptions d'avant sont encore retenues. Dans ce cas seulement, l'identité de repli vit en
+mémoire : après un redémarrage du portail elle est recalculée depuis les descriptions retenues.
 
 **Ordre des cartes.** Le portail classe les appareils d'un boîtier par rang (`rank` du fait
 appareil) ; ceux sans rang suivent, dans l'ordre où la famille déclare ses types (`kinds`), puis par

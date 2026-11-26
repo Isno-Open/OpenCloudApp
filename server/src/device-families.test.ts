@@ -481,10 +481,12 @@ test("identifiant stable : un appareil renomme sur le boitier reste le meme appa
   const uids = (): (string | null)[][] => [...boxState("famille-test", "b1")!.devices].map(([slug, d]) => [slug, d.uid, d.name]);
   assert.deepEqual(applyFacts(f, "b1", [{ fact: FACT.device, device: "Salon", kind: "store", uid: "Salon", name: "Salon" }, { fact: FACT.device, device: "Cuisine", kind: "store", name: "Cuisine" }], 0), []);
   assert.deepEqual(uids(), [["Salon", "Salon", "Salon"], ["Cuisine", null, "Cuisine"]], "sans identifiant annonce : aucun (son identifiant de boitier en tiendra lieu)");
+  assert.deepEqual(applyFacts(f, "b1", [{ fact: FACT.state, device: "Salon", control: "pos", value: 30 }], 0), []);
   // renomme : le boitier annonce le nouveau nom avec le MEME identifiant, AVANT de retirer l'ancien
   assert.deepEqual(applyFacts(f, "b1", [{ fact: FACT.device, device: "Sejour", kind: "store", uid: "Salon", name: "Séjour" }], 0), []);
   assert.deepEqual(uids(), [["Cuisine", null, "Cuisine"], ["Sejour", "Salon", "Séjour"]], "l'ancien identifiant de boitier s'en va : jamais deux appareils de meme identite");
   assert.deepEqual(applyFacts(f, "b1", [{ fact: FACT.gone, device: "Salon" }], 0), [], "le retrait de l'ancien, arrive apres, ne casse rien");
+  assert.equal(boxState("famille-test", "b1")!.devices.get("Sejour")!.values.get("pos"), 30, "sa position connue le suit sous son nouveau nom");
   assert.equal(boxState("famille-test", "b1")!.devices.size, 2);
   // un identifiant invalide est refuse et ne vaut rien, l'appareil reste
   assert.deepEqual(applyFacts(f, "b1", [{ fact: FACT.device, device: "Bureau", kind: "store", uid: "pas valable" }], 0), ["identifiant stable refuse (Bureau)"]);
