@@ -29,6 +29,9 @@ export type Appareil = {
   online: boolean;
   /** detail optionnel (derriere la roue crantee) */
   rssiDbm?: number | null;
+  /** Present seulement si Google exige un code pour ouvrir CET appareil : true s'il a son code propre,
+   *  false s'il s'ouvre avec le code du compte. Sa carte montre alors le reglage. */
+  googlePinSet?: boolean;
 };
 /** Appareil d'un type connu : le seul qu'une carte de commande accepte. */
 export type KnownAppareil = Appareil & { kind: DeviceKind };

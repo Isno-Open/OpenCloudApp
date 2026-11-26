@@ -10,13 +10,14 @@
 // Ouvrir un GATE demande un code PIN (verification secondaire exigee par Google) : voir commandFor et
 // google-pin.ts. Rien a declarer dans SYNC, c'est la reponse EXECUTE qui reclame le code.
 import { listAppareils } from '#lib/server/cloud-data.ts';
-import { findDevice } from '@opencloudapp/core/store.js';
+import { findDevice, listGoogleDevicePins } from '@opencloudapp/core/store.js';
 import { familyById, buildCommand } from '@opencloudapp/core/device-families.js';
 import { publishCommand } from '@opencloudapp/core/mqtt.js';
 import { CONTROL, KIND_PLACE } from '@opencloudapp/core/family-contract.js';
 import { homeGraphReady, reportState } from '#lib/server/google-homegraph.ts';
 import { forgetReportedStates } from '#lib/server/google-push-memory.ts';
 import { judgeOpenPins } from '#lib/server/google-pin.ts';
+import { googleHomeReady } from '#lib/server/google-oauth.ts';
 import { PIN_VERDICT, type PinVerdict } from '@opencloudapp/core/plugins/google-pin-rule.js';
 import type { Appareil } from '#lib/types.ts';
 
@@ -73,10 +74,21 @@ function applianceState(a: Appareil): Record<string, unknown> {
   return { online: a.online, openPercent: op };
 }
 
-/** Les appareils du compte dont l'OUVERTURE par Google demande un code : ceux declares GATE. La meme
- *  regle que SYNC (type) et EXECUTE (commandFor), pour que la page Compte liste exactement ceux-la. */
+/** Un appareil dont l'OUVERTURE par Google demande un code : celui declare GATE. La meme regle que SYNC
+ *  (type) et EXECUTE (commandFor), pour que le reglage du code s'affiche sur ces cartes-la exactement. */
+const needsOpenPin = (a: Appareil): boolean => exposable(a) && !withPosition(a);
+
+/** Les appareils du compte dont l'ouverture par Google demande un code. */
 export async function securedAppliances(accountId: string): Promise<{ id: string; name: string }[]> {
-  return (await listAppareils(accountId)).filter((a) => exposable(a) && !withPosition(a)).map((a) => ({ id: a.id, name: a.name }));
+  return (await listAppareils(accountId)).filter(needsOpenPin).map((a) => ({ id: a.id, name: a.name }));
+}
+
+/** Pose sur chaque appareil protege l'etat de SON code (propre ou non, jamais le code lui-meme), pour
+ *  que sa carte le regle. Google Home inactif : rien n'est pose, aucune carte ne montre le reglage. */
+export async function withGooglePinState(accountId: string, appareils: readonly Appareil[]): Promise<Appareil[]> {
+  if (!(await googleHomeReady())) return [...appareils];
+  const own = await listGoogleDevicePins(accountId);
+  return appareils.map((a) => (needsOpenPin(a) ? { ...a, googlePinSet: own[a.id] !== undefined } : a));
 }
 
 /** SYNC : la liste des appareils du compte, en appareils Google. */
