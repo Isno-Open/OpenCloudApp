@@ -534,6 +534,9 @@ test("un etat arrive AVANT l'annonce de son appareil n'est pas perdu (messages r
   applyFacts(f, "b9", [{ fact: FACT.state, device: "Cuisine", control: "pos", value: 400 }, { fact: FACT.state, device: "Cuisine", control: "autre", value: 1 }], 0);
   assert.equal(applyFacts(f, "b9", [{ fact: FACT.device, device: "Cuisine", kind: "store", name: "Cuisine" }], 0).length, 2);
   assert.equal(boxState("famille-test", "b9")!.devices.get("Cuisine")!.values.size, 0);
+  // ce qui n'a pas la forme d'une valeur de controle n'attend pas : refuse tout de suite, rien n'est garde
+  assert.equal(applyFacts(f, "b9", [{ fact: FACT.state, device: "Garage", control: "pos", value: "x".repeat(5000) }, { fact: FACT.state, device: "Garage", control: "pos", value: { gros: [1, 2, 3] } }], 0).length, 2);
+  assert.equal(boxState("famille-test", "b9")!.early.has("Garage"), false);
   // un appareil retire emporte son etat en attente
   applyFacts(f, "b9", [{ fact: FACT.state, device: "Bureau", control: "pos", value: 10 }, { fact: FACT.gone, device: "Bureau" }, { fact: FACT.device, device: "Bureau", kind: "store", name: "Bureau" }], 0);
   assert.equal(boxState("famille-test", "b9")!.devices.get("Bureau")!.values.size, 0);

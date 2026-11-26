@@ -229,12 +229,16 @@ export type BoxEvent = { at: number; level: EventLevel; code: string; text: Loca
 export type BoxState = { online: boolean | null; disabled: boolean; forgotten: boolean; firmware: string | null; board: string | null; latest: string | null; trial: boolean | null; previous: string | null;
   actions: Map<string, boolean>; health: BoxHealth; network: BoxNetwork; devices: Map<string, DeviceState>; events: BoxEvent[];
   /** etats arrives AVANT l'annonce de leur appareil (par appareil, puis par controle), en attente de celle-ci */
-  early: Map<string, Map<string, unknown>> };
+  early: Map<string, Map<string, ControlValue>> };
 /** Bornes de l'attente : un boitier qui publierait des etats sans jamais annoncer d'appareil ne remplit pas la memoire. */
 const EARLY_DEVICES_MAX = 64, EARLY_CONTROLS_MAX = 16;
 const boxes = new Map<string, BoxState>();
 const key = (family: string, box: string): string => `${family}/${box}`;
 export const boxState = (family: string, box: string): BoxState | null => boxes.get(key(family, box)) ?? null;
+
+/** Une valeur qui a la FORME d'une valeur de controle, quel que soit le controle : un nombre fini, un
+ *  booleen, ou un texte court. Ce qu'on accepte de garder avant de savoir de quel controle il s'agit. */
+const isControlValue = (v: unknown): v is ControlValue => isNum(v) || typeof v === "boolean" || (typeof v === "string" && v.length <= TEXT_MAX);
 
 /** Valeur acceptable pour ce controle (celle qu'un boitier publie, ou qu'un utilisateur envoie). */
 function valueFits(c: ControlDecl, v: unknown): v is ControlValue {
@@ -373,9 +377,10 @@ export function applyFacts(f: FamilyDecl, box: string, facts: unknown, now: numb
       case FACT.state: {
         const d = typeof x.device === "string" ? s.devices.get(x.device) : undefined;
         // l'appareil n'est pas encore annonce : son etat attend l'annonce au lieu d'etre perdu (il ne serait
-        // republie qu'au prochain mouvement). Borne, et le dernier etat recu d'un controle remplace le precedent.
-        if (!d && typeof x.device === "string" && NAME_RE.test(x.device) && typeof x.control === "string" && NAME_RE.test(x.control)) {
-          const held = s.early.get(x.device) ?? new Map<string, unknown>();
+        // republie qu'au prochain mouvement). Borne en nombre et en taille (une valeur qui n'a pas la forme d'une
+        // valeur de controle est refusee tout de suite), et le dernier etat recu d'un controle remplace le precedent.
+        if (!d && typeof x.device === "string" && NAME_RE.test(x.device) && typeof x.control === "string" && NAME_RE.test(x.control) && isControlValue(x.value)) {
+          const held = s.early.get(x.device) ?? new Map<string, ControlValue>();
           if ((s.early.has(x.device) || s.early.size < EARLY_DEVICES_MAX) && (held.has(x.control) || held.size < EARLY_CONTROLS_MAX)) {
             held.set(x.control, x.value); s.early.set(x.device, held); break;
           }
